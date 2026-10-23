@@ -26,7 +26,13 @@ jobs:
       - name: Show Swift toolchain
         run: swift --version
       - name: Run unit tests
-        run: ./scripts/test.sh
+        run: |
+          set -o pipefail
+          if ./scripts/test.sh 2>&1 | tee "$RUNNER_TEMP/swift-test.log"; then
+            exit 0
+          fi
+          python3 -c 'import pathlib,sys; text="\n".join(pathlib.Path(sys.argv[1]).read_text().splitlines()[-80:]); print("::error title=Swift test failure::"+text.replace("%","%25").replace("\r","%0D").replace("\n","%0A"))' "$RUNNER_TEMP/swift-test.log"
+          exit 1
       - name: Build macOS application
         run: ./scripts/build.sh
       - name: Check command-line entry point
