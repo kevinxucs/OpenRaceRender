@@ -143,7 +143,7 @@ struct TemplateBrowser: View {
               .foregroundStyle(mint)
             Text("Select a layout").font(.system(size: 17))
             Text(
-              "Template positions, sizes, styles, and input assignments are imported. Native artwork renders the dashboard."
+              "Import saved geometry, style settings, drawing scripts and embedded artwork from your local library. Unsupported effects use a native fallback."
             ).font(.system(size: 12)).foregroundStyle(muted)
           }
           if let failure = failure {

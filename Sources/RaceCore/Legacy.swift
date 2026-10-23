@@ -67,6 +67,10 @@ public enum LegacyReader {
         if n <= 4 * 1024 * 1024, i + 348 + n <= b.count {
           o.legacyPayload = Data(b[i + 348..<i + 348 + n])
           inferDetails(&o)
+          let end = i+348+n
+          if end < b.count, let image = LegacyArtwork.png(Data(b[end..<b.count])) {
+            o.artwork = image
+          }
         }
         p.objects.append(o)
         i += 348 + (o.legacyPayload?.count ?? 0)
@@ -168,6 +172,9 @@ public enum LegacyReader {
       let interval = d.f64(272)
       if interval.isFinite, interval > 0, interval <= o.maximum-o.minimum { g.tickInterval = interval }
       if o.kind == .rpm { g.numberingScale = 1000 }
+      if d.count >= 624 {
+        g.showNumber = d[616] != 0; g.showLabels = d[617] != 0; g.showFace = d[620] != 0
+      }
       let sweep = Int(d[296]) | Int(d[297]) << 8
       let rotation = Int(Int16(bitPattern: UInt16(d[298]) | UInt16(d[299]) << 8))
       if (1...360).contains(sweep) { g.sweep = Double(sweep) }
@@ -188,11 +195,11 @@ public enum LegacyReader {
   static func addWarnings(_ p: inout RaceProject) {
     if p.objects.contains(where: { $0.legacyType == 50 }) {
       p.warnings.append(
-        "Enhanced display scripts are preserved as data. Recognized gear, lights, temperature and peak styles use native approximations; arbitrary scripts are not executed."
+        "Enhanced styles use a bounded drawing interpreter. Unsupported language features fall back to a native display; persistent script state is not yet reproduced."
       )
     }
     p.warnings.append(
-      "Imported layouts use original geometry with native artwork. Legacy timeline variants, joins, picture/audio adjustments and export profiles are not decoded; configure these in OpenRaceRender. 360° and stereoscopic effects are not implemented."
+      "Imported layouts use saved style settings, drawing scripts and decoded artwork where supported. Font metrics and unsupported effects may differ. Legacy timeline variants, joins, picture/audio adjustments and export profiles are not decoded."
     )
     if p.inputs.contains(where: { !$0.path.isEmpty && !$0.exists }) {
       p.warnings.append("Some input files are missing. Use Relink in the input inspector.")
@@ -292,8 +299,8 @@ public enum LegacyReader {
             o.embeddedImage = Data(b[imageStart..<b.count])
             cursor = b.count
           }
-          p.warnings.append(
-            "Embedded legacy image for \(o.name) is preserved but uses a native replacement.")
+          o.artwork = o.embeddedImage.flatMap { LegacyArtwork.png($0) }
+          if o.artwork == nil { p.warnings.append("Embedded legacy image for \(o.name) could not be decoded.") }
         }
       }
       p.objects.append(o)
@@ -344,6 +351,11 @@ public enum LegacyReader {
       throw RaceError.invalid("Invalid RRO payload.")
     }
     o.legacyPayload = LegacyCodec.transform(Data(b[start..<start + n]), key: key)
+    let imageStart = start+n+(n > 0 ? 8 : 0)
+    if imageStart < b.count {
+      o.embeddedImage = Data(b[imageStart..<b.count])
+      o.artwork = o.embeddedImage.flatMap { LegacyArtwork.png($0) }
+    }
     inferDetails(&o)
     var p = RaceProject()
     p.objects = [o]

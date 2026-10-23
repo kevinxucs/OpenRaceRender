@@ -45,6 +45,13 @@ public enum OverlayRenderer {
         c.scaleBy(x: p.flipX ? -1 : 1, y: p.flipY ? -1 : 1)
         c.translateBy(x: -r.midX, y: -r.midY)
       }
+      if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
+      if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit) {
+        c.restoreGState(); continue
+      }
+      if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height) {
+        c.restoreGState(); continue
+      }
       renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit)
       c.restoreGState()
     }
@@ -300,7 +307,7 @@ public enum OverlayRenderer {
       c.setFillColor(color(accent))
       c.fill(r)
     case .image:
-      if let image = o.embeddedImage.flatMap({ NSImage(data: $0) }) ?? sceneImagePath(o).flatMap({ NSImage(contentsOfFile: $0) }),
+      if let image = (o.artwork ?? o.embeddedImage).flatMap({ NSImage(data: $0) }) ?? sceneImagePath(o).flatMap({ NSImage(contentsOfFile: $0) }),
         let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
       {
         PictureProcessor.draw(c, image: CIImage(cgImage: cg), in: r, opacity: o.opacity, object: o.picture, context: CIContext())

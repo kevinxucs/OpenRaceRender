@@ -90,6 +90,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var legacyCommon: Data?
   public var legacyPayload: Data?
   public var embeddedImage: Data?
+  public var artwork: Data?
   public var segments: [ObjectSegment]?
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
@@ -177,7 +178,7 @@ public struct RaceProject: Codable, Sendable {
     for (o, old) in zip(objects, original.objects) {
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
-        o.start == old.start, o.end == old.end, o.gauge == old.gauge
+        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork
       else {
         throw RaceError.invalid(
           "RRP copy export supports labels, visibility, opacity, geometry and synchronization. Save other edits in .orrp format."

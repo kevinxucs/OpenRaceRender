@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Local legacy artwork decoding and a bounded Enhanced drawing interpreter; traditional widgets honor saved fonts, colors, ranges and orientation.
 - Native SwiftUI editor and command-line tools for telemetry video projects.
 - Independent RRP3 project, rrt1/2 template, and rro1/2/3 style readers, including compact video-position presets.
 - Native JSON projects and reusable layouts/styles, with input remapping.

@@ -10,6 +10,8 @@ public struct TelemetryLap: Identifiable, Sendable {
 }
 
 public final class Telemetry: @unchecked Sendable {
+  private let boundsLock = NSLock()
+  private var cachedBounds: [Int:(Double,Double)] = [:]
   public internal(set) var headers: [String]
   public let times: [Double]
   public internal(set) var columns: [[Double]]
@@ -230,6 +232,15 @@ public final class Telemetry: @unchecked Sendable {
       of: ")", with: "")
     let normalize: (String) -> String = { $0.lowercased().filter { $0.isLetter || $0.isNumber } }
     return headers.firstIndex { normalize($0).hasPrefix(normalize(simple)) }
+  }
+  public func bounds(_ channel: String) -> (Double,Double)? {
+    guard let index = channelIndex(channel) else { return nil }
+    boundsLock.lock(); defer { boundsLock.unlock() }
+    if let value = cachedBounds[index] { return value }
+    var minimum = Double.infinity,maximum = -Double.infinity
+    for value in columns[index] where value.isFinite { minimum = min(minimum,value);maximum = max(maximum,value) }
+    guard minimum.isFinite,maximum.isFinite else { return nil }
+    cachedBounds[index] = (minimum,maximum);return (minimum,maximum)
   }
   public func value(_ channel: String, at t: Double, interpolate: Bool = true) -> Double? {
     guard t >= 0, t <= duration + 0.1, let c = channelIndex(channel) else { return nil }

@@ -48,8 +48,8 @@ Save edits as `.orrp`. Save a reusable layout or a single selected display as `.
 | `.orrp` | Native JSON project, read/write, including segments, source timing, picture and data settings |
 | `.orrt` | Native reusable layout or display style, read/write with input remapping |
 | `.rrp` / RRP3 | Partial import: sources, offsets, original display geometry and recognized types; conservative copy export |
-| `.rrt` / rrt1, rrt2 | Layout import and thumbnails |
-| `.rro` / rro1, rro2, rro3 | Style import and thumbnails, including compressed rro3 previews |
+| `.rrt` / rrt1, rrt2 | Layout import, thumbnails, saved widget styling and supported embedded artwork |
+| `.rro` / rro1, rro2, rro3 | Style import, original drawing scripts/artwork, and compressed previews |
 | CSV / TSV / text | Time column required; RaceChrono preamble, sparse values, quoted cells, interpolation and channel aliases |
 | GPX / TCX | Timestamped track points, GPS and common sensor extensions |
 | NMEA | RMC, GGA, GLL, valid fixes, checksum checks when present, merged samples, midnight rollover |
@@ -73,7 +73,9 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 
 ## Compatibility limits
 
-Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported gauges use native artwork; they will not exactly match RaceRender's appearance. Arbitrary Enhanced scripts are preserved as opaque data and are not executed. Some embedded legacy backgrounds are not decoded.
+Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets now use decoded style colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, persistent script state, gradients and other unsupported effects can still differ.
+
+Vendor artwork and scripts are loaded from your local files and are not bundled or relicensed under MIT. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 
 360° projection/metadata, stereoscopic compositing, TrackAddict network transfer, camera GPS extraction, grouping, full script editing, and several advanced audio/picture controls remain unimplemented. See the audit for details. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
 

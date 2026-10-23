@@ -197,7 +197,14 @@ public final class VideoExporter: @unchecked Sendable {
         let parameter = AVMutableAudioMixInputParameters(track: track)
         // Audio follows display visibility, its time span and camera/input selection.
         let related = p.objects.filter { [.video, .audio].contains($0.kind) }
-        let times = Set([0.0, placement.start, placement.end] + related.flatMap { [$0.start, $0.end] + ($0.segments ?? []).map(\.time) }).filter { $0 >= 0 && $0 <= p.duration }.sorted()
+        var boundaries: [Double] = [0,placement.start,placement.end]
+        for object in related {
+          boundaries.append(object.start)
+          boundaries.append(object.end)
+          for segment in object.segments ?? [] { boundaries.append(segment.time) }
+        }
+        let uniqueBoundaries = Set(boundaries)
+        let times = uniqueBoundaries.filter { $0 >= 0 && $0 <= p.duration }.sorted()
         for t in times {
           let audible = related.map { $0.resolved(at: t) }.contains { $0.visible && t >= $0.start && t < $0.end && $0.inputIndex == placement.rootIndex }
           parameter.setVolume(Float(audible ? input.volume : 0), at: CMTime(seconds: t, preferredTimescale: 60000))

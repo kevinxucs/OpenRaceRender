@@ -26,6 +26,14 @@ The package has no external dependencies. `RaceCore` contains file readers, tele
 
 The media check creates disposable inputs and outputs under ignored `build/validation/features`. It does not require personal footage or an installed RaceRender library. SwiftPM needs a writable module cache; the scripts configure one inside the checkout. A restrictive development sandbox may also need to allow macOS media services for export tests.
 
+An optional fidelity check reads your installed style library without copying it into the repository:
+
+```sh
+OPENRACERENDER_LIBRARY="$HOME/Documents/RaceRender 3" ./scripts/test.sh --filter WidgetTests
+```
+
+This checks execution of local Enhanced styles. Compare output against their stored previews or the reference app before claiming visual parity. The default CI run skips this optional check because vendor files are not distributed with the project.
+
 ## Compatibility contributions
 
 Describe the format/version and the workflow that reproduces a problem. Bound-check lengths, offsets, and counts before reading binary data. Cover malformed and truncated inputs as well as valid ones. Preserve unknown legacy bytes where possible and report unsupported behavior clearly.

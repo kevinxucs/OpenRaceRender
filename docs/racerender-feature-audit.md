@@ -51,7 +51,7 @@ These observations informed behavior. They do not establish that every reference
 | Audio mixing and source volume | Implemented subset | Audio follows active display source/visibility; preview mute |
 | Audio balance, channel swap/mono routing and object-specific gain | Not implemented | Stereo processing and per-object controls |
 | Input looping | Not implemented | Repeated composition time ranges |
-| Gauges, bars, graphs, G-force, gear, lights, temperatures | Implemented native renderings | Legacy appearance and specialized parameters vary |
+| Gauges, bars, graphs, G-force, gear, lights, temperatures | Imported styles plus native fallbacks | Saved fonts/colors, procedural scripts and decoded artwork are used where supported |
 | Gauge designer | Implemented subset | Range, sweep, orientation, reverse direction, labels, divisions, numbering scale, decimals, redline and background |
 | Gauge dual needle, every needle/mark/gradient parameter | Not implemented | Expanded gauge schema and UI |
 | Custom images/logos and shapes | Implemented subset | Image/rectangle displays; reusable image styles embed image bytes |
@@ -74,10 +74,10 @@ These observations informed behavior. They do not establish that every reference
 | H.264/HEVC camera media and common audio/images | Host decoder support | AVFoundation/AppKit determine actual codec availability |
 | `.rrp` input and display import | Partial | Common records, paths/offsets, and traditional gauge range, label, sweep, orientation, interval and needle color |
 | Legacy timeline/join/picture/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
-| `.rrt` and `.rro` import | Structural support | Installed library parsing verified; original artwork/scripts may be approximated |
+| `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
 | Reusable layout/single-display export | Implemented native format | `.orrt` with source placeholders; no legacy RRT/RRO writer |
-| Enhanced script execution/editor | Not implemented | Opaque scripts retained; recognized display families use native implementations |
+| Enhanced script execution/editor | Bounded interpreter; editor absent | All 56 installed Enhanced styles render in the local-library check; persistent script state and complete language parity remain incomplete |
 | H.264 MP4 export, audio, 4K and selected ranges | Implemented | Native export; resolution, FPS, project/time/lap ranges |
 | Manual bitrate, output profiles, audio format/scaling quality | Partial | Resolution presets; platform encoder chooses bitrate/audio configuration |
 | 360° workspace, fisheye flattening and spherical metadata | Not implemented | Projection and MP4 metadata work remains |
@@ -88,7 +88,7 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 32 tests pass. The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, and picture transforms.
+All 39 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, and picture transforms.
 
 The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching and layers. Generated media and external samples live under ignored `build/validation`.
 
@@ -96,6 +96,12 @@ The full installed legacy library contains 61 templates and 303 style files (255
 
 Additional format references: [TopoGrafix GPX schema](https://www.topografix.com/gpx/1/1/), [Racelogic VBO specification](https://developers.racelogic.co.uk/Portal/Tutorials/tutorialVBOfilestructure.html), [Garmin FIT protocol](https://developer.garmin.com/fit/articles/fit-protocol/fit_protocol.html), and the [official Garmin profile definitions](https://github.com/garmin/fit-python-sdk/blob/main/garmin_fit_sdk/profile.py). These were used as format references; no SDK dependency was added.
 
+## Original widget styles and artwork
+
+The importer now decodes embedded full-resolution BGRA bitmap containers, including raw DEFLATE records, and retains the original bytes. The renderer reads traditional widget colors, fonts, ranges and geometry. A bounded interpreter runs the drawing assets stored in local Enhanced styles, covering assignments, conditionals, math, telemetry access and drawing primitives. It has no host evaluation, file or network interface, and limits source size, instructions, nesting and canvas allocation.
+
+Local checks render all 56 Enhanced styles in the installed library and compare representative gear/thermometer/gauge output against stored vendor previews. These are coverage and visual checks, not a claim of pixel-identical output across all styles or platforms. Font availability, persistent variables, exact gradients, specialized parameters and unsupported effects remain practical limits. No vendor artwork, scripts or template files are included in this repository. They are read from the user's installation or imported project. The [vendor license](https://racerender.com/RR3/License.txt) does not grant general standalone asset redistribution.
+
 ## Next compatibility work
 
-Highest-value remaining work is decoding the legacy timeline and source-adjustment records, followed by Enhanced display compatibility and embedded backgrounds. Then expand picture/audio controls, grouping, track/ghost tools, 360° handling and file transfer. Each should receive a real reference-app workflow check and an output-level acceptance test before its status is promoted to implemented.
+Highest-value remaining work is decoding the legacy timeline and source-adjustment records, followed by persistent Enhanced state, remaining font/gradient differences and image-container variations. Then expand picture/audio controls, grouping, track/ghost tools, 360° handling and file transfer. Each should receive a real reference-app workflow check and an output-level acceptance test before its status is promoted to implemented.
