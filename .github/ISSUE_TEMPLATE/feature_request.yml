@@ -1,0 +1,21 @@
+name: Feature request
+description: Propose a workflow or compatibility improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What workflow would this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the result a user should see and how it could be verified. Link relevant public documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workaround or alternatives

@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible editor, rendering, or import problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Please use synthetic examples. Do not attach private footage, GPS logs, credentials, or proprietary templates. See SECURITY.md for vulnerabilities.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe actual and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal sequence or CLI command. Remove personal paths.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS version, Mac architecture, and Xcode/Swift version
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: File format, sanitized logs, or synthetic example
+      description: For import problems, include the format/version and source software. Share only content you are allowed to distribute.

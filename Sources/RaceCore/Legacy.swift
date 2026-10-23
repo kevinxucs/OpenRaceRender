@@ -1,0 +1,400 @@
+import Foundation
+
+/// Original, bounded readers for RaceRender's on-disk interchange formats.
+/// No vendor executable, framework, artwork or templates are needed at runtime.
+public enum LegacyReader {
+  public static func read(_ url: URL) throws -> RaceProject {
+    let b = try Data(contentsOf: url)
+    guard b.count >= 56, b.count <= 128 * 1024 * 1024 else {
+      throw RaceError.invalid("Invalid or oversized RaceRender file.")
+    }
+    let magic = String(data: b.prefix(4), encoding: .ascii) ?? ""
+    var p: RaceProject
+    switch magic {
+    case "RRP3": p = try project(b, base: url.deletingLastPathComponent())
+    case "rrt1", "rrt2": p = try template(b)
+    case "rro1", "rro2", "rro3": p = try style(b)
+    default:
+      throw RaceError.invalid(
+        "Unsupported RaceRender signature: \(magic). Supported: RRP3, rrt1/2, rro1/2/3.")
+    }
+    p.name = url.deletingPathExtension().lastPathComponent
+    if magic.hasPrefix("rro"), !p.objects.isEmpty {
+      p.objects[0].name = p.name
+      p.objects[0].style = p.name
+      p.objects[0].kind = kind(p.objects[0].legacyType ?? 0, name: p.name)
+    }
+    p.sourcePath = url.path
+    return p
+  }
+
+  static func project(_ b: Data, base: URL) throws -> RaceProject {
+    var p = RaceProject()
+    p.legacyData = b
+    let sourceCount = Int(b.u32(16))
+    let objectCount = Int(b.u32(32))
+    let sourceSize = Int(b.u32(20))
+    let segmentSize = Int(b.u32(28))
+    guard sourceCount <= 512, objectCount <= 10000, sourceSize >= 2216, sourceSize < 65536,
+      segmentSize < 65536
+    else { throw RaceError.invalid("Unsupported RRP3 record sizes or counts.") }
+    var cursor = Int(b.u32(12))
+    for i in 0..<sourceCount {
+      guard cursor >= 56, cursor + sourceSize <= b.count else {
+        throw RaceError.invalid("Truncated RRP3 input record.")
+      }
+      let name = b.utf16(cursor, 128)
+      let path = b.utf16(cursor + 128, 2048)
+      let type = b[cursor + 2176]
+      let kind = type == 4 ? "data" : (type == 2 ? "audio" : "video")
+      var input = MediaInput(
+        name: name, path: RaceProject.resolvePath(path, base: base), kind: kind, legacyIndex: i)
+      input.duration = b.f32(cursor + 2184)
+      input.offset = b.f32(cursor + 2192)
+      input.legacyOffset = cursor
+      if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
+      if !input.offset.isFinite { input.offset = 0 }
+      p.inputs.append(input)
+      cursor += sourceSize + segmentSize
+    }
+    // Scan structurally rather than assuming optional data-channel/timeline block lengths.
+    var i = max(56, cursor - segmentSize)
+    while i + 344 <= b.count && p.objects.count < objectCount {
+      if validCommon(b, at: i, strict: true) {
+        var o = decodeCommon(b, at: i, legacyIndex: p.objects.count)
+        o.legacyOffset = i
+        let n = Int(b.u32(i + 344))
+        if n <= 4 * 1024 * 1024, i + 348 + n <= b.count {
+          o.legacyPayload = Data(b[i + 348..<i + 348 + n])
+          inferDetails(&o)
+        }
+        p.objects.append(o)
+        i += 348 + (o.legacyPayload?.count ?? 0)
+      } else {
+        i += 2
+      }
+    }
+    if p.objects.count != objectCount {
+      p.warnings.append(
+        "Recovered \(p.objects.count) of \(objectCount) objects. Additional timeline variants may be unsupported."
+      )
+    }
+    if p.objects.isEmpty && objectCount > 0 {
+      throw RaceError.invalid("No supported display records found in RRP3 project.")
+    }
+    addWarnings(&p)
+    return p
+  }
+
+  static func validCommon(_ b: Data, at p: Int, short: Bool = false, strict: Bool = false) -> Bool {
+    guard p >= 0, p + (short ? 296 : 344) <= b.count else { return false }
+    let name = b.utf16(p, 128)
+    guard !name.isEmpty, name.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 0xfffe })
+    else { return false }
+    let parent = Int32(bitPattern: b.u32(p + 256))
+    let type = Int(b[p + 280])
+    guard parent >= -1 && parent < 10000, (0...100).contains(type) else { return false }
+    let values = [260, 264, 268, 272].map { b.f32(p + $0) }
+    return values.allSatisfy { $0.isFinite && abs($0) < 10000 } && values[2] >= 0.001
+      && values[3] >= 0.001 && (!strict || b[p + 281] >= 1) && b[p + 281] <= 4
+  }
+
+  static func decodeCommon(_ b: Data, at p: Int, legacyIndex: Int) -> DisplayObject {
+    let name = b.utf16(p, 128)
+    let style = b.utf16(p + 128, 128)
+    let type = Int(b[p + 280])
+    var o = DisplayObject(name: name, kind: kind(type, name: name + " " + style))
+    o.style = style
+    o.x = b.f32(p + 260)
+    o.y = b.f32(p + 264)
+    o.width = b.f32(p + 268)
+    o.height = b.f32(p + 272)
+    o.parentIndex = Int(Int32(bitPattern: b.u32(p + 256)))
+    o.inputIndex = Int(b[p + 282])
+    o.visible = b[p + 284] != 0
+    o.opacity = min(1, Double(b[p + 293]) / 100)
+    o.legacyType = type
+    o.legacyIndex = legacyIndex
+    o.legacyCommon = Data(b[p..<min(p + 344, b.count)])
+    o.maximum = o.kind == .rpm || o.kind == .lights ? 8000 : (o.kind == .speed ? 160 : 100)
+    return o
+  }
+
+  static func kind(_ type: Int, name: String) -> ObjectKind {
+    let s = name.lowercased()
+    if s.contains("delta") { return .delta }
+    if s.contains("best") && s.contains("time") { return .bestTime }
+    if s.contains("best") && s.contains("lap") { return .bestLap }
+    if s.contains("shift") || s.contains("lights") { return .lights }
+    if s.contains("gear") { return .gear }
+    if s.contains("throttle") { return .throttle }
+    if s.contains("brake") { return .brake }
+    if s.contains("temperature") || s.contains("thermometer") { return .temperature }
+    if s.contains("tach") || s.contains("rpm") { return .rpm }
+    if s.contains("speed") { return .speed }
+    if s.contains("g-force") || s.contains("g force") { return .gforce }
+    switch type {
+    case 10: return .video
+    case 11: return .audio
+    case 12: return .image
+    case 30: return .speed
+    case 31: return .bar
+    case 35: return .graph
+    case 32: return .enhanced
+    case 50: return .enhanced
+    case 70: return .map
+    case 74: return .gforce
+    case 76: return .lap
+    case 77: return .timer
+    case 0: return .group
+    case 20: return .text
+    case 21: return .shape
+    default: return .enhanced
+    }
+  }
+
+  static func inferDetails(_ o: inout DisplayObject) {
+    guard let d = o.legacyPayload else { return }
+    if o.legacyType == 30, [.speed, .rpm].contains(o.kind), d.count >= 344 {
+      // Common gauge payload: two UTF-16 labels, four doubles, then packed angles.
+      let minimum = d.f64(256), maximum = d.f64(264)
+      if minimum.isFinite, maximum.isFinite, maximum > minimum, abs(minimum) < 1e10, maximum < 1e10 {
+        o.minimum = minimum; o.maximum = maximum
+      }
+      let channel = d.utf16(0,128)
+      if !channel.isEmpty, !channel.lowercased().contains("automatic") { o.channel = channel }
+      var g = GaugeSettings()
+      g.label = d.utf16(128,128)
+      let interval = d.f64(272)
+      if interval.isFinite, interval > 0, interval <= o.maximum-o.minimum { g.tickInterval = interval }
+      if o.kind == .rpm { g.numberingScale = 1000 }
+      let sweep = Int(d[296]) | Int(d[297]) << 8
+      let rotation = Int(Int16(bitPattern: UInt16(d[298]) | UInt16(d[299]) << 8))
+      if (1...360).contains(sweep) { g.sweep = Double(sweep) }
+      if abs(rotation) <= 360 { g.rotation = Double(rotation) }
+      o.color = String(format: "#%06X", d.u32(308) & 0x00ff_ffff)
+      o.gauge = g
+    }
+    if [.enhanced, .gear, .lights, .temperature, .throttle, .brake, .bar, .graph].contains(o.kind),
+      d.count >= 128
+    {
+      o.channel = d.utf16(0, 128).trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+    }
+    if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
+    // Retain all bytes, but never execute arbitrary imported code.
+    if o.kind == .text, d.count >= 256 { o.text = d.utf16(0, 256) }
+  }
+
+  static func addWarnings(_ p: inout RaceProject) {
+    if p.objects.contains(where: { $0.legacyType == 50 }) {
+      p.warnings.append(
+        "Enhanced display scripts are preserved as data. Recognized gear, lights, temperature and peak styles use native approximations; arbitrary scripts are not executed."
+      )
+    }
+    p.warnings.append(
+      "Imported layouts use original geometry with native artwork. Legacy timeline variants, joins, picture/audio adjustments and export profiles are not decoded; configure these in OpenRaceRender. 360° and stereoscopic effects are not implemented."
+    )
+    if p.inputs.contains(where: { !$0.path.isEmpty && !$0.exists }) {
+      p.warnings.append("Some input files are missing. Use Relink in the input inspector.")
+    }
+  }
+
+  static func template(_ b: Data) throws -> RaceProject {
+    var p = RaceProject()
+    let version2 = b[3] == 50
+    var cursor = 64812
+    if b.count > 64825, b.u32(64817) == 136 { cursor = 64813 }
+    guard cursor + 12 < b.count else { throw RaceError.invalid("Truncated template preview.") }
+    let seed = b.u32(cursor)
+    let inputSize = Int(b.u32(cursor + 4))
+    let commonSize = Int(b.u32(cursor + 8))
+    guard inputSize >= 136, inputSize <= 4096, commonSize >= 168, commonSize <= 4096 else {
+      throw RaceError.invalid("Unsupported template record sizes.")
+    }
+    let key = LegacyCodec.templateKey(seed)
+    cursor += 12
+    while cursor + inputSize <= b.count && b[cursor] != 255 {
+      let d = LegacyCodec.transform(Data(b[cursor..<cursor + inputSize]), key: key)
+      guard p.inputs.count < 256 else { throw RaceError.invalid("Too many template inputs.") }
+      let type = d[1]
+      p.inputs.append(
+        MediaInput(
+          name: d.utf16(8, 128), path: "", kind: type == 4 ? "data" : "video",
+          legacyIndex: Int(d[0])))
+      cursor += inputSize
+    }
+    guard cursor < b.count && b[cursor] == 255 else {
+      throw RaceError.invalid("Missing template object delimiter.")
+    }
+    cursor += 1
+    while cursor + 4 <= b.count {
+      let idx = Int(b.u32(cursor))
+      if idx == Int(UInt32.max) { break }
+      guard idx < 10000, cursor + 4 + 128 + commonSize + 12 <= b.count else {
+        throw RaceError.invalid("Malformed template object.")
+      }
+      var label = LegacyCodec.transform(Data(b[cursor + 4..<cursor + 132]), key: key)
+      let labelText = label.utf16(0, 128)
+      if labelText.unicodeScalars.contains(where: { $0.value < 32 || $0.value >= 0xfffe }) {
+        label.putUTF16("Imported Display", 0, 128)
+      }
+      let meta = LegacyCodec.transform(Data(b[cursor + 132..<cursor + 132 + commonSize]), key: key)
+      var combined = label + meta
+      if combined.count < 344 { combined.append(Data(repeating: 0, count: 344 - combined.count)) }
+      guard validCommon(combined, at: 0, short: !version2) else {
+        throw RaceError.invalid("Invalid template display record at byte \(cursor).")
+      }
+      var o = decodeCommon(combined, at: 0, legacyIndex: idx)
+      if !version2 {
+        o.visible = true
+        o.opacity = 1
+      }
+      cursor += 132 + commonSize
+      let length = Int(b.u32(cursor))
+      cursor += 12  // size + 8-byte fingerprint
+      guard length <= 4 * 1024 * 1024, cursor + length + (length > 0 ? 8 : 0) <= b.count else {
+        throw RaceError.invalid("Invalid template payload length.")
+      }
+      o.legacyPayload = LegacyCodec.transform(Data(b[cursor..<cursor + length]), key: key)
+      inferDetails(&o)
+      cursor += length + (length > 0 ? 8 : 0)
+      if commonSize >= 200 {
+        guard cursor + 4 <= b.count else {
+          throw RaceError.invalid("Truncated template image record.")
+        }
+        let marker = b.u32(cursor)
+        cursor += 4
+        if marker != 0 {
+          // Embedded bitmap containers vary by version. Recover the next bounded record.
+          let imageStart = cursor - 4
+          let nameMask = LegacyCodec.transform(Data(repeating: 0, count: 128), key: key)
+          var next: Int?
+          if cursor + 132 + commonSize <= b.count {
+            for j in cursor..<(b.count - 132 - commonSize) where b.u32(j) < 10000 {
+              guard (b[j + 5] ^ nameMask[1]) == 0, (b[j + 7] ^ nameMask[3]) == 0,
+                (b[j + 9] ^ nameMask[5]) == 0
+              else { continue }
+              let name = LegacyCodec.transform(Data(b[j + 4..<j + 132]), key: key)
+              let s = name.utf16(0, 128)
+              guard !s.isEmpty, s.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 256 })
+              else { continue }
+              let m = LegacyCodec.transform(Data(b[j + 132..<j + 132 + commonSize]), key: key)
+              if validCommon(name + m, at: 0) {
+                next = j
+                break
+              }
+            }
+          }
+          if let n = next {
+            o.embeddedImage = Data(b[imageStart..<n])
+            cursor = n
+          } else {
+            o.embeddedImage = Data(b[imageStart..<b.count])
+            cursor = b.count
+          }
+          p.warnings.append(
+            "Embedded legacy image for \(o.name) is preserved but uses a native replacement.")
+        }
+      }
+      p.objects.append(o)
+    }
+    p.objects.sort { ($0.legacyIndex ?? 0) < ($1.legacyIndex ?? 0) }
+    guard !p.objects.isEmpty else {
+      throw RaceError.invalid("Template contains no readable display objects.")
+    }
+    addWarnings(&p)
+    return p
+  }
+
+  static func style(_ b: Data) throws -> RaceProject {
+    let cursor: Int
+    if (36...84).contains(Int(b.u32(16))), 20 + Int(b.u32(16)) + 12 <= b.count {
+      // Video-position presets omit the thumbnail entirely.
+      cursor = 16
+    } else if b[3] == 51 {
+      let packed = b.u32(16)
+      guard packed & 0x8000_0000 != 0 else {
+        throw RaceError.invalid("Unsupported RRO3 thumbnail container.")
+      }
+      cursor = 20 + Int(packed & 0x7fff_ffff)
+    } else {
+      cursor = 43216
+    }
+    guard cursor + 4 < b.count else { throw RaceError.invalid("Truncated RRO preview.") }
+    let length = Int(b.u32(cursor))
+    let key = LegacyCodec.templateKey(b.u32(4), salt: "RaceRender LLC")
+    guard length >= 36, length <= 84, cursor + 4 + length + 12 <= b.count else {
+      throw RaceError.invalid("Unsupported RRO header size.")
+    }
+    let meta = LegacyCodec.transform(Data(b[cursor + 4..<cursor + 4 + length]), key: key)
+    var common = Data(repeating: 0, count: 344)
+    common.putUTF16("Imported Style", 0, 128)
+    common.putU32(UInt32.max, 256)
+    common.replaceSubrange(260..<260 + length, with: meta)
+    for offset in [260, 264] where !common.f32(offset).isFinite || abs(common.f32(offset)) > 1000 {
+      common.putFloat(5, offset)
+    }
+    guard validCommon(common, at: 0) else { throw RaceError.invalid("Invalid RRO display header.") }
+    var o = decodeCommon(common, at: 0, legacyIndex: 0)
+    o.visible = true
+    o.opacity = 1
+    let n = Int(b.u32(cursor + 4 + length))
+    let start = cursor + 4 + length + 12
+    guard n <= 4 * 1024 * 1024, start + n <= b.count else {
+      throw RaceError.invalid("Invalid RRO payload.")
+    }
+    o.legacyPayload = LegacyCodec.transform(Data(b[start..<start + n]), key: key)
+    inferDetails(&o)
+    var p = RaceProject()
+    p.objects = [o]
+    addWarnings(&p)
+    return p
+  }
+}
+
+/// Symmetric byte transform used by rrt1/rrt2, independently implemented for file interoperability.
+/// All arithmetic is explicit unsigned wrapping arithmetic, independent of host word size.
+public enum LegacyCodec {
+  public static func templateKey(_ seed: UInt32, salt saltString: String = "WP RaceRender LLC")
+    -> [UInt8]
+  {
+    let salt = Array(saltString.utf8)
+    let n = UInt32(salt.count + 32)
+    var out = (0..<32).map { UInt8(truncatingIfNeeded: seed) &+ (salt[$0 % salt.count] ^ 0xaa) }
+    var state = Int32(bitPattern: seed)
+    var acc = seed &* n
+    for i in 0..<32 {
+      let t = state < 0 ? UInt32(0x7fff_ffff) &- UInt32(bitPattern: state) : UInt32(state)
+      state = Int32(Int16(truncatingIfNeeded: t &* 18000 &+ (t >> 16)))
+      out[i] = out[i] &+ UInt8(truncatingIfNeeded: t &* 80 &+ (t >> 16) &+ acc)
+      acc = acc &+ n
+    }
+    return out
+  }
+  public static func transform(_ b: Data, key: [UInt8]) -> Data {
+    guard !key.isEmpty, !b.isEmpty else { return b }
+    let n = UInt32(b.count)
+    let k = UInt32(key.count)
+    let s = key.reduce(UInt32(0)) { $0 + UInt32($1) }
+    let mod = max(1, s % (k + 3))
+    var state = Int32(s)
+    var out = Data(count: b.count)
+    for i in 0..<b.count {
+      let j = UInt32(i)
+      let z = n &+ k &+ j &* (s + 1)
+      let q = z / 255
+      let den = n &+ k &+ 1 &+ j &* (s + 1) &- q &* 255
+      let t = state < 0 ? UInt32(0x7fff_ffff) &- UInt32(bitPattern: state) : UInt32(state)
+      let low = (t & 65535) &* 18000 &+ (t >> 16)
+      let a = (n &+ k &+ 1 &+ j &* (s + 1) &+ t &- q &* 255) & 65535
+      let value = ((t &- a &* 0x6f97_0000 &+ den) & 0xffff_0000) &+ low
+      state = Int32(Int16(truncatingIfNeeded: value))
+      let r = den == 0 ? 0 : value % den
+      let v =
+        (n &+ k &+ j &* ((s + 1) & 255)) ^ r
+        ^ (n &+ k &+ s &+ UInt32(key[i % key.count]) &+ j &* (s + 1) &+ j % mod)
+      out[i] = b[i] ^ UInt8(truncatingIfNeeded: v)
+    }
+    return out
+  }
+}

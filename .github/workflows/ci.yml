@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: macOS build and tests
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Show Swift toolchain
+        run: swift --version
+      - name: Run unit tests
+        run: ./scripts/test.sh
+      - name: Build macOS application
+        run: ./scripts/build.sh
+      - name: Check command-line entry point
+        run: .build/release/OpenRaceRender --help

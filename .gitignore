@@ -1,0 +1,52 @@
+# Build output and local tool state
+/.build/
+/build/
+/.swiftpm/
+/DerivedData/
+/xcuserdata/
+**/xcuserdata/
+*.xcuserstate
+*.dSYM/
+/.idea/
+/.vscode/
+.DS_Store
+*.log
+__pycache__/
+*.py[cod]
+
+# Local sessions, proprietary layouts, telemetry, and recorded media.
+# Synthetic, reviewed fixtures may be added explicitly under Tests/Fixtures.
+*.orrp
+*.orrt
+*.rrp
+*.rrt
+*.rro
+*.RRP
+*.RRT
+*.RRO
+*.csv
+*.tsv
+*.gpx
+*.tcx
+*.fit
+*.nmea
+*.vbo
+*.mp4
+*.mov
+*.m4v
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.heic
+*.jpg
+*.jpeg
+*.png
+!docs/*.png
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
