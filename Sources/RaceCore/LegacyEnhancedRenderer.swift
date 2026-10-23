@@ -29,7 +29,7 @@ enum LegacyEnhancedRenderer {
     let height = Int(payload[282]) | Int(payload[283]) << 8
     guard width > 0, height > 0, width <= 2048, height <= 2048,
       let canvas = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:0,
-        space:CGColorSpaceCreateDeviceRGB(),bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+        space:OverlayRenderer.colorSpace,bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
     let rawMin = payload.f64(256),rawMax = payload.f64(264)
     let autoMin = !rawMin.isFinite || abs(rawMin) >= 9e7
     let autoMax = !rawMax.isFinite || abs(rawMax) >= 9e7
@@ -37,7 +37,7 @@ enum LegacyEnhancedRenderer {
     let minimum = autoMin ? measured?.0 ?? o.minimum : rawMin
     let maximum = autoMax ? max(minimum+1,measured?.1 ?? o.maximum) : rawMax
     let trigger = payload.f64(272)
-    let value = data?.value(o.channel.isEmpty ? defaultChannel(o) : o.channel,at:time,interpolate:o.kind != .gear) ?? .nan
+    let value = data?.value(o.channel.isEmpty ? defaultChannel(o) : o.channel,at:time,interpolate:o.kind != .gear) ?? 0
     let range = max(0.00001,maximum-minimum)
     var vars: [String:ScriptValue] = [:]
     func number(_ name: String,_ value: Double) { vars[name.lowercased()] = .number(value) }
@@ -53,11 +53,22 @@ enum LegacyEnhancedRenderer {
     for i in 0..<8 { number("Color"+String(UnicodeScalar(65+i)!),Double(payload.u32(576+i*4) & 0xffffff)) }
     let fields = ["posx","posy","posz","speed","heading","gforcex","gforcey","throttle","brake","rpm","gear","airfuel","power","torque"]
     for (i,field) in fields.enumerated() { number("dft_"+field,Double(-i-1)) }
-    vars["speedunit"] = .string(unit); vars["inputname"] = .string(data?.title ?? ""); vars["locname"] = .string("")
+    vars["speedunit"] = .string(unit == "mph" ? "MPH" : unit); vars["inputname"] = .string(data?.title ?? ""); vars["locname"] = .string("")
     let drawing = ScriptDrawing(context:canvas,font:payload.utf16(432,128),data:data,time:time,unit:unit)
     let machine = ScriptMachine(variables:vars) { name,args in try drawing.call(name,args) }
+    func drawLabel() {
+      guard payload[569] != 0 else { return }
+      let label = payload.utf16(128,128)
+      let x = Double(payload.u32(296) & 0xffff),y = Double(payload.u32(296) >> 16)
+      LegacyStyledRenderer.label(canvas,label,font:payload.utf16(304,128),size:payload.f32(560),
+        color:LegacyStyledRenderer.rgb(payload.u32(288)),x:x,y:y-payload.f32(560),
+        bold:payload[568] & 1 != 0,italic:payload[568] & 2 != 0)
+    }
     do {
-      try machine.run(program.background); machine.stopped = false; try machine.run(program.foreground)
+      try machine.run(program.background)
+      if payload[284] & 2 == 0 { drawLabel() }
+      machine.stopped = false; try machine.run(program.foreground)
+      if payload[284] & 2 != 0 { drawLabel() }
       guard let image = canvas.makeImage() else { return false }
       c.draw(image,in:rect); return true
     } catch { failure?(error.localizedDescription);return false }
@@ -79,12 +90,12 @@ final class ScriptDrawing {
   }
   func color(_ value: Double) -> CGColor {
     let v = UInt32(truncatingIfNeeded:ScriptMachine.int(value))
-    return CGColor(red:Double((v>>16)&255)/255,green:Double((v>>8)&255)/255,blue:Double(v&255)/255,alpha:value < 0 ? 0 : 1)
+    return CGColor(colorSpace:OverlayRenderer.colorSpace,components:[Double((v>>16)&255)/255,
+      Double((v>>8)&255)/255,Double(v&255)/255,value < 0 ? 0 : 1])!
   }
   func text(_ text: String,x: Double,y: Double,color value: Double,size: Double,alignment: Double) {
     guard size.isFinite,size > 0,size < 4096,x.isFinite,y.isFinite else { return }
-    let name = font == "Microsoft Sans Serif" ? "Arial" : font
-    let f = NSFont(name:name,size:size) ?? NSFont(name:"Arial",size:size) ?? NSFont.systemFont(ofSize:size)
+    let f = NSFont(name:font,size:size) ?? NSFont(name:"Arial",size:size) ?? NSFont.systemFont(ofSize:size)
     var attributes: [NSAttributedString.Key:Any] = [.font:f,.foregroundColor:NSColor(cgColor:color(value)) ?? .white]
     if outline >= 0 { attributes[.strokeColor] = NSColor(cgColor:color(outline)); attributes[.strokeWidth] = -2 }
     let string = NSAttributedString(string:String(text.prefix(4096)),attributes:attributes)
@@ -128,7 +139,7 @@ final class ScriptDrawing {
       c.setLineCap(.round)
       for i in 0..<96 {
         let a = Double(i)/96*limit,b = Double(i+1)/96*limit
-        let blended = try call("blendcolorsrgb",[.number(colorA),.number(colorB),.number(a)])
+        let blended = try call(name.hasSuffix("rgb") ? "blendcolorsrgb" : "blendcolors",[.number(colorA),.number(colorB),.number(a)])
         c.setStrokeColor(color(blended.number));c.setLineWidth(max(0,min(4096,widthA+(widthB-widthA)*a))*2)
         c.move(to:point(a));c.addLine(to:point(b));c.strokePath()
       }
@@ -146,14 +157,23 @@ final class ScriptDrawing {
       if n(count*2+1) <= 0 { c.fillPath() } else { c.setLineWidth(max(0,min(4096,n(count*2+1)))*2); c.strokePath() }
     case "drawdotgradient","drawdotgradientrgb":
       let radius = max(0,min(4096,n(4)))
-      if let gradient = CGGradient(colorsSpace:CGColorSpaceCreateDeviceRGB(),colors:[color(n(2)),color(n(3))] as CFArray,locations:[0,1]) {
+      var colors = [color(n(2)),color(n(3))],locations: [CGFloat] = [0,1]
+      if name.hasSuffix("rgb") {
+        let middle = try call("blendcolorsrgb",[.number(n(2)),.number(n(3)),.number(0.5)])
+        colors.insert(color(middle.number),at:1);locations = [0,0.5,1]
+      }
+      if let gradient = CGGradient(colorsSpace:OverlayRenderer.colorSpace,colors:colors as CFArray,locations:locations) {
         c.saveGState();c.addEllipse(in:CGRect(x:n(0)-radius,y:n(1)-radius,width:radius*2,height:radius*2));c.clip()
         c.drawRadialGradient(gradient,startCenter:CGPoint(x:n(0),y:n(1)),startRadius:0,endCenter:CGPoint(x:n(0),y:n(1)),endRadius:radius,options:[]);c.restoreGState()
       }
     case "blendcolors","blendcolorsrgb":
       let a = UInt32(truncatingIfNeeded:ScriptMachine.int(n(0))), b = UInt32(truncatingIfNeeded:ScriptMachine.int(n(1)))
       let t = max(0,min(1,n(2))); var value: UInt32 = 0
-      for shift in [0,8,16] { let x = Double((a>>shift)&255),y = Double((b>>shift)&255);value |= UInt32(max(0,min(255,x+(y-x)*t))) << shift }
+      for shift in [0,8,16] {
+        let x = Double((a>>shift)&255),y = Double((b>>shift)&255)
+        let blended = name == "blendcolorsrgb" ? x*min(1,(1-t)*2)+y*min(1,t*2) : x+(y-x)*t
+        value |= UInt32(max(0,min(255,blended))) << shift
+      }
       return result(Double(value))
     case "getdataindex": return result(Double(data?.channelIndex(s(0)) ?? -1000))
     case "getdatavalue":
@@ -163,8 +183,10 @@ final class ScriptDrawing {
       return result(key == "speed" ? data?.speed(at:time,unit:unit) ?? .nan : data?.value(key,at:time) ?? .nan)
     case "getcurlapnum": return result(Double(data?.lap(at:time)?.number ?? 0))
     case "getcurlaptime": return result(data?.lap(at:time).map { time-$0.start } ?? 0)
-    case "getbestlapnum","getcurbestlapnum","getprevbestlapnum": return result(Double(data?.bestLap?.number ?? 0))
-    case "getbestlaptime","getcurbestlaptime","getprevbestlaptime": return result(data?.bestLap?.duration ?? 0)
+    case "getbestlapnum": return result(Double(data?.bestLap?.number ?? 0))
+    case "getbestlaptime": return result(data?.bestLap?.duration ?? 0)
+    case "getcurbestlapnum","getprevbestlapnum": return result(Double(data?.bestLap(at:time)?.number ?? 0))
+    case "getcurbestlaptime","getprevbestlaptime": return result(data?.bestLap(at:time)?.duration ?? 0)
     case "getlaptime": return result(data?.laps.first { $0.number == ScriptMachine.int(n(0)) }?.duration ?? 0)
     case "formatnumber": return .string(String(format:"%.*f",max(0,min(8,ScriptMachine.int(n(1)))),n(0)))
     case "formatheading":

@@ -21,7 +21,7 @@ enum LegacyArtwork {
     let pixels = Data(raw[8..<8+width*height*4])
     guard let provider = CGDataProvider(data: pixels as CFData),
       let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
-        bytesPerRow: width*4, space: CGColorSpaceCreateDeviceRGB(),
+        bytesPerRow: width*4, space: OverlayRenderer.colorSpace,
         bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue),
         provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else { return nil }
     return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])

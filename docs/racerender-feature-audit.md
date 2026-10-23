@@ -62,10 +62,10 @@ These observations informed behavior. They do not establish that every reference
 | Recorded lap timing, best lap, lap seeking, lap export | Implemented | Timers, lap list, export range conversion includes source timing/rate |
 | GPS finish-line lap detection | Implemented estimate | Forward crossing of a width-limited gate, interpolated crossing time, minimum lap duration |
 | Recognized-track database and edited lap times | Not implemented | Track database and manual lap overrides |
-| Track map and vehicle position | Implemented subset | Full course and current position; no map background editor or ghost comparison |
+| Track map and vehicle position | Implemented subset | Native full course; legacy best-lap trace, saved colors, edge, start checker and vehicle arrow; no map background editor or ghost comparison |
 | Best-lap delta | Implemented subset | Requires compatible distance and recorded/calculated lap boundaries |
 | GPS speed fallback and four speed units | Implemented | mph, km/h, m/s, knots |
-| Derived heading, G-force and gear estimation | Not implemented | Currently uses available source channels |
+| Derived heading, G-force and gear estimation | Partial | Legacy automatic longitudinal G-force uses a two-second speed-difference window; heading and gear estimation remain absent |
 | CSV/TSV and RaceChrono | Implemented | Bounded text reader with preamble/header recognition |
 | GPX/TCX | Implemented subset | Timestamped track points and common sensors; not every vendor extension |
 | NMEA | Implemented subset | RMC/GGA/GLL; GP/GN talkers and valid fixes; no camera-container extraction |
@@ -88,7 +88,7 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 39 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, and picture transforms.
+All 49 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration and interpolated lap delta.
 
 The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching and layers. Generated media and external samples live under ignored `build/validation`.
 
@@ -101,6 +101,14 @@ Additional format references: [TopoGrafix GPX schema](https://www.topografix.com
 The importer now decodes embedded full-resolution BGRA bitmap containers, including raw DEFLATE records, and retains the original bytes. The renderer reads traditional widget colors, fonts, ranges and geometry. A bounded interpreter runs the drawing assets stored in local Enhanced styles, covering assignments, conditionals, math, telemetry access and drawing primitives. It has no host evaluation, file or network interface, and limits source size, instructions, nesting and canvas allocation.
 
 Local checks render all 56 Enhanced styles in the installed library and compare representative gear/thermometer/gauge output against stored vendor previews. These are coverage and visual checks, not a claim of pixel-identical output across all styles or platforms. Font availability, persistent variables, exact gradients, specialized parameters and unsupported effects remain practical limits. No vendor artwork, scripts or template files are included in this repository. They are read from the user's installation or imported project. The [vendor license](https://racerender.com/RR3/License.txt) does not grant general standalone asset redistribution.
+
+### Live rendered-frame comparison, 2026-10-23
+
+RaceRender 3.7.3 was operated again and its own BMP snapshots were saved at 300 and 600 seconds. Those 1000×560 preview images were compared with OpenRaceRender renders of the session's layout and telemetry at the same times. The reference application recovered its previous session after becoming unresponsive during the first load. Source recordings and the original RRP were not overwritten; comparison files remain under ignored `build/validation/reference`.
+
+This exposed errors that thumbnail-only checks missed. Saved bitmap dimensions and the Maintain Aspect Ratio flag now determine a centered content rectangle. Traditional widgets render at their saved raster resolution before scaling. Gauge rotation is relative to South and sweeps clockwise by default; saved needle tips/tails, major/minor marks, alternate interval numbering and disabled number/face colors are respected. The throttle bar uses its measured automatic data range and rounded shaded background. Enhanced text labels are a separate layer with saved font/position settings. RGB blending uses a brighter additive transition, and explicit sRGB canvases preserve saved color values.
+
+The map's selected best lap removes the pit-lane branch from its trace and uses saved trace/edge colors, the start checker and vehicle arrow. Current-best lap displays now consider completed laps at the playhead rather than future laps; the distance-based delta interpolates between samples. The legacy automatic longitudinal G-force follows a two-second speed-difference window, matching the displayed acceleration at both sampled times. These checks improve the tested layout; they do not establish pixel parity for every style, frame, persistent animation or output profile.
 
 ## Next compatibility work
 

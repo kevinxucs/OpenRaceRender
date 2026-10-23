@@ -73,7 +73,7 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 
 ## Compatibility limits
 
-Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets now use decoded style colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, persistent script state, gradients and other unsupported effects can still differ.
+Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets use saved bitmap aspect ratios, colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. Live RaceRender snapshots have been used to correct gauge direction and needles, bars, thermometer labels, RGB blending, maps and lap displays. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, persistent script state, gradients and other unsupported effects can still differ.
 
 Vendor artwork and scripts are loaded from your local files and are not bundled or relicensed under MIT. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 

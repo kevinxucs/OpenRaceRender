@@ -173,7 +173,10 @@ public enum LegacyReader {
       if interval.isFinite, interval > 0, interval <= o.maximum-o.minimum { g.tickInterval = interval }
       if o.kind == .rpm { g.numberingScale = 1000 }
       if d.count >= 624 {
-        g.showNumber = d[616] != 0; g.showLabels = d[617] != 0; g.showFace = d[620] != 0
+        // Legacy color records use an all-ones transparency byte to disable a layer.
+        g.showNumber = d.u32(336) >> 24 != 255
+        g.showLabels = d.u32(332) >> 24 != 255
+        g.showFace = d.u32(300) >> 24 != 255
       }
       let sweep = Int(d[296]) | Int(d[297]) << 8
       let rotation = Int(Int16(bitPattern: UInt16(d[298]) | UInt16(d[299]) << 8))
@@ -185,7 +188,8 @@ public enum LegacyReader {
     if [.enhanced, .gear, .lights, .temperature, .throttle, .brake, .bar, .graph].contains(o.kind),
       d.count >= 128
     {
-      o.channel = d.utf16(0, 128).trimmingCharacters(in: CharacterSet(charactersIn: "()"))
+      let channel = d.utf16(0,128)
+      o.channel = channel.hasPrefix("(") && channel.hasSuffix(")") ? String(channel.dropFirst().dropLast()) : channel
     }
     if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
     // Retain all bytes, but never execute arbitrary imported code.

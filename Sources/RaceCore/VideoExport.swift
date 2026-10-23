@@ -58,7 +58,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           let c = CGContext(
             data: CVPixelBufferGetBaseAddress(output), width: CVPixelBufferGetWidth(output),
             height: CVPixelBufferGetHeight(output), bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(output), space: CGColorSpaceCreateDeviceRGB(),
+            bytesPerRow: CVPixelBufferGetBytesPerRow(output), space: OverlayRenderer.colorSpace,
             bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
               | CGImageAlphaInfo.premultipliedFirst.rawValue)
         else {
@@ -234,7 +234,7 @@ public final class VideoExporter: @unchecked Sendable {
     guard
       let c = CGContext(
         data: nil, width: p.width, height: p.height, bitsPerComponent: 8, bytesPerRow: 0,
-        space: CGColorSpaceCreateDeviceRGB(),
+        space: OverlayRenderer.colorSpace,
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
     else { throw RaceError.invalid("Cannot allocate snapshot canvas.") }
     c.setFillColor(CGColor(gray: 0, alpha: 1))

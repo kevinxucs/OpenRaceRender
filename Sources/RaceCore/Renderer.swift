@@ -12,6 +12,7 @@ public struct RenderScene: @unchecked Sendable {
 }
 
 public enum OverlayRenderer {
+  public static let colorSpace = CGColorSpace(name:CGColorSpace.sRGB)!
   public static func rect(_ o: DisplayObject, size: CGSize) -> CGRect {
     CGRect(
       x: o.x * size.width / 100, y: o.y * size.height / 100, width: o.width * size.width / 100,
@@ -19,9 +20,8 @@ public enum OverlayRenderer {
   }
   public static func color(_ hex: String, alpha: Double = 1) -> CGColor {
     let v = UInt32(hex.replacingOccurrences(of: "#", with: ""), radix: 16) ?? 0x5ee0b5
-    return CGColor(
-      red: Double((v >> 16) & 255) / 255, green: Double((v >> 8) & 255) / 255,
-      blue: Double(v & 255) / 255, alpha: alpha)
+    return CGColor(colorSpace:colorSpace,components:[Double((v >> 16) & 255)/255,
+      Double((v >> 8) & 255)/255,Double(v & 255)/255,alpha])!
   }
   public static func draw(
     _ c: CGContext, scene: RenderScene, time: Double, size: CGSize, selection: UUID? = nil
@@ -32,7 +32,7 @@ public enum OverlayRenderer {
     where o.visible && time >= o.start && time <= o.end
       && ![.video, .audio, .group].contains(o.kind)
     {
-      let r = rect(o, size: size)
+      let r = LegacyStyledRenderer.contentRect(o,in:rect(o,size:size))
       guard r.width > 0 && r.height > 0 else { continue }
       c.saveGState()
       c.setAlpha(o.opacity)
@@ -48,6 +48,9 @@ public enum OverlayRenderer {
       if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
       if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit) {
         c.restoreGState(); continue
+      }
+      if LegacyMapRenderer.draw(c,object:o,rect:r,data:data,time:t) {
+        c.restoreGState();continue
       }
       if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height) {
         c.restoreGState(); continue

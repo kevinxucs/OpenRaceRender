@@ -268,8 +268,32 @@ public final class Telemetry: @unchecked Sendable {
     return mps * (unit == "mph" ? 2.2369362921 : (unit == "km/h" ? 3.6 : (unit == "knots" ? 1.94384449 : 1)))
   }
   public func lap(at t: Double) -> TelemetryLap? { laps.last { $0.start <= t && t <= $0.end } }
+  public func speedAcceleration(at t: Double) -> Double? {
+    let before = max(0,t-1),after = min(duration,t+1)
+    guard after > before,let a = speed(at:before,unit:"m/s"),let b = speed(at:after,unit:"m/s") else { return nil }
+    return (b-a)/(after-before)/9.80665
+  }
+  public func trackPosition(at t: Double) -> (Double,Double)? {
+    let xKey = aliases["x"] != nil ? "x" : "lon",yKey = aliases["y"] != nil ? "y" : "lat"
+    guard let x = value(xKey,at:t),let y = value(yKey,at:t) else { return nil }
+    let factor = xKey == "lon" ? cos((value("lat",at:0) ?? y) * .pi/180) : 1
+    return (x*factor,y)
+  }
+  public func trackPoints(from start: Double,to end: Double) -> [(Double,Double)] {
+    guard start.isFinite,end.isFinite,start <= end else { return [] }
+    let first = index(at:max(0,start)),last = index(at:min(duration,end))
+    guard first <= last else { return [] }
+    let step = max(1,(last-first)/4000)
+    return stride(from:first,through:last,by:step).compactMap { trackPosition(at:times[$0]) }
+  }
+  public func bestLap(at t: Double) -> TelemetryLap? {
+    laps.filter { $0.complete && $0.end <= t && $0.duration > 5 }.min { $0.duration < $1.duration }
+  }
   public func delta(at t: Double) -> Double? {
-    guard let lap = lap(at: t), let best = bestLap, let distance = value("distance", at: t),
+    delta(at:t,reference:bestLap)
+  }
+  public func delta(at t: Double,reference: TelemetryLap?) -> Double? {
+    guard let lap = lap(at: t), let best = reference, let distance = value("distance", at: t),
       let start = value("distance", at: lap.start),
       let bestStart = value("distance", at: best.start), let dc = aliases["distance"]
     else { return nil }
@@ -280,6 +304,14 @@ public final class Telemetry: @unchecked Sendable {
       let m = (lo + hi) / 2
       if columns[dc][m] < target { lo = m + 1 } else { hi = m }
     }
-    return (t - lap.start) - (times[lo] - best.start)
+    var referenceTime = times[lo]
+    if lo > 0 {
+      let before = columns[dc][lo-1],after = columns[dc][lo]
+      if before.isFinite,after.isFinite,after > before {
+        let fraction = max(0,min(1,(target-before)/(after-before)))
+        referenceTime = times[lo-1]+(times[lo]-times[lo-1])*fraction
+      }
+    }
+    return (t - lap.start) - (referenceTime - best.start)
   }
 }
