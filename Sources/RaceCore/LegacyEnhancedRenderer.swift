@@ -33,7 +33,7 @@ enum LegacyEnhancedRenderer {
     let height = Int(payload[282]) | Int(payload[283]) << 8
     guard width > 0, height > 0, width <= 2048, height <= 2048,
       let canvas = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:0,
-        space:OverlayRenderer.colorSpace,bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+        space:OverlayRenderer.colorSpace,bitmapInfo:OverlayRenderer.bitmapInfo) else { return false }
     let rawMin = payload.f64(256),rawMax = payload.f64(264)
     let autoMin = !rawMin.isFinite || abs(rawMin) >= 9e7
     let autoMax = !rawMax.isFinite || abs(rawMax) >= 9e7

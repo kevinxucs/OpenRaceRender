@@ -22,6 +22,7 @@ public struct PictureSettings: Codable, Equatable, Sendable {
   public var brightness: Double = 1
   public var contrast: Double = 1
   public var saturation: Double = 1
+  public var legacyColorInterpretation: Bool?
   public init() {}
 }
 

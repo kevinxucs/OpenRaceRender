@@ -116,6 +116,7 @@ public struct RaceProject: Codable, Sendable {
   public var explicitDuration: Double?
   public var rangeStart: Double?
   public var rangeEnd: Double?
+  public var exportSettings: ExportSettings?
   public init() {}
   public var duration: Double {
     if let value = explicitDuration, value.isFinite, value > 0 { return value }
@@ -130,6 +131,17 @@ public struct RaceProject: Codable, Sendable {
     else { throw RaceError.invalid("Unsupported or invalid OpenRaceRender project.") }
     let base = url.deletingLastPathComponent()
     for i in p.inputs.indices { p.inputs[i].path = resolvePath(p.inputs[i].path, base: base) }
+    // Earlier native imports omitted the original camera's picture adjustments.
+    if let legacy = p.legacyData,let original = try? LegacyReader.project(legacy,base:base) {
+      for i in p.inputs.indices where p.inputs[i].picture == nil && p.inputs[i].kind == "video" {
+        guard let offset = p.inputs[i].legacyOffset else { continue }
+        p.inputs[i].picture = original.inputs.first { $0.legacyOffset == offset && $0.kind == "video" }?.picture
+      }
+    }
+    for i in p.objects.indices where p.objects[i].picture == nil && [.video,.image].contains(p.objects[i].kind) {
+      guard let common = p.objects[i].legacyCommon,common.count > 285 else { continue }
+      var picture = PictureSettings();picture.maintainAspect = common[285] != 0;p.objects[i].picture = picture
+    }
     // Older imports mistook legacy Auto (0) for hidden. The marker preserves later native hides.
     for i in p.objects.indices where p.objects[i].legacyActivation == nil {
       guard let common = p.objects[i].legacyCommon,common.count > 284 else { continue }
@@ -177,9 +189,9 @@ public struct RaceProject: Codable, Sendable {
     guard inputs.count == Int(b.u32(16)), inputs.allSatisfy({ $0.legacyOffset != nil }) else {
       throw RaceError.invalid("Input changes require .orrp format.")
     }
-    guard explicitDuration == nil, rangeStart == nil, rangeEnd == nil,
-      inputs.allSatisfy({ $0.timing == nil && $0.picture == nil && $0.joinedTo == nil && $0.dataSettings == nil }),
-      objects.allSatisfy({ ($0.segments ?? []).isEmpty && $0.picture == nil }) else {
+    guard explicitDuration == nil, rangeStart == nil, rangeEnd == nil, exportSettings == nil,
+      inputs.allSatisfy({ $0.timing == nil && $0.joinedTo == nil && $0.dataSettings == nil }),
+      objects.allSatisfy({ ($0.segments ?? []).isEmpty }) else {
       throw RaceError.invalid("Timeline, trim, joining and picture edits require .orrp format.")
     }
     let original = try LegacyReader.project(
@@ -193,7 +205,7 @@ public struct RaceProject: Codable, Sendable {
       }
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
-        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork
+        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture
       else {
         throw RaceError.invalid(
           "RRP copy export supports labels, visibility, opacity, geometry and synchronization. Save other edits in .orrp format."
@@ -201,8 +213,8 @@ public struct RaceProject: Codable, Sendable {
       }
     }
     for (input, old) in zip(inputs, original.inputs)
-    where input.volume != old.volume || input.kind != old.kind {
-      throw RaceError.invalid("Audio or input-type changes require .orrp format.")
+    where input.volume != old.volume || input.kind != old.kind || input.picture != old.picture {
+      throw RaceError.invalid("Audio, picture or input-type changes require .orrp format.")
     }
     // Preserve opaque data, scripts and original ordering byte for byte.
     for (o,old) in zip(objects,original.objects) {

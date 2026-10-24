@@ -6,9 +6,11 @@ enum LegacyStyledRenderer {
     guard let common = o.legacyCommon,common.count >= 300,common[285] != 0 else { return rect }
     let width = Double(common.u32(296) & 0xffff),height = Double(common.u32(296) >> 16)
     guard width > 0,height > 0 else { return rect }
-    let scale = min(rect.width/width,rect.height/height)
-    let size = CGSize(width:width*scale,height:height*scale)
-    return CGRect(x:rect.midX-size.width/2,y:rect.midY-size.height/2,width:size.width,height:size.height)
+    // Legacy raster targets round their allocated pixel size up before fitting
+    // the bitmap. At small sizes (for example a 14.4 px banner) this matters.
+    let scale = min(ceil(rect.width)/width,ceil(rect.height)/height)
+    let size = CGSize(width:ceil(width*scale),height:ceil(height*scale))
+    return CGRect(x:floor(rect.midX-size.width/2),y:floor(rect.midY-size.height/2),width:size.width,height:size.height)
   }
   static func rgb(_ value: UInt32) -> CGColor { OverlayRenderer.color(String(format:"#%06X",value & 0xffffff)) }
   static func label(_ c: CGContext,_ value: String,font: String,size: Double,color: CGColor,x: Double,y: Double,center: Bool = true,bold: Bool = false,italic: Bool = false,outline: CGColor? = nil) {
@@ -35,7 +37,7 @@ enum LegacyStyledRenderer {
       return drawContent(c,object:o,rect:r,data:data,time:time,unit:unit,canvasHeight:canvasHeight)
     }
     guard let bitmap = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:0,
-      space:OverlayRenderer.colorSpace,bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+      space:OverlayRenderer.colorSpace,bitmapInfo:OverlayRenderer.bitmapInfo) else { return false }
     let area = CGRect(x:0,y:0,width:width,height:height)
     guard drawContent(bitmap,object:o,rect:area,data:data,time:time,unit:unit,canvasHeight:canvasHeight*Double(height)/max(1,r.height)),
       let image = bitmap.makeImage() else { return false }
@@ -69,8 +71,12 @@ enum LegacyStyledRenderer {
       let size = min(r.height*0.85,max(8,d.f32(644)*scale))
       let alignment = d[649]
       let x = alignment == 1 ? r.midX : r.minX
-      label(c,prefix+value,font:d.utf16(516,128),size:size,color:rgb(d.u32(0)),x:x,y:r.minY+size*0.25,center:alignment == 1,
-        bold:d[648] & 1 != 0,italic:d[648] & 2 != 0,outline:d[651] != 0 ? rgb(d.u32(640)) : nil)
+      let face = d.utf16(516,128)
+      // The native macOS Arial text reference remains regular even with its
+      // saved Bold flag set. Other families retain their explicit traits.
+      let synthesizeBold = face.caseInsensitiveCompare("Arial") != .orderedSame
+      label(c,prefix+value,font:face,size:size,color:rgb(d.u32(0)),x:x,y:r.minY+size*0.125,center:alignment == 1,
+        bold:synthesizeBold && d[648] & 1 != 0,italic:d[648] & 2 != 0,outline:d[651] != 0 ? rgb(d.u32(640)) : nil)
       return true
     }
     if type == 31,d.count >= 640 {
@@ -85,22 +91,37 @@ enum LegacyStyledRenderer {
       let rasterWidth = Double((o.legacyCommon?.u32(296) ?? 0) & 0xffff)
       let objectScale = rasterWidth > 0 ? r.width*2/rasterWidth : scale
       let trim = max(0,min(min(r.width,r.height)/4,Double(d[621])*objectScale))
-      let area = r.insetBy(dx:trim/2,dy:trim/2)
       let rounded = d[618] & 0x20 != 0
+      let outer = r.insetBy(dx:trim/2,dy:trim/2)
+      let beveled = rounded && trim > 0 && d.u32(316) >> 24 != 255
+      let bevel = min(trim*2,max(0,min(outer.width,outer.height)/4))
+      let area = beveled ? outer.insetBy(dx:bevel,dy:bevel) : outer
+      if beveled {
+        c.setFillColor(shaded(d.u32(316),factor:0.72))
+        let corner = min(outer.width,outer.height)/2
+        c.addPath(CGPath(roundedRect:outer,cornerWidth:corner,cornerHeight:corner,transform:nil));c.fillPath()
+      }
       let radius = rounded ? min(area.width,area.height)/2 : 0
       let path = CGPath(roundedRect:area,cornerWidth:radius,cornerHeight:radius,transform:nil)
       if d.u32(304) >> 24 != 255 {
-        gradient(c,path:path,rect:area,first:d.u32(304),second:d.u32(636),horizontal:!horizontal)
+        barGradient(c,path:path,rect:area,first:d.u32(304),second:d.u32(636),horizontal:!horizontal,rounded:rounded)
       }
       c.saveGState();c.addPath(path);c.clip()
       let filled = CGRect(x:area.minX,y:area.minY,width:area.width*(horizontal ? fraction : 1),height:area.height*(horizontal ? 1 : fraction))
       c.clip(to:filled)
-      gradient(c,path:path,rect:area,first:d.u32(308),second:d.u32(632),horizontal:!horizontal)
+      barGradient(c,path:path,rect:area,first:d.u32(308),second:d.u32(632),horizontal:!horizontal,rounded:rounded)
       c.restoreGState()
-      if d.u32(316) >> 24 != 255 { c.setStrokeColor(rgb(d.u32(316)));c.setLineWidth(trim);c.addPath(path);c.strokePath() }
+      if d.u32(316) >> 24 != 255 { c.setStrokeColor(rgb(d.u32(beveled ? 312 : 316)));c.setLineWidth(trim);c.addPath(path);c.strokePath() }
       let size = min(r.height*0.8,max(5,d.f32(608)*objectScale))
       if d.u32(332) >> 24 != 255 {
-        label(c,d.utf16(128,128),font:d.utf16(352,128),size:size,color:rgb(d.u32(332)),x:r.midX,y:r.midY-size*0.55)
+        let text = d.utf16(128,128),face = d.utf16(352,128)
+        let font = NSFont(name:face,size:size) ?? NSFont(name:"Arial",size:size) ?? NSFont.systemFont(ofSize:size)
+        let textWidth = NSAttributedString(string:text,attributes:[.font:font]).size().width
+        let position = Double(d[340])/100
+        let x = horizontal
+          ? (d[340] == 255 ? outer.maxX-outer.height/2-textWidth/2 : outer.minX+(outer.width-textWidth)*position+textWidth/2)
+          : r.midX
+        label(c,text,font:face,size:size,color:rgb(d.u32(332)),x:x,y:r.midY-size*0.55)
       }
       return true
     }
@@ -115,7 +136,7 @@ enum LegacyStyledRenderer {
       let lateralField = d.utf16(0,128),longitudinalField = d.utf16(128,128)
       let gy = data?.value(lateralField.isEmpty ? "gy" : lateralField,at:time) ?? 0
       let gx = longitudinalField.isEmpty
-        ? data?.speedAcceleration(at:time) ?? data?.value("gx",at:time) ?? 0
+        ? data?.value("gx",at:time) ?? data?.speedAcceleration(at:time) ?? 0
         : data?.value(longitudinalField,at:time) ?? 0
       let x = r.midX+max(-1,min(1,gy/max(0.1,d.f32(260))))*radius
       let y = r.midY-max(-1,min(1,gx/max(0.1,d.f32(256))))*radius
@@ -133,12 +154,26 @@ enum LegacyStyledRenderer {
     guard time.isFinite,abs(time) < 1e8 else { return "—" }
     return (time < 0 ? "-" : "")+String(format:"%d:%06.3f",Int(abs(time))/60,abs(time).truncatingRemainder(dividingBy:60))
   }
-  static func gradient(_ c: CGContext,path: CGPath,rect r: CGRect,first: UInt32,second: UInt32,horizontal: Bool) {
+  static func gradient(_ c: CGContext,path: CGPath,rect r: CGRect,first: UInt32,second: UInt32,horizontal: Bool,reverse: Bool = false) {
     c.saveGState();c.addPath(path);c.clip()
     if let gradient = CGGradient(colorsSpace:OverlayRenderer.colorSpace,colors:[rgb(first),rgb(second)] as CFArray,locations:[0,1]) {
-      c.drawLinearGradient(gradient,start:CGPoint(x:r.minX,y:r.minY),end:CGPoint(x:horizontal ? r.maxX : r.minX,y:horizontal ? r.minY : r.maxY),options:[.drawsBeforeStartLocation,.drawsAfterEndLocation])
+      let start = CGPoint(x:r.minX,y:r.minY),end = CGPoint(x:horizontal ? r.maxX : r.minX,y:horizontal ? r.minY : r.maxY)
+      c.drawLinearGradient(gradient,start:reverse ? end : start,end:reverse ? start : end,options:[.drawsBeforeStartLocation,.drawsAfterEndLocation])
     }
     c.restoreGState()
+  }
+  static func shaded(_ value: UInt32,factor: Double) -> CGColor {
+    CGColor(colorSpace:OverlayRenderer.colorSpace,components:[Double((value >> 16)&255)*factor/255,Double((value >> 8)&255)*factor/255,Double(value&255)*factor/255,1])!
+  }
+  static func barGradient(_ c: CGContext,path: CGPath,rect r: CGRect,first: UInt32,second: UInt32,horizontal: Bool,rounded: Bool) {
+    guard rounded else { gradient(c,path:path,rect:r,first:first,second:second,horizontal:horizontal,reverse:true);return }
+    c.saveGState();c.addPath(path);c.clip();defer { c.restoreGState() }
+    // Rounded legacy bars have a cylindrical surface, with dark edges and a
+    // broad highlight rather than a single flat top-to-bottom ramp.
+    let colors = [shaded(second,factor:0.5),rgb(second),rgb(first),rgb(second),shaded(second,factor:0.5)]
+    if let gradient = CGGradient(colorsSpace:OverlayRenderer.colorSpace,colors:colors as CFArray,locations:[0,0.15,0.4,0.85,1]) {
+      c.drawLinearGradient(gradient,start:CGPoint(x:r.minX,y:r.minY),end:CGPoint(x:horizontal ? r.maxX : r.minX,y:horizontal ? r.minY : r.maxY),options:[.drawsBeforeStartLocation,.drawsAfterEndLocation])
+    }
   }
   static func gauge(_ c: CGContext,object o: DisplayObject,data: Telemetry?,time: Double,unit: String,rect r: CGRect,scale: Double,payload d: Data) {
     let g = o.gauge ?? GaugeSettings(),radius = min(r.width,r.height)*0.48

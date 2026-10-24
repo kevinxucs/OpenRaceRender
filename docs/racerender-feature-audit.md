@@ -22,7 +22,7 @@ The installed application was actually launched and operated, using a local RRP 
 - The Lap List showed partial staging/in-laps and a best lap. Double-clicking a lap moved the main playhead to that lap's project time.
 - A speedometer's properties exposed lower-left percentage geometry, aspect preservation, opacity, source/channel, range, sweep, colors, labels, a gauge designer and timeline controls.
 - A temporary display segment was created at ten seconds. Its segment selector showed the base interval ending there and the new interval continuing to the end. The temporary segment was then removed. The source RRP was not saved.
-- Create Video exposed entire-project, time-span and lap-range choices; output profiles; workspace/aspect ratio; resolution/frame rate; audio format; bitrates; scaling quality; spherical metadata and optional upload. Lap-range mode was selected to inspect its first/last controls. No RaceRender render or upload was started.
+- Create Video exposed entire-project, time-span and lap-range choices; output profiles; workspace/aspect ratio; resolution/frame rate; audio format; bitrates; scaling quality; spherical metadata and optional upload. Lap-range mode was selected to inspect its first/last controls. Subsequent validation rendered short native 4K/59.94 chunks and compared exported frames and isolated picture-control snapshots. No upload was used.
 - Video input settings showed trim/rate, audio volume/channel handling, crop/zoom, flip/rotation, brightness, contrast, saturation, hue, sharpness, chroma key, colorization and sphere controls. That dialog was cancelled.
 
 These observations informed behavior. They do not establish that every reference feature has been fully reproduced or that native artwork matches proprietary styles.
@@ -65,7 +65,7 @@ These observations informed behavior. They do not establish that every reference
 | Track map and vehicle position | Implemented subset | Native full course; legacy best-lap trace, saved colors, edge, start checker and vehicle arrow; no map background editor or ghost comparison |
 | Best-lap delta | Implemented subset | Requires compatible distance and recorded/calculated lap boundaries |
 | GPS speed fallback and four speed units | Implemented | mph, km/h, m/s, knots |
-| Derived heading, G-force and gear estimation | Partial | Legacy automatic longitudinal G-force uses a two-second speed-difference window; heading and gear estimation remain absent |
+| Derived heading, G-force and gear estimation | Partial | Longitudinal G uses the recorded channel when available, otherwise a two-second speed-difference window; heading and gear estimation remain absent |
 | CSV/TSV and RaceChrono | Implemented | Bounded text reader with preamble/header recognition |
 | GPX/TCX | Implemented subset | Timestamped track points and common sensors; not every vendor extension |
 | NMEA | Implemented subset | RMC/GGA/GLL; GP/GN talkers and valid fixes; no camera-container extraction |
@@ -73,13 +73,14 @@ These observations informed behavior. They do not establish that every reference
 | FIT | Implemented subset | Activity records, standard GPS/sensors, byte order, compressed time, integrity checks; unknown/developer fields skipped |
 | H.264/HEVC camera media and common audio/images | Host decoder support | AVFoundation/AppKit determine actual codec availability |
 | `.rrp` input and display import | Partial | Common records, paths/offsets, and traditional gauge range, label, sweep, orientation, interval and needle color |
-| Legacy timeline/join/picture/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
+| Legacy picture import | Partial | Camera brightness/contrast/saturation and decoder color compatibility imported; other picture operations remain opaque |
+| Legacy timeline/join/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
 | `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
 | Reusable layout/single-display export | Implemented native format | `.orrt` with source placeholders; no legacy RRT/RRO writer |
 | Enhanced script execution/editor | Bounded interpreter; editor absent | All 56 installed Enhanced styles render in the local-library check; bounded persistent replay is supported; complete language parity remains incomplete |
 | H.264 MP4 export, audio, 4K and selected ranges | Implemented | Native export; resolution, FPS, project/time/lap ranges |
-| Manual bitrate, output profiles, audio format/scaling quality | Partial | Resolution presets; platform encoder chooses bitrate/audio configuration |
+| Manual bitrate, output profiles, audio format/scaling quality | Partial | Explicit H.264 High Profile video bitrate and stereo 48 kHz AAC bitrate; automatic quality-oriented rate, hardware encoding and Lanczos downscaling. Additional codec/audio formats and profile import remain absent |
 | 360° workspace, fisheye flattening and spherical metadata | Not implemented | Projection and MP4 metadata work remains |
 | Stereoscopic/anaglyph color-channel compositing | Not implemented | Specialized composition modes |
 | TrackAddict network/WiFi transfer | Not implemented | Local import only |

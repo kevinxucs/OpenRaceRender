@@ -13,7 +13,7 @@ enum CLI {
       OpenRaceRender inspect-data DATAFILE
       OpenRaceRender validate-library DIRECTORY
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
-      OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--fps 30]
+      OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       OpenRaceRender convert PROJECT --out converted.orrp
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
@@ -78,7 +78,17 @@ enum CLI {
         p.height = Int((Double(width) * Double(p.height) / Double(p.width) / 2).rounded()) * 2
         p.width = width
       }
+      if let value = option("--height") {
+        guard let height = Int(value),height > 0,height <= 16384 else { throw RaceError.invalid("Invalid output height.") }
+        p.height = height
+      }
       if let fps = option("--fps").flatMap(Double.init) { p.fps = fps }
+      if option("--video-bitrate") != nil || option("--audio-bitrate") != nil {
+        var settings = p.exportSettings ?? ExportSettings()
+        if let value = option("--video-bitrate") { guard let rate = Int(value),rate >= 100,rate <= 240000 else { throw RaceError.invalid("Invalid video bitrate in kbps.") };settings.videoBitRate = rate*1000 }
+        if let value = option("--audio-bitrate") { guard let rate = Int(value),rate >= 64,rate <= 320 else { throw RaceError.invalid("Invalid audio bitrate in kbps.") };settings.audioBitRate = rate*1000 }
+        p.exportSettings = settings
+      }
       var telemetry: [Int: Telemetry] = [:]
       for input in p.inputs where input.kind == "data" && input.exists {
         let data = try Telemetry(url: URL(fileURLWithPath: input.path))
@@ -133,10 +143,19 @@ enum CLI {
         let start = Double(option("--start") ?? "0") ?? 0
         let duration = Double(option("--duration") ?? "10") ?? 10
         let exporter = VideoExporter()
+        let began = Date()
+        let monitor: Task<Void,Never>? = a.contains("--progress") ? Task {
+          while !Task.isCancelled {
+            do { try await Task.sleep(nanoseconds:5_000_000_000) } catch { return }
+            FileHandle.standardError.write(Data(String(format:"Rendering %.1f%%\n",exporter.progress*100).utf8))
+          }
+        } : nil
+        defer { monitor?.cancel() }
         try await exporter.export(
           scene: RenderScene(project: p, telemetry: telemetry), to: dest, start: start,
           duration: duration)
         print(dest.path)
+        print(String(format:"Exported %.3f seconds in %.3f seconds (%.2fx realtime).",duration,Date().timeIntervalSince(began),duration/Date().timeIntervalSince(began)))
       default: throw RaceError.invalid("Unknown command: \(a[1])")
       }
       return 0

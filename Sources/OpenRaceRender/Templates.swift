@@ -300,6 +300,16 @@ struct ExportSheet: View {
   @Environment(\.dismiss) var dismiss
   @State var firstLap = -1
   @State var lastLap = -1
+  var videoRate: Binding<Int> {
+    Binding(get:{ (model.project.exportSettings ?? ExportSettings()).videoBitRate.map { $0/1000 } ?? 0 },set:{ value in
+      var settings = model.project.exportSettings ?? ExportSettings();settings.videoBitRate = value > 0 ? value*1000 : nil;model.project.exportSettings = settings
+    })
+  }
+  var audioRate: Binding<Int> {
+    Binding(get:{ (model.project.exportSettings ?? ExportSettings()).audioBitRate/1000 },set:{ value in
+      var settings = model.project.exportSettings ?? ExportSettings();settings.audioBitRate = value*1000;model.project.exportSettings = settings
+    })
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 22) {
       Text("Export telemetry video").font(.system(size: 24, weight: .semibold))
@@ -315,23 +325,38 @@ struct ExportSheet: View {
             get: { model.project.width },
             set: {
               model.project.width = $0
-              model.project.height = Int(Double($0) * 9 / 16)
+              model.project.height = $0 == 856 ? 480 : Int(Double($0) * 9 / 16)
             })
         ) {
           Text("4K · 3840 × 2160").tag(3840)
           Text("1080p · 1920 × 1080").tag(1920)
           Text("720p · 1280 × 720").tag(1280)
           Text("480p · 854 × 480").tag(854)
+          Text("480p · 856 × 480").tag(856)
         }.labelsHidden().frame(width: 230)
       }
       HStack {
         Text("Frame rate")
         Spacer()
         Picker("Frame rate", selection: $model.project.fps) {
-          ForEach([24.0, 25, 29.97, 30, 50, 59.94, 60], id: \.self) {
+          ForEach(Array(Set([5.0,10,15,24,25,30000.0/1001,30,50,60000.0/1001,60,120,model.project.fps])).sorted(), id: \.self) {
             Text("\($0.formatted()) fps").tag($0)
           }
         }.labelsHidden().frame(width: 230)
+      }
+      HStack {
+        Text("Video bitrate (kbps)")
+        Spacer()
+        TextField("Automatic",value:videoRate,format:.number).frame(width:120)
+      }
+      Text("0 uses an automatic high-quality rate. H.264 High Profile, Rec.709.")
+        .font(.caption).foregroundStyle(muted)
+      HStack {
+        Text("Audio bitrate")
+        Spacer()
+        Picker("Audio bitrate",selection:audioRate) {
+          ForEach([128,192,240,256,320],id:\.self) { Text("\($0) kbps AAC").tag($0) }
+        }.labelsHidden().frame(width:230)
       }
       HStack {
         VStack(alignment: .leading) {

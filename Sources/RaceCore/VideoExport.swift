@@ -27,7 +27,7 @@ final class SceneInstruction: NSObject, AVVideoCompositionInstructionProtocol, @
 
 final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
   let queue = DispatchQueue(label: "org.openracerender.compositor")
-  let ci = CIContext(options: [.cacheIntermediates: false])
+  let ci = PictureProcessor.context()
   var renderContext: AVVideoCompositionRenderContext?
   var sourcePixelBufferAttributes: [String: any Sendable]? {
     [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
@@ -37,6 +37,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
       kCVPixelBufferCGImageCompatibilityKey as String: true,
       kCVPixelBufferCGBitmapContextCompatibilityKey as String: true,
+      kCVPixelBufferMetalCompatibilityKey as String: true,
     ]
   }
   func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
@@ -51,30 +52,43 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           request.finish(with: RaceError.invalid("Could not allocate export frame."))
           return
         }
+        let size = request.renderContext.size
+        let time = request.compositionTime.seconds
+        let objects = instruction.scene.project.objects.map { $0.resolved(at:time) }.filter { $0.visible && time >= $0.start && time <= $0.end }
+        // Most sessions place one camera under all HUD layers. Render that camera
+        // directly into the destination surface rather than reading a 4K CGImage
+        // back to the CPU and then copying it into another full-size bitmap.
+        var baseVideo: UUID?
+        if let first = objects.first,first.kind == .video,
+          let placement = instruction.scene.project.media(for:first.inputIndex,at:time),
+          let track = instruction.tracks[placement.input.legacyIndex],let frame = request.sourceFrame(byTrackID:track) {
+          let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(by:instruction.transforms[placement.input.legacyIndex] ?? .identity)
+          let layer = PictureProcessor.positioned(image,in:OverlayRenderer.rect(first,size:size),opacity:first.opacity,input:placement.input.picture,object:first.picture)
+          let bounds = CGRect(origin:.zero,size:size)
+          let background = CIImage(color:CIColor(red:0,green:0,blue:0)).cropped(to:bounds)
+          self.ci.render(layer.composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
+          baseVideo = first.id
+        }
         CVPixelBufferLockBaseAddress(output, [])
         defer { CVPixelBufferUnlockBaseAddress(output, []) }
-        let size = request.renderContext.size
         guard
           let c = CGContext(
             data: CVPixelBufferGetBaseAddress(output), width: CVPixelBufferGetWidth(output),
             height: CVPixelBufferGetHeight(output), bitsPerComponent: 8,
             bytesPerRow: CVPixelBufferGetBytesPerRow(output), space: OverlayRenderer.colorSpace,
-            bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue
-              | CGImageAlphaInfo.premultipliedFirst.rawValue)
+            bitmapInfo: OverlayRenderer.bitmapInfo)
         else {
           request.finish(with: RaceError.invalid("Could not create export canvas."))
           return
         }
-        c.setFillColor(CGColor(gray: 0, alpha: 1))
-        c.fill(CGRect(origin: .zero, size: size))
-        let time = request.compositionTime.seconds
-        for o in instruction.scene.project.objects.map({ $0.resolved(at: time) })
-        where o.visible && time >= o.start && time <= o.end {
+        c.interpolationQuality = .high
+        if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:size)) }
+        for o in objects where o.id != baseVideo {
           if o.kind == .video, let placement = instruction.scene.project.media(for: o.inputIndex, at: time),
             let track = instruction.tracks[placement.input.legacyIndex],
             let frame = request.sourceFrame(byTrackID: track)
           {
-            let image = CIImage(cvPixelBuffer: frame).transformed(
+            let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(
               by: instruction.transforms[placement.input.legacyIndex] ?? .identity)
             PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
           } else if o.kind == .image {
@@ -115,11 +129,32 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
 
 public final class VideoExporter: @unchecked Sendable {
   public private(set) var session: AVAssetExportSession?
-  public var progress: Float { session?.progress ?? 0 }
+  private let stateLock = NSLock()
+  private var reader: AVAssetReader?
+  private var writer: AVAssetWriter?
+  private var completedProgress: Float = 0
+  private var cancelled = false
+  private var exporting = false
+  public var progress: Float { stateLock.lock();defer { stateLock.unlock() };return completedProgress }
+  func setProgress(_ value: Float) { stateLock.lock();completedProgress = max(0,min(1,value));stateLock.unlock() }
+  func setPipeline(reader: AVAssetReader?,writer: AVAssetWriter?) {
+    stateLock.lock();self.reader = reader;self.writer = writer;stateLock.unlock()
+  }
+  func checkCancellation() throws {
+    stateLock.lock();let value = cancelled;stateLock.unlock()
+    if value { throw RaceError.invalid("Export cancelled.") }
+  }
+  private func beginExport() throws {
+    stateLock.lock();defer { stateLock.unlock() }
+    guard !exporting else { throw RaceError.invalid("This exporter is already rendering a video.") }
+    exporting = true;cancelled = false;completedProgress = 0
+  }
+  private func endExport() { stateLock.lock();exporting = false;stateLock.unlock() }
   public init() {}
-  public func cancel() { session?.cancelExport() }
+  public func cancel() { stateLock.lock();cancelled = true;stateLock.unlock();session?.cancelExport() }
   public func export(scene: RenderScene, to url: URL, start: Double, duration: Double) async throws
   {
+    try beginExport();defer { endExport() }
     let p = scene.project
     guard p.width > 0, p.height > 0, p.width <= 7680, p.height <= 4320, p.width % 2 == 0,
       p.height % 2 == 0, p.fps > 0, p.fps <= 120, p.fps.isFinite, start.isFinite, start >= 0,
@@ -132,30 +167,10 @@ public final class VideoExporter: @unchecked Sendable {
     let composition = prepared.composition
     let fullDuration = min(p.duration, composition.duration.seconds)
     guard start < fullDuration else { throw RaceError.invalid("Export start is beyond the project duration.") }
-    let preset =
-      p.width > 1920 || p.height > 1080
-      ? AVAssetExportPreset3840x2160 : AVAssetExportPreset1920x1080
-    guard let export = AVAssetExportSession(asset: composition, presetName: preset) else {
-      throw RaceError.invalid("Could not create H.264 export session.")
-    }
-    session = export
-    export.videoComposition = prepared.video
-    export.outputURL = url
-    export.outputFileType = .mp4
-    export.shouldOptimizeForNetworkUse = true
-    export.timeRange = CMTimeRange(
+    let range = CMTimeRange(
       start: CMTime(seconds: start, preferredTimescale: 60000),
       duration: CMTime(seconds: min(duration, fullDuration - start), preferredTimescale: 60000))
-    export.audioMix = prepared.audio
-    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-      export.exportAsynchronously { continuation.resume() }
-    }
-    guard export.status == .completed else {
-      try? FileManager.default.removeItem(at: url)
-      throw export.error
-        ?? RaceError.invalid(
-          export.status == .cancelled ? "Export cancelled." : "Video export failed.")
-    }
+    try await write(prepared:prepared,project:p,to:url,range:range)
   }
 
   public struct PreparedScene {
@@ -235,11 +250,11 @@ public final class VideoExporter: @unchecked Sendable {
       let c = CGContext(
         data: nil, width: p.width, height: p.height, bitsPerComponent: 8, bytesPerRow: 0,
         space: OverlayRenderer.colorSpace,
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        bitmapInfo: OverlayRenderer.bitmapInfo)
     else { throw RaceError.invalid("Cannot allocate snapshot canvas.") }
     c.setFillColor(CGColor(gray: 0, alpha: 1))
     c.fill(CGRect(origin: .zero, size: size))
-    let ci = CIContext(options: [.cacheIntermediates: false])
+    let ci = PictureProcessor.context()
     for o in p.objects.map({ $0.resolved(at: time) }) where o.visible && time >= o.start && time <= o.end {
       if o.kind == .video, let placement = p.media(for: o.inputIndex, at: time),
         placement.input.exists
@@ -250,11 +265,11 @@ public final class VideoExporter: @unchecked Sendable {
           let gen = AVAssetImageGenerator(asset: AVURLAsset(url: URL(fileURLWithPath: input.path)))
           gen.appliesPreferredTrackTransform = true
           gen.maximumSize = size
-          gen.requestedTimeToleranceBefore = CMTime(seconds: 0.05, preferredTimescale: 600)
-          gen.requestedTimeToleranceAfter = CMTime(seconds: 0.05, preferredTimescale: 600)
+          gen.requestedTimeToleranceBefore = .zero
+          gen.requestedTimeToleranceAfter = .zero
           let cg = try gen.copyCGImage(
             at: CMTime(seconds: sourceTime, preferredTimescale: 60000), actualTime: nil)
-          PictureProcessor.draw(c, image: CIImage(cgImage: cg), in: OverlayRenderer.rect(o, size: size), opacity: o.opacity, input: input.picture, object: o.picture, context: ci)
+          PictureProcessor.draw(c, image: PictureProcessor.source(cg,settings:input.picture), in: OverlayRenderer.rect(o, size: size), opacity: o.opacity, input: input.picture, object: o.picture, context: ci)
         }
       } else if ![.audio, .group].contains(o.kind) {
         OverlayRenderer.draw(

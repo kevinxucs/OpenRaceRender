@@ -63,3 +63,23 @@ for time, channel in [(0.25,0),(1.25,2)]:
     pixel = frame[(162*320+32)*3:(162*320+32)*3+3]
     assert pixel[channel] > 200 and sum(pixel)-pixel[channel] < 50, list(pixel)
 print("PASS camera switching and layer order")
+
+# A partial export must start at zero in the output while reading the chosen
+# camera/audio at the requested project time, with the exact fractional FPS.
+partial = out/"partial.mp4"
+if partial.exists(): partial.unlink()
+run(exe,"export",path,"--start",1.25,"--duration",0.5,"--fps",60000/1001,
+    "--video-bitrate",800,"--audio-bitrate",128,"--out",partial)
+metadata = json.loads(run("ffprobe","-v","error","-show_streams","-show_format","-of","json",partial))
+v = next(s for s in metadata["streams"] if s["codec_type"] == "video")
+a = next(s for s in metadata["streams"] if s["codec_type"] == "audio")
+assert v["profile"] == "High" and v["r_frame_rate"] == "60000/1001", v
+assert v["color_space"] == "bt709" and v["color_primaries"] == "bt709", v
+assert a["sample_rate"] == "48000" and a["channels"] == 2, a
+assert abs(float(metadata["format"]["duration"])-0.5) < 0.05, metadata["format"]
+frame = run("ffmpeg","-v","error","-i",partial,"-frames:v",1,"-f","rawvideo","-pix_fmt","rgb24","-")
+pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
+assert pixel[2] > 200 and pixel[0] < 30 and pixel[1] < 30, list(pixel)
+audio = array.array("f",run("ffmpeg","-v","error","-i",partial,"-vn","-ac",1,"-f","f32le","-"))
+assert math.sqrt(sum(x*x for x in audio)/max(1,len(audio))) > 0.01
+print("PASS nonzero range, fractional FPS, High Profile, Rec.709 tags and stereo AAC")

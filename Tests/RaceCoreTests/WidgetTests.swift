@@ -56,6 +56,9 @@ final class WidgetTests: XCTestCase {
     common[285] = 1;common.putU32(600 | (100 << 16),296);o.legacyCommon = common
     let area = LegacyStyledRenderer.contentRect(o,in:CGRect(x:10,y:20,width:800,height:100))
     XCTAssertEqual(area,CGRect(x:110,y:20,width:600,height:100))
+    let small = LegacyStyledRenderer.contentRect(o,in:CGRect(x:0,y:0,width:188.3,height:14.4))
+    XCTAssertEqual(small.height,15,accuracy:0.0001)
+    XCTAssertEqual(small.width,90,accuracy:0.0001)
     common[285] = 0;o.legacyCommon = common
     XCTAssertEqual(LegacyStyledRenderer.contentRect(o,in:CGRect(x:10,y:20,width:800,height:100)),CGRect(x:10,y:20,width:800,height:100))
   }

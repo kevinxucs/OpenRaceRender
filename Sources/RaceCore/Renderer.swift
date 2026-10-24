@@ -13,6 +13,9 @@ public struct RenderScene: @unchecked Sendable {
 
 public enum OverlayRenderer {
   public static let colorSpace = CGColorSpace(name:CGColorSpace.sRGB)!
+  // Match AVFoundation's destination surface so compositing widgets does not
+  // require a fresh RGBA/BGRA conversion for every intermediate bitmap.
+  static let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
   public static func rect(_ o: DisplayObject, size: CGSize) -> CGRect {
     CGRect(
       x: o.x * size.width / 100, y: o.y * size.height / 100, width: o.width * size.width / 100,
@@ -39,6 +42,10 @@ public enum OverlayRenderer {
       c.clip(to: r)
       let data = scene.telemetry[o.inputIndex]
       let placement = scene.project.media(for:o.inputIndex,at:time)
+      if o.legacyType != nil,placement == nil,
+        scene.project.inputs.contains(where:{ $0.legacyIndex == o.inputIndex && $0.kind == "data" }) {
+        c.restoreGState();continue
+      }
       if o.legacyType == 50,o.legacyActivation == 0,placement == nil {
         c.restoreGState();continue
       }

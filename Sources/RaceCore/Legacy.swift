@@ -40,7 +40,7 @@ public enum LegacyReader {
     else { throw RaceError.invalid("Unsupported RRP3 record sizes or counts.") }
     var cursor = Int(b.u32(12))
     for i in 0..<sourceCount {
-      guard cursor >= 56, cursor + sourceSize <= b.count else {
+      guard cursor >= 56, cursor + sourceSize + segmentSize <= b.count else {
         throw RaceError.invalid("Truncated RRP3 input record.")
       }
       let name = b.utf16(cursor, 128)
@@ -52,6 +52,17 @@ public enum LegacyReader {
       input.duration = b.f32(cursor + 2184)
       input.offset = b.f32(cursor + 2192)
       input.legacyOffset = cursor
+      // RRP3 stores input picture controls in the following settings record.
+      // Percentages are bytes; leave unknown fields and non-video settings opaque.
+      if kind == "video", segmentSize >= 28 {
+        let settings = cursor + sourceSize
+        var picture = PictureSettings()
+        picture.legacyColorInterpretation = true
+        picture.brightness = Double(b[settings + 25]) / 100
+        picture.contrast = Double(b[settings + 26]) / 100
+        picture.saturation = Double(b[settings + 27]) / 100
+        input.picture = picture
+      }
       if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
       if !input.offset.isFinite { input.offset = 0 }
       p.inputs.append(input)
@@ -121,6 +132,9 @@ public enum LegacyReader {
     o.legacyType = type
     o.legacyIndex = legacyIndex
     o.legacyCommon = Data(b[p..<min(p + 344, b.count)])
+    if [.video,.image].contains(o.kind) {
+      var picture = PictureSettings();picture.maintainAspect = b[p + 285] != 0;o.picture = picture
+    }
     o.maximum = o.kind == .rpm || o.kind == .lights ? 8000 : (o.kind == .speed ? 160 : 100)
     return o
   }
@@ -204,7 +218,7 @@ public enum LegacyReader {
       )
     }
     p.warnings.append(
-      "Imported layouts use saved style settings, drawing scripts and decoded artwork where supported. Font metrics and unsupported effects may differ. Legacy timeline variants, joins, picture/audio adjustments and export profiles are not decoded."
+      "Imported layouts use saved style settings, drawing scripts, video brightness/contrast/saturation and decoded artwork where supported. Font metrics and unsupported effects may differ. Legacy timeline variants, joins, other picture/audio adjustments and export profiles are not decoded."
     )
     if p.inputs.contains(where: { !$0.path.isEmpty && !$0.exists }) {
       p.warnings.append("Some input files are missing. Use Relink in the input inspector.")

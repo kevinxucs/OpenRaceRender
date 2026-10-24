@@ -142,6 +142,56 @@ final class RaceCoreTests: XCTestCase {
     b.putU32(UInt32.max, 16)
     XCTAssertThrowsError(try LegacyReader.project(b, base: URL(fileURLWithPath: "/tmp")))
   }
+  func testLegacyVideoAspectFlagAndCopyPreservation() throws {
+    var b = syntheticRRP();b.putUTF16("Camera",2200,128);b[2200+280] = 10;b[2200+285] = 0
+    var p = try LegacyReader.project(b,base:URL(fileURLWithPath:"/tmp"))
+    XCTAssertEqual(p.objects[0].picture?.maintainAspect,false)
+    XCTAssertEqual(try p.patchLegacy(),b)
+    p.objects[0].picture?.maintainAspect = true
+    XCTAssertThrowsError(try p.patchLegacy())
+  }
+  func testImportedHUDDisappearsAfterDataEnds() throws {
+    let data = try csv("Time,Speed\n0,10\n1,20\n")
+    var p = RaceProject();var input = MediaInput(name:"Data",path:"",kind:"data",legacyIndex:1);input.duration = 1;p.inputs = [input]
+    var display = DisplayObject(name:"Speed",kind:.speed);display.legacyType = 30;display.inputIndex = 1
+    display.x = 0;display.y = 0;display.width = 100;display.height = 100
+    var gauge = GaugeSettings();gauge.showLabels = false;gauge.showNumber = false;display.gauge = gauge;p.objects = [display]
+    func alpha(_ time: Double) throws -> UInt8 {
+      let c = try XCTUnwrap(CGContext(data:nil,width:64,height:64,bitsPerComponent:8,bytesPerRow:256,
+        space:OverlayRenderer.colorSpace,bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue))
+      OverlayRenderer.draw(c,scene:RenderScene(project:p,telemetry:[1:data]),time:time,size:CGSize(width:64,height:64))
+      return try XCTUnwrap(c.data?.assumingMemoryBound(to:UInt8.self))[((32*64+32)*4)+3]
+    }
+    XCTAssertGreaterThan(try alpha(0.5),0)
+    XCTAssertEqual(try alpha(1.5),0)
+    p.objects[0].legacyType = nil
+    XCTAssertGreaterThan(try alpha(1.5),0)
+  }
+  func testRRPInputPictureSettingsAndCompatibleCopy() throws {
+    var b = Data(repeating: 0, count: 56 + 2216 + 56)
+    b.replaceSubrange(0..<4, with: Data("RRP3".utf8))
+    b.putU32(56, 12); b.putU32(1, 16); b.putU32(2216, 20); b.putU32(56, 28)
+    b.putUTF16("Camera", 56, 128)
+    let settings = 56 + 2216
+    b[settings + 25] = 90; b[settings + 26] = 110; b[settings + 27] = 125
+    var p = try LegacyReader.project(b, base: URL(fileURLWithPath: "/tmp"))
+    XCTAssertEqual(p.inputs[0].picture?.brightness, 0.9)
+    XCTAssertEqual(p.inputs[0].picture?.contrast, 1.1)
+    XCTAssertEqual(p.inputs[0].picture?.saturation, 1.25)
+    XCTAssertEqual(try p.patchLegacy(), b)
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".orrp")
+    defer { try? FileManager.default.removeItem(at:url) }
+    var earlier = p
+    earlier.inputs[0].picture = nil
+    earlier.inputs.append(MediaInput(name:"New camera",path:"",kind:"video",legacyIndex:0))
+    try earlier.save(url)
+    let recovered = try RaceProject.read(url)
+    XCTAssertEqual(recovered.inputs[0].picture,p.inputs[0].picture)
+    XCTAssertNil(recovered.inputs[1].picture)
+    p.inputs[0].picture?.brightness = 1
+    XCTAssertThrowsError(try p.patchLegacy())
+    XCTAssertThrowsError(try LegacyReader.project(Data(b.dropLast()), base: URL(fileURLWithPath: "/tmp")))
+  }
   func testTruncatedTemplateRejected() {
     XCTAssertThrowsError(try LegacyReader.template(Data(repeating: 0, count: 56)))
   }
