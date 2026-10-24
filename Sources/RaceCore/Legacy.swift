@@ -115,7 +115,8 @@ public enum LegacyReader {
     o.height = b.f32(p + 272)
     o.parentIndex = Int(Int32(bitPattern: b.u32(p + 256)))
     o.inputIndex = Int(b[p + 282])
-    o.visible = b[p + 284] != 0
+    o.legacyActivation = Int(b[p + 284])
+    o.visible = b[p + 284] <= 1
     o.opacity = min(1, Double(b[p + 293]) / 100)
     o.legacyType = type
     o.legacyIndex = legacyIndex
@@ -185,7 +186,7 @@ public enum LegacyReader {
       o.color = String(format: "#%06X", d.u32(308) & 0x00ff_ffff)
       o.gauge = g
     }
-    if [.enhanced, .gear, .lights, .temperature, .throttle, .brake, .bar, .graph].contains(o.kind),
+    if o.legacyType == 50 || [.enhanced, .gear, .lights, .temperature, .throttle, .brake, .bar, .graph].contains(o.kind),
       d.count >= 128
     {
       let channel = d.utf16(0,128)
@@ -199,7 +200,7 @@ public enum LegacyReader {
   static func addWarnings(_ p: inout RaceProject) {
     if p.objects.contains(where: { $0.legacyType == 50 }) {
       p.warnings.append(
-        "Enhanced styles use a bounded drawing interpreter. Unsupported language features fall back to a native display; persistent script state is not yet reproduced."
+        "Enhanced styles use a bounded drawing interpreter with deterministic persistent-state replay. Unsupported language features fall back to a native display."
       )
     }
     p.warnings.append(

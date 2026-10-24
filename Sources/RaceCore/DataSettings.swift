@@ -28,6 +28,7 @@ public struct DataSettings: Codable, Equatable, Sendable {
 extension Telemetry {
   /// Call before publishing the telemetry instance to the renderer.
   public func configure(_ settings: DataSettings) {
+    renderRevision += 1
     for (alias, header) in settings.assignments where !header.isEmpty {
       if let i = headers.firstIndex(of: header) { aliases[alias] = i }
     }

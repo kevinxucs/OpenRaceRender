@@ -112,6 +112,17 @@ final class RaceCoreTests: XCTestCase {
     p.objects.append(DisplayObject(name: "New", kind: .text))
     XCTAssertThrowsError(try p.patchLegacy())
   }
+  func testLegacyAutoActivationIsVisibleAndPreservedByCopyExport() throws {
+    var original = syntheticRRP();original[2200+284] = 0
+    var p = try LegacyReader.project(original,base:URL(fileURLWithPath:"/tmp"))
+    XCTAssertTrue(p.objects[0].visible)
+    XCTAssertEqual(p.objects[0].legacyActivation,0)
+    XCTAssertEqual(try p.patchLegacy(),original)
+    p.objects[0].x = 12
+    XCTAssertEqual(try p.patchLegacy()[2200+284],0)
+    p.objects[0].visible = false
+    XCTAssertThrowsError(try p.patchLegacy())
+  }
   func testDecodedGaugeSettingsPreserveUnchangedRRPCopy() throws {
     var original = syntheticRRP()
     original.append(Data(repeating: 0, count: 800))

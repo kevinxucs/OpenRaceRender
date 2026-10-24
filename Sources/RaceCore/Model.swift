@@ -87,6 +87,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var legacyIndex: Int?
   public var legacyOffset: Int?
   public var legacyType: Int?
+  public var legacyActivation: Int?
   public var legacyCommon: Data?
   public var legacyPayload: Data?
   public var embeddedImage: Data?
@@ -129,6 +130,17 @@ public struct RaceProject: Codable, Sendable {
     else { throw RaceError.invalid("Unsupported or invalid OpenRaceRender project.") }
     let base = url.deletingLastPathComponent()
     for i in p.inputs.indices { p.inputs[i].path = resolvePath(p.inputs[i].path, base: base) }
+    // Older imports mistook legacy Auto (0) for hidden. The marker preserves later native hides.
+    for i in p.objects.indices where p.objects[i].legacyActivation == nil {
+      guard let common = p.objects[i].legacyCommon,common.count > 284 else { continue }
+      p.objects[i].legacyActivation = Int(common[284])
+      if common[284] == 0 { p.objects[i].visible = true }
+      if p.objects[i].legacyType == 50,p.objects[i].channel.isEmpty,let payload = p.objects[i].legacyPayload {
+        let channel = payload.utf16(0,128)
+        p.objects[i].channel = channel.hasPrefix("(") && channel.hasSuffix(")") ? String(channel.dropFirst().dropLast()) : channel
+      }
+    }
+    p.warnings = p.warnings.map { $0.replacingOccurrences(of:"persistent script state is not yet reproduced.",with:"persistent state is replayed from the display start.") }
     return p
   }
   public func save(_ url: URL) throws {
@@ -176,6 +188,9 @@ public struct RaceProject: Codable, Sendable {
       throw RaceError.invalid("Changing layer order requires .orrp format.")
     }
     for (o, old) in zip(objects, original.objects) {
+      if !o.visible && old.visible {
+        throw RaceError.invalid("Hiding a legacy display requires native .orrp format; the original activation bytes are preserved by compatible RRP export.")
+      }
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
         o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork
@@ -190,14 +205,16 @@ public struct RaceProject: Codable, Sendable {
       throw RaceError.invalid("Audio or input-type changes require .orrp format.")
     }
     // Preserve opaque data, scripts and original ordering byte for byte.
-    for o in objects {
+    for (o,old) in zip(objects,original.objects) {
       let p = o.legacyOffset!
       b.putUTF16(o.name, p, 128)
       b.putFloat(o.x, p + 260)
       b.putFloat(o.y, p + 264)
       b.putFloat(o.width, p + 268)
       b.putFloat(o.height, p + 272)
-      b[p + 284] = o.visible ? 1 : 0
+      if o.visible != old.visible {
+        b[p + 284] = 1
+      }
       b[p + 293] = UInt8(max(0, min(100, o.opacity * 100)))
       b[p + 282] = o.inputIndex < 0 ? 255 : UInt8(clamping: o.inputIndex)
     }

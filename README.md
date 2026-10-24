@@ -39,7 +39,7 @@ python3 scripts/validate-media.py
 5. For telemetry, use **Synchronize to a data event** to align a movement, lap, or gear event with the video playhead. Under **Data channels & lap timing**, assign channels, create `source × multiplier + offset` fields, or set a GPS finish line at a moving sample. GPS-derived lap times are estimates.
 6. The **Objects** timeline shows segment markers. The **Laps** tab seeks to lap starts. Export the entire project, an explicit range, marked start/end times, or selected laps as H.264 MP4 with audio. Save PNG snapshots with the camera button.
 
-Save edits as `.orrp`. Save a reusable layout or a single selected display as `.orrt`. Image displays are embedded when saving reusable layouts. Compatible `.rrp` copy export is deliberately limited to supported edits and preserves the original opaque data.
+Save edits as `.orrp`. Save a reusable layout or a single selected display as `.orrt`. Image displays are embedded when saving reusable layouts. Compatible `.rrp` copy export is deliberately limited to supported edits and preserves the original opaque data and unchanged activation modes; new hide edits require native `.orrp` format.
 
 ## Formats
 
@@ -73,7 +73,7 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 
 ## Compatibility limits
 
-Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets use saved bitmap aspect ratios, colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. Live RaceRender snapshots have been used to correct gauge direction and needles, bars, thermometer labels, RGB blending, maps and lap displays. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, persistent script state, gradients and other unsupported effects can still differ.
+Legacy timeline segments, joins, export profiles, picture/audio adjustments, and every specialized object parameter are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets use saved bitmap aspect ratios, colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. Live RaceRender snapshots have been used to correct gauge direction and needles, bars, thermometer labels, RGB blending, maps and lap displays. Persistent Enhanced styles replay their history when seeking or exporting, including recent peak/base speed and completed-turn G-force banners. Legacy Auto activation is enabled; older native imports are repaired once while subsequent native hide edits are retained. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, replay sampling, gradients and other unsupported effects can still differ.
 
 Vendor artwork and scripts are loaded from your local files and are not bundled or relicensed under MIT. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 

@@ -77,7 +77,7 @@ These observations informed behavior. They do not establish that every reference
 | `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
 | Reusable layout/single-display export | Implemented native format | `.orrt` with source placeholders; no legacy RRT/RRO writer |
-| Enhanced script execution/editor | Bounded interpreter; editor absent | All 56 installed Enhanced styles render in the local-library check; persistent script state and complete language parity remain incomplete |
+| Enhanced script execution/editor | Bounded interpreter; editor absent | All 56 installed Enhanced styles render in the local-library check; bounded persistent replay is supported; complete language parity remains incomplete |
 | H.264 MP4 export, audio, 4K and selected ranges | Implemented | Native export; resolution, FPS, project/time/lap ranges |
 | Manual bitrate, output profiles, audio format/scaling quality | Partial | Resolution presets; platform encoder chooses bitrate/audio configuration |
 | 360° workspace, fisheye flattening and spherical metadata | Not implemented | Projection and MP4 metadata work remains |
@@ -88,7 +88,7 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 49 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration and interpolated lap delta.
+All 57 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion and canvas-edge text.
 
 The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching and layers. Generated media and external samples live under ignored `build/validation`.
 
@@ -100,7 +100,7 @@ Additional format references: [TopoGrafix GPX schema](https://www.topografix.com
 
 The importer now decodes embedded full-resolution BGRA bitmap containers, including raw DEFLATE records, and retains the original bytes. The renderer reads traditional widget colors, fonts, ranges and geometry. A bounded interpreter runs the drawing assets stored in local Enhanced styles, covering assignments, conditionals, math, telemetry access and drawing primitives. It has no host evaluation, file or network interface, and limits source size, instructions, nesting and canvas allocation.
 
-Local checks render all 56 Enhanced styles in the installed library and compare representative gear/thermometer/gauge output against stored vendor previews. These are coverage and visual checks, not a claim of pixel-identical output across all styles or platforms. Font availability, persistent variables, exact gradients, specialized parameters and unsupported effects remain practical limits. No vendor artwork, scripts or template files are included in this repository. They are read from the user's installation or imported project. The [vendor license](https://racerender.com/RR3/License.txt) does not grant general standalone asset redistribution.
+Local checks render all 56 Enhanced styles in the installed library and compare representative gear/thermometer/gauge output against stored vendor previews. These are coverage and visual checks, not a claim of pixel-identical output across all styles or platforms. Font availability, frame-grid replay sampling, exact gradients, specialized parameters and unsupported effects remain practical limits. No vendor artwork, scripts or template files are included in this repository. They are read from the user's installation or imported project. The [vendor license](https://racerender.com/RR3/License.txt) does not grant general standalone asset redistribution.
 
 ### Live rendered-frame comparison, 2026-10-23
 
@@ -112,4 +112,12 @@ The map's selected best lap removes the pit-lane branch from its trace and uses 
 
 ## Next compatibility work
 
-Highest-value remaining work is decoding the legacy timeline and source-adjustment records, followed by persistent Enhanced state, remaining font/gradient differences and image-container variations. Then expand picture/audio controls, grouping, track/ghost tools, 360° handling and file transfer. Each should receive a real reference-app workflow check and an output-level acceptance test before its status is promoted to implemented.
+Highest-value remaining work is decoding the legacy timeline and source-adjustment records, followed by remaining font/gradient differences and image-container variations. Then expand picture/audio controls, grouping, track/ghost tools, 360° handling and file transfer. Each should receive a real reference-app workflow check and an output-level acceptance test before its status is promoted to implemented.
+
+## Peak speed and turn G-force banners
+
+The two supplied peak banners are Enhanced displays with Auto activation and the persistent-variables flag. Auto was incorrectly read as hidden, the speed/G-force display kinds bypassed channel decoding, and each foreground render restarted the script variables. Their text also used the canvas edge, which the old text anchor placed outside the bitmap.
+
+Auto now renders while its input is active. Older native imports are migrated once, with a marker that preserves subsequent native hide edits. Built-in Speed uses project units and Accel Y resolves to lateral G-force. The original local scripts retain their peak/base detection and turn-direction logic. Their background initializes once; foreground variables persist on the project frame grid. Bounded replay/checkpoints rebuild state for backward seeks, repeated frames, source offsets/rates, timeline segments and exports starting mid-session. Histories are isolated by object, script, telemetry revision, channel, units and timing. History replay is limited to one million frames, with bounded checkpoint storage; historical drawing calls are suppressed while variable updates run.
+
+Reference-app inspection confirmed Auto and Persistent Script Variables for these displays. With the supplied telemetry at ten minutes, OpenRaceRender now renders Base Speed: 70 MPH and Right Turn: 1.08 G. The speed style alternates between recent maximum and minimum events as its original script specifies. Synthetic regression tests cover event holding, seeking, rewind, repeat rendering, isolation, delayed input availability, speed units, text clipping and migration. Vendor scripts, session data and comparison renders remain local.

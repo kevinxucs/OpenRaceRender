@@ -12,6 +12,7 @@ public struct TelemetryLap: Identifiable, Sendable {
 public final class Telemetry: @unchecked Sendable {
   private let boundsLock = NSLock()
   private var cachedBounds: [Int:(Double,Double)] = [:]
+  var renderRevision = 0
   public internal(set) var headers: [String]
   public let times: [Double]
   public internal(set) var columns: [[Double]]

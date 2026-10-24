@@ -8,6 +8,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 - Local legacy artwork decoding and a bounded Enhanced drawing interpreter; traditional widgets honor saved fonts, colors, ranges and orientation.
 - Live-reference widget corrections: aspect-preserving bitmap placement, clockwise gauge sweeps, short needles, saved layer visibility, rounded automatic-range bars, text outlines/alignment, thermometer labels, additive RGB blends, best-lap map traces and chronological lap timing.
+- Peak/base speed and turn G-force banners: Auto activation repair, built-in channel/unit resolution, persistent script replay with bounded checkpoints, stable seeking and partial exports, and visible canvas-edge text.
 - Native SwiftUI editor and command-line tools for telemetry video projects.
 - Independent RRP3 project, rrt1/2 template, and rro1/2/3 style readers, including compact video-position presets.
 - Native JSON projects and reusable layouts/styles, with input remapping.

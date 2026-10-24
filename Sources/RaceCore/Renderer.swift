@@ -38,7 +38,16 @@ public enum OverlayRenderer {
       c.setAlpha(o.opacity)
       c.clip(to: r)
       let data = scene.telemetry[o.inputIndex]
-      let t = scene.project.sourceTime(for: o.inputIndex, at: time) ?? -1
+      let placement = scene.project.media(for:o.inputIndex,at:time)
+      if o.legacyType == 50,o.legacyActivation == 0,placement == nil {
+        c.restoreGState();continue
+      }
+      let t = placement?.sourceTime(at:time) ?? -1
+      let segmentStart = max(o.start,(o.segments ?? []).filter { $0.time <= time }.map(\.time).max() ?? o.start)
+      let historyStart = max(segmentStart,placement?.start ?? 0)
+      let interval = 1/max(1,scene.project.fps)
+      let timeline = EnhancedTimeline(sourceStart:placement?.sourceTime(at:historyStart) ?? 0,
+        sourceStep:interval*(placement?.rate ?? 1),displayStart:historyStart-segmentStart,frameInterval:interval)
       if let p = o.picture, o.kind != .image {
         c.translateBy(x: r.midX, y: r.midY)
         c.rotate(by: p.rotation * .pi / 180)
@@ -46,7 +55,7 @@ public enum OverlayRenderer {
         c.translateBy(x: -r.midX, y: -r.midY)
       }
       if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
-      if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit) {
+      if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,timeline:timeline) {
         c.restoreGState(); continue
       }
       if LegacyMapRenderer.draw(c,object:o,rect:r,data:data,time:t) {

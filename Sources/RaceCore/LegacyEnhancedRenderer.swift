@@ -16,7 +16,11 @@ final class EnhancedProgram: NSObject {
 
 enum LegacyEnhancedRenderer {
   static let programs = NSCache<NSData,EnhancedProgram>()
-  static func draw(_ c: CGContext, object o: DisplayObject, rect: CGRect, data: Telemetry?, time: Double, unit: String, failure: ((String) -> Void)? = nil) -> Bool {
+  static let histories: NSCache<NSString,EnhancedHistory> = {
+    let cache = NSCache<NSString,EnhancedHistory>();cache.countLimit = 16;return cache
+  }()
+  private static let historyLock = NSLock()
+  static func draw(_ c: CGContext, object o: DisplayObject, rect: CGRect, data: Telemetry?, time: Double, unit: String, timeline: EnhancedTimeline = EnhancedTimeline(), failure: ((String) -> Void)? = nil) -> Bool {
     guard o.legacyType == 50, let payload = o.legacyPayload, payload.count >= 67168 else { return false }
     let key = payload as NSData
     let program: EnhancedProgram
@@ -33,11 +37,12 @@ enum LegacyEnhancedRenderer {
     let rawMin = payload.f64(256),rawMax = payload.f64(264)
     let autoMin = !rawMin.isFinite || abs(rawMin) >= 9e7
     let autoMax = !rawMax.isFinite || abs(rawMax) >= 9e7
-    let measured = data?.bounds(o.channel.isEmpty ? defaultChannel(o) : o.channel)
+    let channel = resolveChannel(o.channel.isEmpty ? payload.utf16(0,128) : o.channel,fallback:defaultChannel(o))
+    let measured = channelBounds(channel,data:data,unit:unit)
     let minimum = autoMin ? measured?.0 ?? o.minimum : rawMin
     let maximum = autoMax ? max(minimum+1,measured?.1 ?? o.maximum) : rawMax
     let trigger = payload.f64(272)
-    let value = data?.value(o.channel.isEmpty ? defaultChannel(o) : o.channel,at:time,interpolate:o.kind != .gear) ?? 0
+    let value = channelValue(channel,data:data,time:time,unit:unit,interpolate:o.kind != .gear)
     let range = max(0.00001,maximum-minimum)
     var vars: [String:ScriptValue] = [:]
     func number(_ name: String,_ value: Double) { vars[name.lowercased()] = .number(value) }
@@ -45,7 +50,7 @@ enum LegacyEnhancedRenderer {
       "DataMin":minimum,"DataMax":maximum,"DataRange":range,"DataValue":value,"DataFactor":(value-minimum)/range,
       "DataTrigger":trigger,"DataTriggerFactor":(trigger-minimum)/range,"IsTriggered":value >= trigger ? 1.0 : 0,
       "DataMinAuto":autoMin ? 1.0 : 0,"DataMaxAuto":autoMax ? 1.0 : 0,
-      "SampleTime":time,"DisplayTime":time,"FrameInterval":1.0/30,"True":1.0,"False":0.0,"Filled":0.0,
+      "SampleTime":time,"DisplayTime":timeline.displayTime(at:time),"FrameInterval":timeline.frameInterval,"True":1.0,"False":0.0,"Filled":0.0,
       "AlignH_Left":0.0,"AlignH_Center":1.0,"AlignH_Right":2.0,"Transparent":-1.0,"Invisible":-1.0]
     for (name,value) in numbers { number(name,value) }
     for (name,value) in ["White":0xffffff,"Gray":0x808080,"Black":0,"Red":0xff0000,"Green":0x00ff00,"Blue":0x0000ff,
@@ -56,6 +61,12 @@ enum LegacyEnhancedRenderer {
     vars["speedunit"] = .string(unit == "mph" ? "MPH" : unit); vars["inputname"] = .string(data?.title ?? ""); vars["locname"] = .string("")
     let drawing = ScriptDrawing(context:canvas,font:payload.utf16(432,128),data:data,time:time,unit:unit)
     let machine = ScriptMachine(variables:vars) { name,args in try drawing.call(name,args) }
+    func frameValues(_ sample: Double) -> [String:ScriptValue] {
+      let sampleValue = channelValue(channel,data:data,time:sample,unit:unit,interpolate:o.kind != .gear)
+      return ["datavalue":.number(sampleValue),"datafactor":.number((sampleValue-minimum)/range),
+        "istriggered":.number(payload[284] & 1 != 0 && sampleValue >= trigger ? 1 : 0),
+        "sampletime":.number(sample),"displaytime":.number(timeline.displayTime(at:sample)),"frameinterval":.number(timeline.frameInterval)]
+    }
     func drawLabel() {
       guard payload[569] != 0 else { return }
       let label = payload.utf16(128,128)
@@ -65,6 +76,36 @@ enum LegacyEnhancedRenderer {
         bold:payload[568] & 1 != 0,italic:payload[568] & 2 != 0)
     }
     do {
+      machine.variables.merge(frameValues(time)) { _,new in new }
+      if payload[284] & 4 != 0 {
+        guard timeline.sourceStart.isFinite,timeline.sourceStep.isFinite,timeline.sourceStep > 0 else { throw RaceError.invalid("Invalid Enhanced history timing.") }
+        let position = max(0,(time-timeline.sourceStart)/timeline.sourceStep)
+        guard position.isFinite,position <= 1_000_000 else { throw RaceError.invalid("Enhanced history exceeds the replay limit.") }
+        let frame = Int(floor(position+0.000001))
+        let dataKey = data.map { String(describing:ObjectIdentifier($0))+":"+String($0.renderRevision) } ?? "none"
+        let timingKey = [timeline.sourceStart,timeline.sourceStep,timeline.displayStart,timeline.frameInterval,minimum,maximum].map { String($0.bitPattern) }.joined(separator:":")
+        let cacheKey = "\(o.id)|\(ObjectIdentifier(program))|\(dataKey)|\(channel)|\(unit)|\(timingKey)" as NSString
+        historyLock.lock()
+        let history: EnhancedHistory
+        if let cached = histories.object(forKey:cacheKey) { history = cached;historyLock.unlock() }
+        else {
+          do {
+            drawing.time = timeline.sourceStart
+            machine.variables.merge(frameValues(timeline.sourceStart)) { _,new in new }
+            try machine.run(program.background)
+            if payload[284] & 2 == 0 { drawLabel() }
+            guard let background = canvas.makeImage() else { throw RaceError.invalid("Cannot create Enhanced background.") }
+            history = EnhancedHistory(program:program,background:background,telemetry:data,initial:EnhancedState(variables:machine.variables,outline:drawing.outline))
+            histories.setObject(history,forKey:cacheKey);historyLock.unlock()
+          } catch { historyLock.unlock();throw error }
+        }
+        canvas.clear(CGRect(x:0,y:0,width:width,height:height))
+        canvas.draw(history.background,in:CGRect(x:0,y:0,width:width,height:height))
+        _ = try history.render(frame:frame,drawing:drawing) { index in frameValues(timeline.sourceStart+Double(index)*timeline.sourceStep) }
+        if payload[284] & 2 != 0 { drawLabel() }
+        guard let image = canvas.makeImage() else { return false }
+        c.draw(image,in:rect);return true
+      }
       try machine.run(program.background)
       if payload[284] & 2 == 0 { drawLabel() }
       machine.stopped = false; try machine.run(program.foreground)
@@ -74,17 +115,53 @@ enum LegacyEnhancedRenderer {
     } catch { failure?(error.localizedDescription);return false }
   }
   static func defaultChannel(_ o: DisplayObject) -> String {
-    switch o.kind { case .gear:return "gear"; case .lights,.rpm:return "rpm";case .speed:return "speed"; default:return o.channel }
+    switch o.kind { case .gear:return "gear"; case .lights,.rpm:return "rpm";case .speed:return "speed";case .gforce:return "gy"; default:return o.channel }
   }
+  static func resolveChannel(_ raw: String,fallback: String) -> String {
+    switch raw.lowercased().filter({ $0.isLetter || $0.isNumber }) {
+    case "speed":return "speed"
+    case "accelx","gforcex":return "gx"
+    case "accely","gforcey":return "gy"
+    case "rpm":return "rpm"
+    case "gear":return "gear"
+    case "throttle":return "throttle"
+    case "brake":return "brake"
+    case "heading":return "heading"
+    case "posx":return "lon"
+    case "posy":return "lat"
+    case "", "automatic":return fallback
+    default:return raw
+    }
+  }
+  static func channelValue(_ channel: String,data: Telemetry?,time: Double,unit: String,interpolate: Bool = true) -> Double {
+    channel == "speed" ? data?.speed(at:time,unit:unit) ?? 0 : data?.value(channel,at:time,interpolate:interpolate) ?? 0
+  }
+  static func channelBounds(_ channel: String,data: Telemetry?,unit: String) -> (Double,Double)? {
+    guard let data,let bounds = data.bounds(channel) else { return nil }
+    guard channel == "speed",let index = data.channelIndex(channel) else { return bounds }
+    let header = data.headers[index].lowercased()
+    let toMeters = header.contains("mph") ? 1/2.2369362921 : (header.contains("knot") ? 0.514444 : (header.contains("km") || header == "kph" ? 1/3.6 : 1))
+    let fromMeters = unit == "mph" ? 2.2369362921 : (unit == "km/h" ? 3.6 : (unit == "knots" ? 1.94384449 : 1))
+    return (bounds.0*toMeters*fromMeters,bounds.1*toMeters*fromMeters)
+  }
+}
+
+struct EnhancedTimeline {
+  var sourceStart: Double = 0
+  var sourceStep: Double = 1.0/30
+  var displayStart: Double = 0
+  var frameInterval: Double = 1.0/30
+  func displayTime(at sample: Double) -> Double { displayStart+(sample-sourceStart)*frameInterval/sourceStep }
 }
 
 final class ScriptDrawing {
   let c: CGContext
   let font: String
   let data: Telemetry?
-  let time: Double
+  var time: Double
   let unit: String
   var outline: Double = -1
+  var renders = true
   init(context: CGContext,font: String,data: Telemetry?,time: Double,unit: String) {
     c = context; self.font = font; self.data = data; self.time = time; self.unit = unit
   }
@@ -101,10 +178,11 @@ final class ScriptDrawing {
     let string = NSAttributedString(string:String(text.prefix(4096)),attributes:attributes)
     let align = alignment == 1 ? 0.5 : (alignment == 2 ? 1.0 : 0)
     NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = NSGraphicsContext(cgContext:c,flipped:false)
-    string.draw(at:CGPoint(x:x-string.size().width*align,y:y-string.size().height))
+    string.draw(at:CGPoint(x:x-string.size().width*align,y:y == 0 ? 0 : y-string.size().height))
     NSGraphicsContext.restoreGraphicsState()
   }
   func call(_ name: String,_ args: [ScriptValue]) throws -> ScriptValue {
+    if !renders && name.hasPrefix("draw") { return .number(0) }
     func n(_ i: Int,_ fallback: Double = 0) -> Double { args.indices.contains(i) ? args[i].number : fallback }
     func s(_ i: Int) -> String { args.indices.contains(i) ? args[i].string : "" }
     func result(_ value: Double) -> ScriptValue { .number(value) }
