@@ -11,4 +11,5 @@ let package = Package(
     .target(name: "RaceCore"),
     .executableTarget(name: "OpenRaceRender", dependencies: ["RaceCore"]),
     .testTarget(name: "RaceCoreTests", dependencies: ["RaceCore"]),
+    .testTarget(name: "EditorTests", dependencies: ["OpenRaceRender"]),
   ])

@@ -47,7 +47,9 @@ struct Preview: NSViewRepresentable {
 @MainActor final class PreviewView: NSView {
   weak var model: EditorModel?
   let overlay = OverlayView()
-  let compositionLayer = AVPlayerLayer()
+  // AppKit owns the sublayers of a layer-backed NSView. Use the player as the
+  // backing layer itself so view updates cannot cover or detach the video.
+  var compositionLayer: AVPlayerLayer { layer as! AVPlayerLayer }
   var interactive = true
   var dragCheckpoint = false
   var dragging: UUID?
@@ -62,11 +64,11 @@ struct Preview: NSViewRepresentable {
     setAccessibilityLabel("Composition preview · drop widgets here")
     layer?.backgroundColor = NSColor.black.cgColor
     compositionLayer.videoGravity = .resizeAspect
-    layer?.addSublayer(compositionLayer)
     overlay.wantsLayer = true
     addSubview(overlay)
   }
   required init?(coder: NSCoder) { fatalError() }
+  override func makeBackingLayer() -> CALayer { AVPlayerLayer() }
   override var acceptsFirstResponder: Bool { true }
   override func layout() {
     super.layout()
@@ -83,7 +85,6 @@ struct Preview: NSViewRepresentable {
       compositionLayer.player = m.previewPlayer
       m.syncPlayers(play: m.playing)
     }
-    compositionLayer.frame = bounds
     CATransaction.commit()
     overlay.needsDisplay = true
   }

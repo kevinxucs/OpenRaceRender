@@ -15,6 +15,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Composition playback turning black after AppKit redraws: the video player now owns the preview's backing surface, with regression coverage for resizing, reattachment and player replacement.
 - Repeated Documents permission triggers from automatic library discovery and template-save defaults. Default library access now stays in Application Support and bundled resources; old Documents libraries require a one-time explicit import.
 - Widget palette dragging across the AppKit video preview: native mouse tracking places widgets at release, provides a drop indicator and cancels outside the canvas. Completed live template-design/save/reuse validation.
 - Library discovery and thumbnail reads blocking the main thread; custom and bundled libraries now load asynchronously.
