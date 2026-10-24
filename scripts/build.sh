@@ -1,6 +1,7 @@
 #!/bin/zsh
 set -eu
 library_source=''
+signing_identity="${OPENRACERENDER_SIGN_IDENTITY:--}"
 while (( $# )); do
   case "$1" in
     --library)
@@ -11,9 +12,18 @@ while (( $# )); do
       library_source="${2:A}"
       shift 2
       ;;
+    --sign-identity)
+      if (( $# < 2 )) || [[ -z "$2" ]]; then
+        print -u2 'Specify --sign-identity with an existing signing identity name or SHA-1.'
+        exit 1
+      fi
+      signing_identity="$2"
+      shift 2
+      ;;
     --help|-h)
-      print 'Usage: ./scripts/build.sh [--library "/path/to/RaceRender 3"]'
+      print 'Usage: ./scripts/build.sh [--library "/path/to/library"] [--sign-identity "NAME or SHA-1"]'
       print 'The optional library is copied into this local app build. Default builds contain no vendor assets.'
+      print 'Signing defaults to ad hoc. OPENRACERENDER_SIGN_IDENTITY can select an existing certificate.'
       exit 0
       ;;
     *) print -u2 "Unknown build option: $1"; exit 1 ;;
@@ -35,7 +45,7 @@ cp build/AppIcon.icns "$app_bundle/Contents/Resources/AppIcon.icns"
 if [[ -n "$library_source" ]]; then
   python3 scripts/bundle-library.py "$library_source" "$app_bundle/Contents/Resources/RaceRender 3"
 fi
-codesign --force --sign - "$app_bundle"
+codesign --force --sign "$signing_identity" "$app_bundle"
 rm -rf build/OpenRaceRender.app
 mv "$app_bundle" build/OpenRaceRender.app
 print 'Built build/OpenRaceRender.app'

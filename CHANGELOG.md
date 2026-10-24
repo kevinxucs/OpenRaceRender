@@ -6,6 +6,8 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Managed library under Application Support, explicit non-overwriting library import in the UI and CLI, and a Finder shortcut for managing custom layouts.
+- Optional existing signing identity through `--sign-identity` or `OPENRACERENDER_SIGN_IDENTITY` for builds that need stable macOS permission identity.
 - Video-backed lap/event synchronization wizard, exact-time navigation, visible In/Out controls and timeline range marks.
 - Blank layout, draggable widget palette, named template/style saving, embedded gauge artwork and native template previews.
 - Remembered export ranges/settings/destinations, consistent toolbar/keyboard/CLI defaults, and safe numbered repeat filenames.
@@ -13,6 +15,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Repeated Documents permission triggers from automatic library discovery and template-save defaults. Default library access now stays in Application Support and bundled resources; old Documents libraries require a one-time explicit import.
 - Widget palette dragging across the AppKit video preview: native mouse tracking places widgets at release, provides a drop indicator and cancels outside the canvas. Completed live template-design/save/reuse validation.
 - Library discovery and thumbnail reads blocking the main thread; custom and bundled libraries now load asynchronously.
 - Missing session dirty/undo tracking, preview selections creating edits, and duplicated native save extensions.

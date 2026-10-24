@@ -411,8 +411,7 @@ import UniformTypeIdentifiers
       panel.nameFieldStringValue = layout.name
       panel.isExtensionHidden = false
       let category = templateSelectedOnly ? "Styles" : "Templates"
-      let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("OpenRaceRender/" + category)
+      let folder = LayoutLibrary.userRoot().appendingPathComponent(category)
       try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
       panel.directoryURL = folder
       guard panel.runModal() == .OK, let url = panel.url else { return }

@@ -13,6 +13,7 @@ enum CLI {
       OpenRaceRender inspect-data DATAFILE
       OpenRaceRender validate-library DIRECTORY
       OpenRaceRender list-library [DIRECTORY]
+      OpenRaceRender import-library DIRECTORY [--out LIBRARY_DIRECTORY]
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       OpenRaceRender convert PROJECT --out converted.orrp
@@ -57,11 +58,18 @@ enum CLI {
         }
         return u
       }
+      if a[1] == "import-library" {
+        let destination = option("--out").map { URL(fileURLWithPath: $0) } ?? LayoutLibrary.userRoot()
+        let result = try LayoutLibrary.importLibrary(from: url, to: destination)
+        let output: [String: Any] = ["destination": destination.path, "imported": result.imported, "keptExisting": result.keptExisting]
+        print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
+        return 0
+      }
       if a[1] == "validate-library" {
         let fm = FileManager.default
         let files =
           (fm.enumerator(at: url, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? [])
-          .filter { ["rrt", "rro", "rrp"].contains($0.pathExtension.lowercased()) }
+          .filter { ["rrt", "rro", "rrp", "orrt"].contains($0.pathExtension.lowercased()) }
         var failures = 0
         var total = 0
         for f in files.sorted(by: { $0.path < $1.path }) {
@@ -255,7 +263,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "list-library", "snapshot", "export", "convert", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "snapshot", "export", "convert", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

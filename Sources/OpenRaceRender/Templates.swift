@@ -16,6 +16,8 @@ struct TemplateBrowser: View {
   @State var mapping: [Int: Int] = [:]
   @State var thumbnails: [URL: NSImage] = [:]
   @State var scanning = false
+  @State var importing = false
+  @State var importMessage: String?
   @State var scanTask: Task<Void, Never>?
   var isStyle: Bool { category != .templates || selected?.pathExtension.lowercased() == "rro" }
   var filtered: [LayoutLibrary.Entry] {
@@ -33,6 +35,7 @@ struct TemplateBrowser: View {
           ).foregroundStyle(muted)
         }
         Spacer()
+        Button("Import library…", action: importLibrary).disabled(importing)
         Button("Choose folder…", action: chooseFolder)
         Button {
           dismiss()
@@ -107,7 +110,7 @@ struct TemplateBrowser: View {
               }
             }.padding(.vertical, 4)
           }
-          Text("\(filtered.count) library files" + (scanning ? " · scanning…" : "")).font(
+          Text(importMessage ?? "\(filtered.count) library files" + (importing ? " · importing…" : scanning ? " · scanning…" : "")).font(
             .system(size: 10)
           ).foregroundStyle(muted)
         }.padding(20).frame(width: 550)
@@ -164,14 +167,14 @@ struct TemplateBrowser: View {
           Spacer()
           Button("Import another file…") {
             let p = NSOpenPanel()
+            p.directoryURL = LayoutLibrary.userRoot()
             if p.runModal() == .OK, let url = p.url { load(url) }
           }
         }.padding(22).frame(width: 290)
       }
       Divider()
       HStack {
-        Text("Built-in layouts and your template library").font(.system(size: 10))
-          .foregroundStyle(muted)
+        Button("Open library folder", action: openLibraryFolder).font(.system(size: 10))
         Spacer()
         Button("Cancel") { dismiss() }
         Button(isStyle ? "Apply style" : "Apply layout") {
@@ -194,9 +197,33 @@ struct TemplateBrowser: View {
   }
   func chooseFolder() {
     let p = NSOpenPanel()
+    p.directoryURL = LayoutLibrary.userRoot()
     p.canChooseDirectories = true
     p.canChooseFiles = false
     if p.runModal() == .OK, let url = p.url { scan(url) }
+  }
+  func importLibrary() {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true; panel.canChooseFiles = false
+    panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+    panel.message = "Copy templates, styles and artwork into your OpenRaceRender library. Existing customizations and source files are preserved."
+    guard panel.runModal() == .OK, let source = panel.url else { return }
+    importing = true; importMessage = nil; failure = nil
+    Task {
+      do {
+        let result = try await Task.detached(priority: .utility) { try LayoutLibrary.importLibrary(from: source) }.value
+        importMessage = "Imported \(result.imported) files · kept \(result.keptExisting) existing files"
+        scan(LayoutLibrary.defaultRoots())
+      } catch { failure = error.localizedDescription }
+      importing = false
+    }
+  }
+  func openLibraryFolder() {
+    let folder = LayoutLibrary.userRoot()
+    do {
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      NSWorkspace.shared.open(folder)
+    } catch { failure = error.localizedDescription }
   }
   func scan(_ root: URL) {
     scan([root])

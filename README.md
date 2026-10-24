@@ -22,15 +22,24 @@ cd OpenRaceRender
 
 The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no third-party package dependencies and does not require a RaceRender installation to run.
 
-To make a self-contained local app with your RaceRender library:
+After importing a library, make a self-contained local app with that library:
 
 ```sh
-./scripts/build.sh --library "$HOME/Documents/RaceRender 3"
+./scripts/build.sh --library "$HOME/Library/Application Support/OpenRaceRender/Library"
 ```
 
 This copies **Templates**, **Styles**, **Images**, and **Video Positions** into `OpenRaceRender.app/Contents/Resources/RaceRender 3`, preserving subfolders and file contents. The browser loads them automatically, including when the app is moved to another directory or the original library is unavailable. A manifest records relative paths and SHA-256 checksums. Your originals are unchanged. These local build resources stay in the ignored `build` directory; a build without `--library` produces a fresh app without them.
 
-The library browser also reads `~/Documents/OpenRaceRender` for custom layouts and falls back to `~/Documents/RaceRender 3` for files absent from the bundle. Files with matching category and relative path appear once, with OpenRaceRender user customizations taking priority over bundled defaults. **Choose folder…** browses another library.
+The library browser reads `~/Library/Application Support/OpenRaceRender/Library` and packaged resources. Files with matching category and relative path appear once, with user customizations taking priority. **Import library…** copies a selected RaceRender or older OpenRaceRender library into this location without overwriting existing files. **Choose folder…** browses a folder for the current session; **Open library folder** reveals the managed library in Finder.
+
+Documents is never searched automatically, including for migration. On upgrade, import each old library once through the browser, or run:
+
+```sh
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender import-library "$HOME/Documents/RaceRender 3"
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender import-library "$HOME/Documents/OpenRaceRender"
+```
+
+Import the folders you actually have. Originals remain intact for RaceRender. See [library storage and macOS permissions](docs/library-permissions.md) for the location change and code-signing details.
 
 ```sh
 ./scripts/test.sh
@@ -51,7 +60,7 @@ python3 scripts/validate-media.py
 5. Use **Sync** to open the data synchronization wizard. Choose a lap start or another event, find the matching frame in its live video preview, and align. Use exact seconds, frame steps, or playback to refine the match. Under **Data channels & lap timing**, assign channels, create `source × multiplier + offset` fields, or set a GPS finish line at a moving sample. GPS-derived lap times are estimates.
 6. The **Objects** timeline shows segment markers. The **Laps** tab seeks to lap starts. Click the current time to jump precisely, and use **In** / **Out** (I/O) to mark the render span. The timeline shades that range. Export the entire project, an explicit range, marked start/end times, or selected laps as H.264 High Profile MP4 with stereo AAC audio. Set video/audio bitrates in the export sheet; video bitrate 0 selects an automatic high-quality rate. Export settings, range and destination are remembered in saved projects. Repeat renders suggest a numbered filename. Save PNG snapshots with the camera button.
 
-Save edits as `.orrp`. For a custom template, choose **Blank** in the library or **Display → Start blank layout**, drag widgets from the palette onto the preview, and edit their settings in the inspector. Choose **Save layout as template…** to name it and optionally include video/audio display positions. Templates default to `~/Documents/OpenRaceRender/Templates`; single-display styles default to `Styles`. Reusable `.orrt` files embed images and gauge backgrounds and remove session media paths, synchronization, data configuration and export state. See the [workflow audit](docs/workflow-audit.md) for the tested stories and gap fixes. Compatible `.rrp` copy export is deliberately limited to supported edits and preserves the original opaque data and unchanged activation modes; new hide edits require native `.orrp` format.
+Save edits as `.orrp`. For a custom template, choose **Blank** in the library or **Display → Start blank layout**, drag widgets from the palette onto the preview, and edit their settings in the inspector. Choose **Save layout as template…** to name it and optionally include video/audio display positions. Templates default to `~/Library/Application Support/OpenRaceRender/Library/Templates`; single-display styles default to `Styles`. Reusable `.orrt` files embed images and gauge backgrounds and remove session media paths, synchronization, data configuration and export state. See the [workflow audit](docs/workflow-audit.md) for the tested stories and gap fixes. Compatible `.rrp` copy export is deliberately limited to supported edits and preserves the original opaque data and unchanged activation modes; new hide edits require native `.orrp` format.
 
 ## Formats
 
@@ -76,7 +85,7 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 ```sh
 ./scripts/run.sh inspect session.rrp
 ./scripts/run.sh inspect-data telemetry.fit
-./scripts/run.sh validate-library "$HOME/Documents/RaceRender 3/Templates"
+./scripts/run.sh validate-library "$HOME/Library/Application Support/OpenRaceRender/Library/Templates"
 ./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender list-library
 ./scripts/run.sh convert session.rrp --out session.orrp
 ./scripts/run.sh snapshot session.orrp --time 600 --out frame.png --width 1280
