@@ -12,6 +12,7 @@ enum CLI {
       OpenRaceRender inspect PROJECT
       OpenRaceRender inspect-data DATAFILE
       OpenRaceRender validate-library DIRECTORY
+      OpenRaceRender list-library [DIRECTORY]
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       OpenRaceRender convert PROJECT --out converted.orrp
@@ -27,6 +28,19 @@ enum CLI {
       }
       if ["--help", "-h", "help"].contains(a[1]) {
         print(help)
+        return 0
+      }
+      if a[1] == "list-library" {
+        let roots = a.count > 2 ? [URL(fileURLWithPath: a[2])] : LayoutLibrary.defaultRoots()
+        let entries = LayoutLibrary.entries(in: roots)
+        let output: [String: Any] = [
+          "count": entries.count,
+          "categories": Dictionary(uniqueKeysWithValues: LayoutLibrary.Category.allCases.map {
+            category in (category.rawValue, entries.filter { $0.category == category }.count)
+          }),
+          "files": entries.map { ["path": $0.url.path, "category": $0.category.rawValue] },
+        ]
+        print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
         return 0
       }
       guard a.count > 2 else { throw RaceError.invalid("Missing input path.\n" + help) }
@@ -230,7 +244,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "snapshot", "export", "convert", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "snapshot", "export", "convert", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

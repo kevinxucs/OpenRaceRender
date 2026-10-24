@@ -3,7 +3,7 @@
 [![CI](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An MIT-licensed, native macOS telemetry video editor, with independent readers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. No vendor executable, SDK, artwork, or template library is bundled.
+An MIT-licensed, native macOS telemetry video editor, with independent readers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. Public builds contain no vendor executable, SDK, artwork, or template library. Local builds can package your installed template library.
 
 This is an evolving implementation. It does **not** have full RaceRender feature or rendering parity. The [feature audit](docs/racerender-feature-audit.md) distinguishes working features from remaining gaps, including limitations of legacy imports.
 
@@ -20,6 +20,16 @@ cd OpenRaceRender
 
 The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no third-party package dependencies and does not require a RaceRender installation to run.
 
+To make a self-contained local app with your RaceRender library:
+
+```sh
+./scripts/build.sh --library "$HOME/Documents/RaceRender 3"
+```
+
+This copies **Templates**, **Styles**, **Images**, and **Video Positions** into `OpenRaceRender.app/Contents/Resources/RaceRender 3`, preserving subfolders and file contents. The browser loads them automatically, including when the app is moved to another directory or the original library is unavailable. A manifest records relative paths and SHA-256 checksums. Your originals are unchanged. These local build resources stay in the ignored `build` directory; a build without `--library` produces a fresh app without them.
+
+The library browser also reads `~/Documents/OpenRaceRender` for custom layouts and falls back to `~/Documents/RaceRender 3` for files absent from the bundle. Files with matching category and relative path appear once, with OpenRaceRender user customizations taking priority over bundled defaults. **Choose folder…** browses another library.
+
 ```sh
 ./scripts/test.sh
 ```
@@ -33,7 +43,7 @@ python3 scripts/validate-media.py
 ## Editing a session
 
 1. Open an `.rrp` or `.orrp`, or add video and telemetry files. Additional cameras start as picture-in-picture displays.
-2. Browse templates and styles. An installed `~/Documents/RaceRender 3` library can be imported; native `.orrt` layouts also work. Map template inputs to your sources before applying.
+2. Browse templates, styles, images and video-position presets from the bundled or installed library; native `.orrt` layouts also work. Map template inputs to your sources before applying.
 3. Select an input to relink it, set its synchronization offset, trim it, change playback rate, delay its start, or join it after the previous media input. Set picture crop fractions, rotation, mirroring, brightness, contrast, and color here.
 4. Select a display to position and resize it, choose its channel and range, or customize a gauge. Use **Base settings** for project-wide defaults. Seek to a time and choose **Add at playhead** to create a segment; its field changes are inherited by later segments until overridden. This supports camera switches and timed titles.
 5. For telemetry, use **Synchronize to a data event** to align a movement, lap, or gear event with the video playhead. Under **Data channels & lap timing**, assign channels, create `source × multiplier + offset` fields, or set a GPS finish line at a moving sample. GPS-derived lap times are estimates.
@@ -65,6 +75,7 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 ./scripts/run.sh inspect session.rrp
 ./scripts/run.sh inspect-data telemetry.fit
 ./scripts/run.sh validate-library "$HOME/Documents/RaceRender 3/Templates"
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender list-library
 ./scripts/run.sh convert session.rrp --out session.orrp
 ./scripts/run.sh snapshot session.orrp --time 600 --out frame.png --width 1280
 ./scripts/run.sh export session.orrp --start 600 --duration 5 --out clip.mp4 --width 1920 --fps 30
@@ -79,7 +90,7 @@ See [render validation](docs/render-validation.md) for the measured quality/perf
 
 Legacy video brightness, contrast and saturation are imported, including the original decoder color interpretation. Older native imports recover those settings when absent. Legacy timeline segments, joins, export profiles, other picture/audio adjustments, and some specialized object parameters are not yet decoded. Check the import report and configure those settings explicitly. Imported widgets use saved bitmap aspect ratios, colors, fonts, geometry, original drawing scripts, and full-resolution embedded artwork where supported. Live RaceRender snapshots have been used to correct gauge direction and needles, bars, thermometer labels, RGB blending, maps and lap displays. Persistent Enhanced styles replay their history when seeking or exporting, including recent peak/base speed and completed-turn G-force banners. Legacy Auto activation is enabled; older native imports are repaired once while subsequent native hide edits are retained. All 56 Enhanced styles in the locally tested library render through the bounded interpreter. This establishes coverage, not universal pixel parity: font availability/metrics, replay sampling, gradients and other unsupported effects can still differ.
 
-Vendor artwork and scripts are loaded from your local files and are not bundled or relicensed under MIT. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
+Vendor artwork and scripts are loaded from your local files or an explicitly packaged local library and are not relicensed under MIT. They are excluded from the public repository and default builds. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 
 360° projection/metadata, stereoscopic compositing, TrackAddict network transfer, camera GPS extraction, grouping, full script editing, and several advanced audio/picture controls remain unimplemented. See the audit for details. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
 

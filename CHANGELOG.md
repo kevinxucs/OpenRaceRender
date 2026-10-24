@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Optional self-contained app packaging for local RaceRender libraries, with automatic discovery, checksummed manifests, user overrides and separate template/style/image/video-position categories.
 - Matched 4K chunk comparisons: imported camera picture controls, HSV saturation and multiplicative brightness, legacy Rec.709 decoder compatibility, recorded longitudinal G, map stroke/zoom and native text corrections.
 - Hardware-assisted H.264 High Profile export with explicit video/AAC bitrates, Rec.709 tags, direct GPU camera rendering and cached map traces.
 - Full-session validation fixes: integer widget raster sizes, imported video aspect flags, telemetry-end HUD visibility, exact rational export timebases, and matching widget/destination bitmap formats.

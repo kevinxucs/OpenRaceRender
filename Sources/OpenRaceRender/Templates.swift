@@ -5,18 +5,19 @@ import SwiftUI
 struct TemplateBrowser: View {
   @ObservedObject var model: EditorModel
   @Environment(\.dismiss) var dismiss
-  @State var files: [URL] = []
+  @State var files: [LayoutLibrary.Entry] = []
   @State var search = ""
-  @State var category = "Templates"
+  @State var category = LayoutLibrary.Category.templates
   @State var selected: URL?
   @State var layout: RaceProject?
   @State var loading = false
   @State var failure: String?
   @State var replace = true
   @State var mapping: [Int: Int] = [:]
-  var filtered: [URL] {
-    files.filter { ($0.pathExtension.lowercased() == "rro") == (category == "Styles") }.filter {
-      search.isEmpty || $0.lastPathComponent.localizedCaseInsensitiveContains(search)
+  var isStyle: Bool { category != .templates }
+  var filtered: [LayoutLibrary.Entry] {
+    files.filter { $0.category == category }.filter {
+      search.isEmpty || $0.url.lastPathComponent.localizedCaseInsensitiveContains(search)
     }
   }
   var body: some View {
@@ -40,13 +41,15 @@ struct TemplateBrowser: View {
       HStack(spacing: 0) {
         VStack(alignment: .leading, spacing: 12) {
           Picker("Library", selection: $category) {
-            Text("Templates").tag("Templates")
-            Text("Styles").tag("Styles")
+            ForEach(LayoutLibrary.Category.allCases, id: \.self) { category in
+              Text(category.rawValue).tag(category)
+            }
           }.pickerStyle(.segmented)
+            .onChange(of: category) { _, _ in selected = nil; layout = nil; failure = nil }
           TextField("Search library", text: $search)
           ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 14) {
-              if category == "Templates" {
+              if category == .templates {
                 ForEach(["Circuit", "Minimal", "Broadcast"], id: \.self) { name in
                   Button {
                     selected = nil
@@ -70,7 +73,8 @@ struct TemplateBrowser: View {
                   }.buttonStyle(.plain)
                 }
               }
-              ForEach(filtered, id: \.path) { url in
+              ForEach(filtered) { entry in
+                let url = entry.url
                 Button {
                   load(url)
                 } label: {
@@ -95,7 +99,7 @@ struct TemplateBrowser: View {
               }
             }.padding(.vertical, 4)
           }
-          Text("\(filtered.count) installed files · read directly from your library").font(
+          Text("\(filtered.count) library files").font(
             .system(size: 10)
           ).foregroundStyle(muted)
         }.padding(20).frame(width: 550)
@@ -121,7 +125,7 @@ struct TemplateBrowser: View {
                 ForEach(model.project.inputs) { Text($0.name).tag($0.legacyIndex) }
               }
             }
-            if category == "Styles" {
+            if isStyle {
               Text(model.selected == nil ? "Adds a display to this project." : "Applies this style to the selected display. Existing timeline segments are retained.").font(.system(size: 11)).foregroundStyle(muted)
             } else {
               Toggle("Replace current layout", isOn: $replace).font(.system(size: 12))
@@ -158,13 +162,13 @@ struct TemplateBrowser: View {
       }
       Divider()
       HStack {
-        Text("No vendor assets are bundled with OpenRaceRender.").font(.system(size: 10))
+        Text("Built-in layouts and your template library").font(.system(size: 10))
           .foregroundStyle(muted)
         Spacer()
         Button("Cancel") { dismiss() }
-        Button(category == "Styles" ? "Apply style" : "Apply layout") {
+        Button(isStyle ? "Apply style" : "Apply layout") {
           if let p = layout {
-            if category == "Styles" { model.applyStyle(p) }
+            if isStyle { model.applyStyle(p) }
             else { model.apply(p, replace: replace, mapping: mapping) }
             dismiss()
           }
@@ -172,9 +176,7 @@ struct TemplateBrowser: View {
       }.padding(20)
     }.frame(width: 840, height: 630).background(bg).preferredColorScheme(.dark).tint(mint)
       .onAppear {
-        scan(
-          FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-            "Documents/RaceRender 3"))
+        files = LayoutLibrary.entries(in: LayoutLibrary.defaultRoots())
       }
   }
   func displayName(_ u: URL) -> String {
@@ -188,11 +190,7 @@ struct TemplateBrowser: View {
     if p.runModal() == .OK, let url = p.url { scan(url) }
   }
   func scan(_ root: URL) {
-    let fm = FileManager.default
-    files = (fm.enumerator(at: root, includingPropertiesForKeys: nil)?.allObjects as? [URL] ?? [])
-      .filter { ["rrt", "rro", "orrt"].contains($0.pathExtension.lowercased()) }.sorted {
-        $0.lastPathComponent < $1.lastPathComponent
-      }
+    files = LayoutLibrary.entries(in: [root])
   }
   func load(_ url: URL) {
     selected = url
