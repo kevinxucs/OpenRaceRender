@@ -40,7 +40,10 @@ files and native screenshots are excluded from the repository.
   the export dialog started at 183.782944 seconds for 1217.591812 seconds.
   Picture controls showed −10 brightness, +10 contrast, +25 saturation and neutral
   sharpness/hue. Edited sharpness to +50 and hue to −45, then saved a separate
-  native project and checked its persisted values and marks.
+  native project and checked its persisted values and marks. Reopened that file
+  in the final app and verified all five controls and both marks again, including
+  the corrected millisecond labels. Inspected the controls in the scrolled
+  inspector and removed dense automatic slider tick marks.
 - Compared native and OpenRaceRender snapshots at hue −45°/sharpness +50. A sky
   region had mean RGB error **2.21/255**. This checks color behavior for the sample;
   it does not establish general pixel parity. Sharpness uses an independent

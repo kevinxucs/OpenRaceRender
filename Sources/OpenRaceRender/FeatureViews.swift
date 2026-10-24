@@ -52,7 +52,7 @@ struct PictureControls: View {
           VStack(alignment: .leading, spacing: 4) {
             Text("Hue (−180° to +180°)").font(.system(size: 10))
             HStack {
-              Slider(value: $settings.hueAdjustment, in: -180...180, step: 1).accessibilityLabel("Hue")
+              Slider(value: $settings.hueAdjustment, in: -180...180).accessibilityLabel("Hue")
               TextField("Hue adjustment", value: $settings.hueAdjustment, format: .number.precision(.fractionLength(0...2))).frame(width: 60)
             }
           }
@@ -68,7 +68,7 @@ struct PictureControls: View {
     VStack(alignment: .leading, spacing: 4) {
       Text(label).font(.system(size: 10))
       HStack {
-        Slider(value: binding, in: -100...100, step: 1).accessibilityLabel(label)
+        Slider(value: binding, in: -100...100).accessibilityLabel(label)
         TextField(label, value: binding, format: .number.precision(.fractionLength(0...2)))
           .frame(width: 60).accessibilityLabel(label + " adjustment")
       }
