@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Hue and sharpness import, editing, saving and rendering; signed picture-adjustment sliders and numeric entry, plus a shortcut from video displays to their input picture settings.
 - Managed library under Application Support, explicit non-overwriting library import in the UI and CLI, and a Finder shortcut for managing custom layouts.
 - Optional existing signing identity through `--sign-identity` or `OPENRACERENDER_SIGN_IDENTITY` for builds that need stable macOS permission identity.
 - Video-backed lap/event synchronization wizard, exact-time navigation, visible In/Out controls and timeline range marks.
@@ -15,6 +16,8 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Missing RRP3 green/red output markers, including default export bounds and millisecond labels. Unchanged markers survive compatible RRP copies; native saves preserve edited bounds.
+- Picture controls exposing raw 0–2 multipliers. Brightness, contrast, saturation and sharpness now use −100…+100 with zero neutral; hue uses −180°…+180°. Existing project values remain compatible.
 - Composition playback turning black after AppKit redraws: the video player now owns the preview's backing surface, with regression coverage for resizing, reattachment and player replacement.
 - Repeated Documents permission triggers from automatic library discovery and template-save defaults. Default library access now stays in Application Support and bundled resources; old Documents libraries require a one-time explicit import.
 - Widget palette dragging across the AppKit video preview: native mouse tracking places widgets at release, provides a drop indicator and cancels outside the canvas. Completed live template-design/save/reuse validation.

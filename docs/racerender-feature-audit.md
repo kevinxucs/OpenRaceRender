@@ -44,10 +44,11 @@ These observations informed behavior. They do not establish that every reference
 | Per-display inherited timeline segments | Implemented subset | Source, visible, geometry, opacity, text, color and channel; discrete changes |
 | Timeline tracks and markers | Implemented subset | Select, scrub, create/remove, reset inheritance; no zoom/shift tool yet |
 | Timed titles/captions and camera switching | Implemented | Segments and active start/end span |
-| Explicit project length and export marks | Implemented | Visible In/Out controls, keyboard shortcuts, timeline boundaries and saved export defaults |
+| Explicit project length and export marks | Implemented | RRP3 output-flag import, visible In/Out controls, keyboard shortcuts, timeline boundaries and saved export defaults |
 | Crop/digital zoom, aspect preservation, rotation and flip | Implemented | Normalized crop fractions; source and media-display picture settings |
-| Brightness, contrast, saturation | Implemented | Shared CoreImage pipeline |
-| Hue, sharpness, colorize, chroma key | Not implemented | Additional input picture operations |
+| Brightness, contrast, saturation | Implemented | Signed adjustment controls with existing multiplier storage; shared preview/export pipeline |
+| Hue and sharpness | Implemented | RRP3 import and native roundtrip; HSV hue rotation, blur/sharpen controls; sharpness edge response can differ from RaceRender |
+| Colorize, chroma key | Not implemented | Additional input picture operations |
 | Audio mixing and source volume | Implemented subset | Audio follows active display source/visibility; preview mute |
 | Audio balance, channel swap/mono routing and object-specific gain | Not implemented | Stereo processing and per-object controls |
 | Input looping | Not implemented | Repeated composition time ranges |

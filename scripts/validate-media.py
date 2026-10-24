@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """End-to-end compositor check. Requires ffmpeg/ffprobe only for generating/inspecting test media."""
-import json, subprocess, uuid, array, math
+import json, subprocess, uuid, array, math, struct
 from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 out = root / "build" / "validation" / "features"
@@ -98,3 +98,41 @@ frame = run("ffmpeg", "-v", "error", "-i", marked, "-frames:v", "1", "-f", "rawv
 pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
 assert pixel[2] > 200 and pixel[0] < 30 and pixel[1] < 30, list(pixel)
 print("PASS saved In/Out marks override remembered ranges and CLI exports default to the marked span")
+
+# Use the actual RRP3 header/input fields to test import through file export,
+# rather than only assigning marks and picture settings to a native JSON file.
+legacy = bytearray(2152 + 2216 + 56 + 348)
+legacy[:4] = b"RRP3"
+for offset, value in [(12,2152),(16,1),(20,2216),(28,56),(32,1),(36,344)]:
+    struct.pack_into("<I", legacy, offset, value)
+struct.pack_into("<ff", legacy, 2128, 1.25, 1.75)
+def utf16(offset, length, text):
+    encoded = str(text).encode("utf-16le")
+    assert len(encoded) < length
+    legacy[offset:offset+length] = encoded + bytes(length-len(encoded))
+utf16(2152,128,"Red camera"); utf16(2152+128,2048,out/"red.mp4")
+struct.pack_into("<f",legacy,2152+2184,4)
+settings = 2152+2216
+legacy[settings+25:settings+28] = bytes([100,100,100])
+struct.pack_into("<h",legacy,settings+28,120)
+legacy[settings+30] = 150
+obj = settings+56
+utf16(obj,128,"Camera"); struct.pack_into("<i",legacy,obj+256,-1)
+struct.pack_into("<ffff",legacy,obj+260,0,0,100,100)
+legacy[obj+280:obj+286] = bytes([10,2,0,0,1,0]); legacy[obj+293] = 100
+legacy_path = out/"marked-hue.rrp"; legacy_path.write_bytes(legacy)
+converted = out/"marked-hue.orrp"
+run(exe,"convert",legacy_path,"--out",converted)
+saved = json.loads(converted.read_text())
+assert (saved["rangeStart"],saved["rangeEnd"]) == (1.25,1.75)
+assert saved["inputs"][0]["picture"]["hue"] == 120
+assert saved["inputs"][0]["picture"]["sharpness"] == 1.5
+result = out/"marked-hue.mp4"
+if result.exists(): result.unlink()
+run(exe,"export",legacy_path,"--width",320,"--out",result)
+metadata = json.loads(run("ffprobe","-v","error","-show_format","-of","json",result))
+assert abs(float(metadata["format"]["duration"])-0.5) < 0.05
+frame = run("ffmpeg","-v","error","-i",result,"-frames:v",1,"-f","rawvideo","-pix_fmt","rgb24","-")
+pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
+assert pixel[1] > 220 and pixel[0] < 35 and pixel[2] < 35, list(pixel)
+print("PASS RRP marker import, native save, hue/sharpness import, marked-range export and rendered hue")

@@ -142,6 +142,12 @@ public struct RaceProject: Codable, Equatable, Sendable {
         guard let offset = p.inputs[i].legacyOffset else { continue }
         p.inputs[i].picture = original.inputs.first { $0.legacyOffset == offset && $0.kind == "video" }?.picture
       }
+      for i in p.inputs.indices where p.inputs[i].kind == "video" && p.inputs[i].picture != nil {
+        guard let offset = p.inputs[i].legacyOffset,
+          let picture = original.inputs.first(where: { $0.legacyOffset == offset && $0.kind == "video" })?.picture else { continue }
+        if p.inputs[i].picture?.sharpness == nil { p.inputs[i].picture?.sharpness = picture.sharpness }
+        if p.inputs[i].picture?.hue == nil { p.inputs[i].picture?.hue = picture.hue }
+      }
     }
     for i in p.objects.indices where p.objects[i].picture == nil && [.video,.image].contains(p.objects[i].kind) {
       guard let common = p.objects[i].legacyCommon,common.count > 285 else { continue }
@@ -199,13 +205,16 @@ public struct RaceProject: Codable, Equatable, Sendable {
     guard inputs.count == Int(b.u32(16)), inputs.allSatisfy({ $0.legacyOffset != nil }) else {
       throw RaceError.invalid("Input changes require .orrp format.")
     }
-    guard explicitDuration == nil, rangeStart == nil, rangeEnd == nil, exportSettings == nil,
+    guard explicitDuration == nil, exportSettings == nil,
       inputs.allSatisfy({ $0.timing == nil && $0.joinedTo == nil && $0.dataSettings == nil }),
       objects.allSatisfy({ ($0.segments ?? []).isEmpty }) else {
       throw RaceError.invalid("Timeline, trim, joining and picture edits require .orrp format.")
     }
     let original = try LegacyReader.project(
       b, base: URL(fileURLWithPath: sourcePath ?? "/").deletingLastPathComponent())
+    guard rangeStart == original.rangeStart, rangeEnd == original.rangeEnd else {
+      throw RaceError.invalid("Changed output markers require .orrp format. Unchanged imported markers are preserved in RRP copies.")
+    }
     guard objects.map(\.legacyOffset) == original.objects.map(\.legacyOffset) else {
       throw RaceError.invalid("Changing layer order requires .orrp format.")
     }
@@ -287,6 +296,8 @@ extension Data {
 
 public func clockText(_ seconds: Double) -> String {
   guard seconds.isFinite else { return "--:--.---" }
-  let ms = Int(max(0, seconds) * 1000)
+  let rounded = (max(0, seconds) * 1000).rounded()
+  guard rounded < Double(Int.max) else { return "--:--.---" }
+  let ms = Int(rounded)
   return String(format: "%02d:%02d.%03d", ms / 60000, (ms / 1000) % 60, ms % 1000)
 }

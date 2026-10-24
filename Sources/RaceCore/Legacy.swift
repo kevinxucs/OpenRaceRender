@@ -39,6 +39,13 @@ public enum LegacyReader {
       segmentSize < 65536
     else { throw RaceError.invalid("Unsupported RRP3 record sizes or counts.") }
     var cursor = Int(b.u32(12))
+    // RRP3's fixed project header stores the green/red output flags as seconds.
+    // Native Control-click reset writes zero; there are no separate enable bits.
+    if cursor >= 2152, b.count >= 2152 {
+      let start = b.f32(2128), end = b.f32(2132)
+      if start.isFinite, start > 0 { p.rangeStart = start }
+      if end.isFinite, end > 0 { p.rangeEnd = end }
+    }
     for i in 0..<sourceCount {
       guard cursor >= 56, cursor + sourceSize + segmentSize <= b.count else {
         throw RaceError.invalid("Truncated RRP3 input record.")
@@ -61,6 +68,10 @@ public enum LegacyReader {
         picture.brightness = Double(b[settings + 25]) / 100
         picture.contrast = Double(b[settings + 26]) / 100
         picture.saturation = Double(b[settings + 27]) / 100
+        if segmentSize >= 30 {
+          picture.hue = Double(Int16(bitPattern: UInt16(b[settings + 28]) | UInt16(b[settings + 29]) << 8))
+        }
+        if segmentSize >= 31 { picture.sharpness = Double(b[settings + 30]) / 100 }
         input.picture = picture
       }
       if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
@@ -218,7 +229,7 @@ public enum LegacyReader {
       )
     }
     p.warnings.append(
-      "Imported layouts use saved style settings, drawing scripts, video brightness/contrast/saturation and decoded artwork where supported. Font metrics and unsupported effects may differ. Legacy timeline variants, joins, other picture/audio adjustments and export profiles are not decoded."
+      "Imported layouts use saved style settings, drawing scripts, output start/end flags, video brightness/contrast/saturation/hue/sharpness and decoded artwork where supported. Font metrics, sharpness response and unsupported effects may differ. Legacy timeline variants, joins, other picture/audio adjustments and export profiles are not decoded."
     )
     if p.inputs.contains(where: { !$0.path.isEmpty && !$0.exists }) {
       p.warnings.append("Some input files are missing. Use Relink in the input inspector.")

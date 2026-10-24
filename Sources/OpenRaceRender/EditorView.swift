@@ -548,6 +548,12 @@ struct ObjectInspector: View {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)
       }
       Divider()
+      if [.video, .image].contains(object.kind),
+        let input = model.project.inputs.first(where: { $0.legacyIndex == object.inputIndex }) {
+        Button("Edit input picture settings…") { model.selected = nil; model.selectedInput = input.id }
+          .help("Adjust every display that uses this input, including imported RaceRender picture settings.")
+        Text("The adjustments below affect only this display.").font(.system(size: 10)).foregroundStyle(muted)
+      }
       PictureControls(settings: Binding(get: { object.picture ?? PictureSettings() }, set: { object.picture = $0 }), media: [.video, .image].contains(object.kind))
       small("ACTIVE TIME RANGE")
       HStack {

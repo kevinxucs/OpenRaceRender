@@ -22,8 +22,39 @@ public struct PictureSettings: Codable, Equatable, Sendable {
   public var brightness: Double = 1
   public var contrast: Double = 1
   public var saturation: Double = 1
+  // Optional so native projects saved before sharpness support remain readable.
+  public var sharpness: Double?
+  public var hue: Double?
   public var legacyColorInterpretation: Bool?
   public init() {}
+
+  // Keep the existing on-disk multipliers, but expose familiar signed controls.
+  public static func adjustment(from factor: Double) -> Double {
+    factor.isFinite ? max(-100, min(100, (factor - 1) * 100)) : 0
+  }
+  public static func factor(from adjustment: Double) -> Double {
+    adjustment.isFinite ? 1 + max(-100, min(100, adjustment)) / 100 : 1
+  }
+  public var brightnessAdjustment: Double {
+    get { Self.adjustment(from: brightness) }
+    set { brightness = Self.factor(from: newValue) }
+  }
+  public var contrastAdjustment: Double {
+    get { Self.adjustment(from: contrast) }
+    set { contrast = Self.factor(from: newValue) }
+  }
+  public var saturationAdjustment: Double {
+    get { Self.adjustment(from: saturation) }
+    set { saturation = Self.factor(from: newValue) }
+  }
+  public var sharpnessAdjustment: Double {
+    get { Self.adjustment(from: sharpness ?? 1) }
+    set { sharpness = Self.factor(from: newValue) }
+  }
+  public var hueAdjustment: Double {
+    get { (hue ?? 0).isFinite ? max(-180, min(180, hue ?? 0)) : 0 }
+    set { hue = newValue.isFinite ? max(-180, min(180, newValue)) : 0 }
+  }
 }
 
 /// Each nil property inherits its value from earlier segments, as in RaceRender.

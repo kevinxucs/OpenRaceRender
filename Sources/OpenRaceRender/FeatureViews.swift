@@ -44,9 +44,18 @@ struct PictureControls: View {
           Text("Crop from edges (0–0.95)").foregroundStyle(muted)
           HStack { value("Left", $settings.left); value("Right", $settings.right) }
           HStack { value("Top", $settings.top); value("Bottom", $settings.bottom) }
-          value("Brightness (0–2)", $settings.brightness)
-          value("Contrast (0–2)", $settings.contrast)
-          value("Saturation (0–2)", $settings.saturation)
+          Text("Adjustments: −100 to +100 · 0 is neutral").foregroundStyle(muted)
+          adjustment("Brightness", $settings.brightnessAdjustment)
+          adjustment("Contrast", $settings.contrastAdjustment)
+          adjustment("Saturation", $settings.saturationAdjustment)
+          adjustment("Sharpness", $settings.sharpnessAdjustment)
+          VStack(alignment: .leading, spacing: 4) {
+            Text("Hue (−180° to +180°)").font(.system(size: 10))
+            HStack {
+              Slider(value: $settings.hueAdjustment, in: -180...180, step: 1).accessibilityLabel("Hue")
+              TextField("Hue adjustment", value: $settings.hueAdjustment, format: .number.precision(.fractionLength(0...2))).frame(width: 60)
+            }
+          }
         }
         Button("Reset picture") { let interpretation = settings.legacyColorInterpretation; settings = PictureSettings(); settings.legacyColorInterpretation = interpretation }
       }.padding(.top, 8)
@@ -54,6 +63,16 @@ struct PictureControls: View {
   }
   func value(_ label: String, _ binding: Binding<Double>) -> some View {
     VStack(alignment: .leading) { Text(label).font(.system(size: 10)); TextField(label, value: binding, format: .number.precision(.fractionLength(0...3))) }
+  }
+  func adjustment(_ label: String, _ binding: Binding<Double>) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(label).font(.system(size: 10))
+      HStack {
+        Slider(value: binding, in: -100...100, step: 1).accessibilityLabel(label)
+        TextField(label, value: binding, format: .number.precision(.fractionLength(0...2)))
+          .frame(width: 60).accessibilityLabel(label + " adjustment")
+      }
+    }
   }
 }
 
@@ -81,7 +100,10 @@ struct InputTimingControls: View {
           Button("Join after previous input") { model.joinPrevious(input.id) }.disabled(!canJoin)
         }
       }
-      if ["video", "image"].contains(input.kind) { PictureControls(settings: picture) }
+      if ["video", "image"].contains(input.kind) {
+        Text("Picture changes affect every display using this input.").font(.system(size: 10)).foregroundStyle(muted)
+        PictureControls(settings: picture)
+      }
       Button("Remove input and its displays", role: .destructive) { model.removeInput(input.id) }
     }.font(.system(size: 11))
   }

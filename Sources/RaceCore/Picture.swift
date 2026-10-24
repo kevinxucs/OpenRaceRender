@@ -32,12 +32,26 @@ public enum PictureProcessor {
     CIContext(options:[.cacheIntermediates:false,.workingColorSpace:NSNull(),.outputColorSpace:NSNull()])
   }
   private static let colorControls = CIColorKernel(source:"""
-    kernel vec4 racePicture(__sample source, float brightness, float contrast, float saturation) {
+    kernel vec4 racePicture(__sample source, float brightness, float contrast, float saturation, float hue) {
       vec4 pixel = unpremultiply(source);
       vec3 rgb = clamp(pixel.rgb * brightness, 0.0, 1.0);
       rgb = clamp((rgb - vec3(128.0 / 255.0)) * contrast + vec3(128.0 / 255.0), 0.0, 1.0);
       float value = max(rgb.r, max(rgb.g, rgb.b));
       rgb = clamp(vec3(value) + (rgb - vec3(value)) * saturation, 0.0, 1.0);
+      if (hue != 0.0) {
+        float hi = max(rgb.r, max(rgb.g, rgb.b));
+        float lo = min(rgb.r, min(rgb.g, rgb.b));
+        float chroma = hi - lo;
+        if (chroma > 0.0) {
+          float h;
+          if (hi == rgb.r) { h = (rgb.g - rgb.b) / chroma; }
+          else if (hi == rgb.g) { h = (rgb.b - rgb.r) / chroma + 2.0; }
+          else { h = (rgb.r - rgb.g) / chroma + 4.0; }
+          h = fract(h / 6.0 + hue / 360.0);
+          vec3 wheel = clamp(abs(fract(vec3(h) + vec3(0.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+          rgb = vec3(lo) + chroma * wheel;
+        }
+      }
       return premultiply(vec4(rgb, pixel.a));
     }
     """)!
@@ -72,8 +86,16 @@ public enum PictureProcessor {
       image = image.transformed(by: CGAffineTransform(rotationAngle: s.rotation * .pi / 180))
       image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
     }
-    if s.brightness != 1 || s.contrast != 1 || s.saturation != 1 {
-      image = colorControls.apply(extent:image.extent,arguments:[image,max(0,min(2,s.brightness)),max(0,min(2,s.contrast)),max(0,min(2,s.saturation))]) ?? image
+    if s.brightness != 1 || s.contrast != 1 || s.saturation != 1 || s.hueAdjustment != 0 {
+      image = colorControls.apply(extent:image.extent,arguments:[image,max(0,min(2,s.brightness)),max(0,min(2,s.contrast)),max(0,min(2,s.saturation)),s.hueAdjustment]) ?? image
+    }
+    let sharpness = s.sharpness.flatMap { $0.isFinite ? max(0, min(2, $0)) : nil } ?? 1
+    if sharpness < 1 {
+      image = image.clampedToExtent().applyingFilter("CIGaussianBlur",
+        parameters:[kCIInputRadiusKey: (1 - sharpness) * 2]).cropped(to: image.extent)
+    } else if sharpness > 1 {
+      image = image.clampedToExtent().applyingFilter("CISharpenLuminance",
+        parameters:[kCIInputSharpnessKey: sharpness - 1]).cropped(to: image.extent)
     }
     return image
   }
