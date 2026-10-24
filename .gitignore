@@ -43,6 +43,7 @@ __pycache__/
 *.jpeg
 *.png
 !docs/*.png
+!assets/AppIcon.png
 
 # Local credentials and environment files
 .env

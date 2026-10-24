@@ -5,6 +5,7 @@
 <key>CFBundleName</key><string>OpenRaceRender</string>
 <key>CFBundleDisplayName</key><string>OpenRaceRender</string>
 <key>CFBundleExecutable</key><string>OpenRaceRender</string>
+<key>CFBundleIconFile</key><string>AppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>

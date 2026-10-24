@@ -1,5 +1,7 @@
 # OpenRaceRender
 
+<img src="assets/AppIcon.png" width="128" align="right" alt="OpenRaceRender app icon">
+
 [![CI](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 

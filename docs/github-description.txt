@@ -1,0 +1,1 @@
+Open-source macOS telemetry video editor for motorsport. Overlay speed, GPS, lap timing and G-force on footage, with support for importing RaceRender projects, templates and styles.
