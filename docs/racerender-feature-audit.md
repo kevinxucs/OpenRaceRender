@@ -33,7 +33,7 @@ These observations informed behavior. They do not establish that every reference
 
 | Feature | OpenRaceRender status | Location or remaining work |
 | --- | --- | --- |
-| Native macOS editor, open/save, drag/drop, relink | Implemented | SwiftUI editor, `.orrp` JSON |
+| Native macOS editor, open/save, drag/drop, relink | Implemented | SwiftUI editor, `.orrp` JSON; missing-file notice, validated undoable replacement and range-aware export asset checks |
 | Preview play/pause, frame stepping, scrubbing, mute, PNG snapshot | Implemented | Shared compositor and AVPlayer |
 | Concurrent cameras, PiP and split-screen | Implemented | Multiple video objects and percentage geometry; extra cameras default to PiP |
 | Layer order, duplicate, delete, opacity, positioning/resizing | Implemented | Editor and compositor; Shift snapping |
@@ -74,7 +74,7 @@ These observations informed behavior. They do not establish that every reference
 | FIT | Implemented subset | Activity records, standard GPS/sensors, byte order, compressed time, integrity checks; unknown/developer fields skipped |
 | H.264/HEVC camera media and common audio/images | Host decoder support | AVFoundation/AppKit determine actual codec availability |
 | `.rrp` input and display import | Partial | Common records, paths/offsets, and traditional gauge range, label, sweep, orientation, interval and needle color |
-| Legacy picture import | Partial | Camera brightness/contrast/saturation and decoder color compatibility imported; other picture operations remain opaque |
+| Legacy picture import | Partial | Camera brightness/contrast/saturation/hue/sharpness and decoder color compatibility imported; colorize, chroma key and other operations remain opaque |
 | Legacy timeline/join/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
 | `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
@@ -90,7 +90,7 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 57 tests pass with the local-library check enabled (the default CI run skips that one optional check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion and canvas-edge text.
+All 84 tests pass with the local-library check and graphics services available (CI skips the optional local-library check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion, canvas-edge text, markers, signed picture controls, preview surface layout, validated relinks and export dependencies.
 
 The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching and layers. Generated media and external samples live under ignored `build/validation`.
 

@@ -163,6 +163,7 @@ public final class VideoExporter: @unchecked Sendable {
     guard !FileManager.default.fileExists(atPath: url.path) else {
       throw RaceError.invalid("Output already exists. Choose a new filename.")
     }
+    try p.validateExportAssets(start: start, duration: min(duration, p.duration - start))
     let prepared = try await Self.prepare(scene: scene)
     let composition = prepared.composition
     let fullDuration = min(p.duration, composition.duration.seconds)
@@ -246,6 +247,7 @@ public final class VideoExporter: @unchecked Sendable {
     guard p.width > 0, p.width <= 16384, p.height > 0, p.height <= 16384, time.isFinite else {
       throw RaceError.invalid("Invalid snapshot settings.")
     }
+    try p.validateExportAssets(start: time, duration: max(1e-12, time.nextUp - time))
     guard
       let c = CGContext(
         data: nil, width: p.width, height: p.height, bitsPerComponent: 8, bytesPerRow: 0,

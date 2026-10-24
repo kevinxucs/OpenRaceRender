@@ -1,4 +1,5 @@
 import AVFoundation
+import ImageIO
 import RaceCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -48,6 +49,12 @@ import UniformTypeIdentifiers
   private var redoStack: [RaceProject] = []
   private var pendingInputs: [URL] = []
   private var importingInputs = false
+  private var documentRevision = UUID()
+  var missingInputs: [MediaInput] { project.inputs.filter { !$0.path.isEmpty && !$0.exists } }
+  func reviewMissingInput() {
+    guard let input = missingInputs.first else { return }
+    selected = nil; selectedInput = input.id
+  }
   var scene: RenderScene { RenderScene(project: project, telemetry: telemetry) }
   var activeData: Telemetry? { telemetry.sorted { $0.key < $1.key }.first?.value }
   var dataIndex: Int? { project.inputs.first { $0.kind == "data" }?.legacyIndex }
@@ -300,6 +307,7 @@ import UniformTypeIdentifiers
   }
   func newProject() {
     guard confirmDiscard() else { return }
+    documentRevision = UUID()
     pause()
     project = RaceProject()
     telemetry = [:]
@@ -326,6 +334,7 @@ import UniformTypeIdentifiers
       return
     }
     guard confirmDiscard() else { return }
+    documentRevision = UUID()
     pause()
     busy = true
     status = "Reading \(url.lastPathComponent)…"
@@ -346,6 +355,9 @@ import UniformTypeIdentifiers
         telemetry = loaded
         selected = p.objects.first { $0.kind != .video }?.id
         selectedInput = nil
+        if let missing = p.inputs.first(where: { !$0.path.isEmpty && !$0.exists }) {
+          selected = nil; selectedInput = missing.id
+        }
         time = 0
         fileURL = url.pathExtension.lowercased() == "orrp" ? url : nil
         dirty = false
@@ -504,25 +516,65 @@ import UniformTypeIdentifiers
     }
   }
   func relink(_ id: UUID) {
+    guard let input = project.inputs.first(where: { $0.id == id }) else { return }
     let panel = NSOpenPanel()
-    guard panel.runModal() == .OK, let url = panel.url,
-      let i = project.inputs.firstIndex(where: { $0.id == id })
-    else { return }
-    checkpoint()
-    project.inputs[i].path = url.path
+    panel.message = "Choose a replacement \(input.kind) file for \(input.name). Timing, picture and display settings are retained."
+    switch input.kind {
+    case "video": panel.allowedContentTypes = [.movie]
+    case "audio": panel.allowedContentTypes = [.audio, .movie]
+    case "image": panel.allowedContentTypes = [.image]
+    default: panel.allowedContentTypes = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit"].compactMap { UTType(filenameExtension: $0) }
+    }
+    guard panel.runModal() == .OK, let url = panel.url else { return }
+    Task { await relink(id, to: url) }
+  }
+  /// Validate first, then commit one undoable change. A failed or stale request never edits the document.
+  @discardableResult func relink(_ id: UUID, to url: URL) async -> Bool {
+    guard !busy, let original = project.inputs.first(where: { $0.id == id }) else { return false }
+    let revision = documentRevision
     busy = true
-    Task {
-      do {
-        telemetry = try await Self.loadTelemetry(project)
-        if let d = telemetry[project.inputs[i].legacyIndex] {
-          project.inputs[i].duration = d.duration
-        } else if ["video", "audio"].contains(project.inputs[i].kind) {
-          project.inputs[i].duration = try await AVURLAsset(url: url).load(.duration).seconds
+    defer { busy = false }
+    do {
+      var replacement = original
+      replacement.path = url.path
+      guard replacement.exists else { throw RaceError.invalid("Choose an existing \(original.kind) file.") }
+      var data: Telemetry?
+      switch original.kind {
+      case "data":
+        data = try await Task.detached { try Telemetry(url: url) }.value
+        if let settings = original.dataSettings { data?.configure(settings) }
+        replacement.duration = data!.duration
+      case "video", "audio":
+        let asset = AVURLAsset(url: url)
+        let mediaType: AVMediaType = original.kind == "video" ? .video : .audio
+        guard !(try await asset.loadTracks(withMediaType: mediaType)).isEmpty else {
+          throw RaceError.invalid("The replacement has no \(original.kind) track.")
         }
-        configurePlayers()
-        status = "Input relinked"
-      } catch { self.error = error.localizedDescription }
-      busy = false
+        let duration = try await asset.load(.duration).seconds
+        guard duration.isFinite, duration > 0 else { throw RaceError.invalid("The replacement has no playable duration.") }
+        replacement.duration = duration
+      case "image":
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else {
+          throw RaceError.invalid("The replacement is not a readable image.")
+        }
+      default: throw RaceError.invalid("Unsupported input type: \(original.kind).")
+      }
+      guard documentRevision == revision,
+        let i = project.inputs.firstIndex(where: { $0.id == id }), project.inputs[i] == original else { return false }
+      checkpoint()
+      project.inputs[i] = replacement
+      if let data { telemetry[replacement.legacyIndex] = data }
+      if original.kind == "image" {
+        for j in project.objects.indices where project.objects[j].kind == .image && project.objects[j].inputIndex == original.legacyIndex && project.objects[j].text == original.path {
+          project.objects[j].text = url.path
+        }
+      }
+      configurePlayers()
+      status = "Relinked \(original.name) · \(clockText(replacement.duration))"
+      return true
+    } catch {
+      if documentRevision == revision { self.error = "Could not relink \(original.name). The previous source is unchanged.\n\n" + error.localizedDescription }
+      return false
     }
   }
   func addObject(_ kind: ObjectKind, at point: CGPoint? = nil) {
@@ -630,7 +682,11 @@ import UniformTypeIdentifiers
     }
   }
   var exportRangeError: String? {
-    do { try project.validateExportRange(start: exportStart, duration: exportDuration); return nil }
+    do {
+      try project.validateExportRange(start: exportStart, duration: exportDuration)
+      try project.validateExportAssets(start: exportStart, duration: exportDuration)
+      return nil
+    }
     catch { return error.localizedDescription }
   }
   func exportVideo() {

@@ -57,3 +57,5 @@ The template acceptance run dragged Speed and G-Force onto footage with imported
 This audit improves these concrete workflows; it does not establish full RaceRender feature or pixel parity. Advanced audio/picture effects, grouping, arbitrary scripting and legacy timeline import retain the limitations listed in the [feature audit](racerender-feature-audit.md).
 
 The managed library and template-save defaults subsequently moved from Documents to Application Support to remove automatic protected-folder access. See [library storage and macOS permissions](library-permissions.md). Older Documents libraries are imported explicitly once.
+
+The follow-up [missing-media recovery workflow](media-recovery-validation.md) compares RaceRender's unavailable-input/file-replacement behavior with OpenRaceRender, then verifies failed relinks, recovery, retained settings, save/reopen and marked-span rendering. It also records the export-sheet error visibility bug found during the live check.

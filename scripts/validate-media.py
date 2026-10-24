@@ -136,3 +136,34 @@ frame = run("ffmpeg","-v","error","-i",result,"-frames:v",1,"-f","rawvideo","-pi
 pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
 assert pixel[1] > 220 and pixel[0] < 35 and pixel[2] < 35, list(pixel)
 print("PASS RRP marker import, native save, hue/sharpness import, marked-range export and rendered hue")
+
+# Missing inputs must not silently become blank cameras or zero-value gauges.
+# Only dependencies used inside the chosen range should block an export.
+recovery = json.loads(json.dumps(project))
+recovery.pop("rangeStart"); recovery.pop("rangeEnd")
+recovery["inputs"][1]["path"] = str(out/"missing-camera.mp4")
+recovery_path = out/"missing-camera.orrp"
+recovery_path.write_text(json.dumps(recovery))
+def rejected(*args):
+    result = subprocess.run(list(map(str, args)), capture_output=True)
+    assert result.returncode != 0, result.stdout
+    assert b"Relink the missing assets" in result.stderr, result.stderr
+blocked = out/"missing-source-output.mp4"
+if blocked.exists(): blocked.unlink()
+rejected(exe,"export",recovery_path,"--start",1,"--duration",0.5,"--out",blocked)
+assert not blocked.exists()
+rejected(exe,"snapshot",recovery_path,"--time",1.25,"--out",out/"missing-source-frame.png")
+run(exe,"snapshot",recovery_path,"--time",0.99,"--out",out/"before-missing-source.png")
+unaffected = out/"available-range.mp4"
+if unaffected.exists(): unaffected.unlink()
+run(exe,"export",recovery_path,"--start",0,"--duration",0.5,"--out",unaffected)
+frame = run("ffmpeg","-v","error","-i",unaffected,"-frames:v",1,"-f","rawvideo","-pix_fmt","rgb24","-")
+pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
+assert pixel[0] > 200 and pixel[1] < 30 and pixel[2] < 30, list(pixel)
+recovery["inputs"][1]["path"] = str(out/"blue.mp4")
+recovery["inputs"].append(dict(id=uid(),name="Missing telemetry",path=str(out/"missing.csv"),kind="data",offset=0,duration=4,volume=1,legacyIndex=2))
+recovery["objects"].append(display("Speed","speed",inputIndex=2,width=20,height=20))
+recovery_path.write_text(json.dumps(recovery))
+rejected(exe,"export",recovery_path,"--start",1,"--duration",0.5,"--out",blocked)
+assert not blocked.exists()
+print("PASS missing camera/telemetry preflight, no incomplete output, snapshot preflight and unaffected export ranges")

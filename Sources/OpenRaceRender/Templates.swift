@@ -455,7 +455,12 @@ struct ExportSheet: View {
           }.disabled(firstLap < 0 || lastLap < firstLap)
         }
       }
-      if let message = model.exportRangeError { Text(message).font(.caption).foregroundStyle(.orange) }
+      if let message = model.exportRangeError {
+        Text(message).font(.caption).foregroundStyle(.orange)
+        if !model.missingInputs.isEmpty {
+          Button("Relink missing files…") { model.showExport = false; model.reviewMissingInput() }
+        }
+      }
       else { Text("End: " + clockText(model.exportStart + model.exportDuration)).font(.caption).foregroundStyle(mint) }
       if let path = model.project.lastExport?.path {
         Text("Previous output: " + URL(fileURLWithPath: path).lastPathComponent + ". A new filename is suggested for repeat exports.").font(.caption).foregroundStyle(muted)
@@ -469,5 +474,8 @@ struct ExportSheet: View {
           .foregroundStyle(bg).disabled(model.exportRangeError != nil || model.exportProgress != nil)
       }
     }.padding(28).frame(width: 490).background(bg).preferredColorScheme(.dark).tint(mint)
+      .alert("Export could not start", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
+        Button("OK") { model.error = nil }
+      } message: { Text(model.error ?? "") }
   }
 }

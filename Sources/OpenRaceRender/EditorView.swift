@@ -14,6 +14,13 @@ struct EditorView: View {
   var body: some View {
     VStack(spacing: 0) {
       topBar
+      if !model.missingInputs.isEmpty {
+        HStack {
+          Label("\(model.missingInputs.count) missing input\(model.missingInputs.count == 1 ? "" : "s") · Choose replacement files to restore this session.", systemImage: "exclamationmark.triangle")
+          Spacer()
+          Button("Review missing files", action: model.reviewMissingInput)
+        }.font(.system(size: 11)).foregroundStyle(.orange).padding(.horizontal, 20).padding(.vertical, 8)
+      }
       Divider()
       HStack(spacing: 0) {
         sidebar.frame(width: 234)
@@ -53,7 +60,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .alert(
       "OpenRaceRender",
-      isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
+      isPresented: Binding(get: { model.error != nil && !model.showExport }, set: { if !$0 { model.error = nil } })
     ) {
       Button("OK") { model.error = nil }
     } message: {
@@ -602,7 +609,12 @@ struct InputInspector: View {
       TextField("Label", text: $input.name)
       Text(input.path).font(.system(size: 10)).foregroundStyle(muted).textSelection(.enabled)
         .lineLimit(5)
+      if !input.path.isEmpty && !input.exists {
+        Label("File unavailable. Relink to restore preview and export.", systemImage: "exclamationmark.triangle")
+          .font(.system(size: 11)).foregroundStyle(.orange)
+      }
       Button(input.path.isEmpty ? "Choose source file…" : "Relink file…") { model.relink(input.id) }
+        .disabled(model.busy)
       Divider()
       Text("Synchronization").font(.system(size: 13, weight: .semibold))
       Text("Increase the offset to advance this source relative to its trimmed start. Set playback rate and project delay below.").font(
