@@ -191,14 +191,52 @@ enum CLI {
 }
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
-  weak var model: EditorModel?
+  weak var model: EditorModel? {
+    didSet {
+      if let model, let url = pendingOpenURL {
+        pendingOpenURL = nil
+        model.open(url)
+      }
+    }
+  }
+  private(set) var pendingOpenURL: URL?
+  private var handledLaunchArguments = false
+  private var receivedExternalOpen = false
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     (model?.confirmDiscard() ?? true) ? .terminateNow : .terminateCancel
   }
   func application(_ sender: NSApplication, openFiles filenames: [String]) {
-    if let s = filenames.first { model?.open(URL(fileURLWithPath: s)) }
+    openExternalURLs(filenames.map { URL(fileURLWithPath: $0) })
     sender.reply(toOpenOrPrint: .success)
+  }
+  func application(_ application: NSApplication, open urls: [URL]) {
+    openExternalURLs(urls)
+  }
+  func openExternalURLs(_ urls: [URL]) {
+    guard let url = urls.first(where: \.isFileURL) else { return }
+    receivedExternalOpen = true
+    requestOpen(url)
+  }
+  private func requestOpen(_ url: URL) {
+    if let model { model.open(url) }
+    else { pendingOpenURL = url }
+  }
+  func openLaunchArguments(_ arguments: [String]) {
+    guard !handledLaunchArguments else { return }
+    handledLaunchArguments = true
+    guard !receivedExternalOpen, let url = Self.launchProjectURL(arguments) else { return }
+    requestOpen(url)
+  }
+  static func launchProjectURL(_ arguments: [String]) -> URL? {
+    if let i = arguments.firstIndex(of: "--open"), i + 1 < arguments.count {
+      return URL(fileURLWithPath: arguments[i + 1])
+    }
+    // macOS may append options such as -NSDocumentRevisionsDebugMode YES.
+    // Only a positional project path is a launch document, not an option value.
+    guard arguments.count > 1, !arguments[1].hasPrefix("-"),
+      ["rrp", "rrt", "rro", "orrp", "orrt"].contains((arguments[1] as NSString).pathExtension.lowercased()) else { return nil }
+    return URL(fileURLWithPath: arguments[1])
   }
 }
 
@@ -206,16 +244,12 @@ struct RaceRenderApp: App {
   @StateObject var model = EditorModel()
   @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
   var body: some Scene {
-    WindowGroup("OpenRaceRender") {
+    Window("OpenRaceRender", id: "editor") {
       EditorView(model: model).onAppear {
         delegate.model = model
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        let args = CommandLine.arguments
-        let path =
-          args.firstIndex(of: "--open").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
-          ?? args.dropFirst().first { !$0.hasPrefix("-") }
-        if let path = path, model.project.inputs.isEmpty { model.open(URL(fileURLWithPath: path)) }
+        delegate.openLaunchArguments(CommandLine.arguments)
       }
     }.defaultSize(width: 1460, height: 920).windowStyle(.hiddenTitleBar)
       .commands {

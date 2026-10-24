@@ -22,6 +22,8 @@ cd OpenRaceRender
 
 The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no third-party package dependencies and does not require a RaceRender installation to run.
 
+In Finder, use **Open With → OpenRaceRender** for an `.rrp` or `.orrp`. File-open requests work at startup and while the app is running, using the same editor and unsaved-change checks as **Open project…**. Imported `.rrp` edits save to a new native `.orrp` unless you explicitly export a compatible RaceRender copy.
+
 After importing a library, make a self-contained local app with that library:
 
 ```sh

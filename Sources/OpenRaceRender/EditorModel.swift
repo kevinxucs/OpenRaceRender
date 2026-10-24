@@ -50,6 +50,8 @@ import UniformTypeIdentifiers
   private var pendingInputs: [URL] = []
   private var importingInputs = false
   private var documentRevision = UUID()
+  private(set) var openTask: Task<Void, Never>?
+  private var openingURL: URL?
   var missingInputs: [MediaInput] { project.inputs.filter { !$0.path.isEmpty && !$0.exists } }
   func reviewMissingInput() {
     guard let input = missingInputs.first else { return }
@@ -308,6 +310,7 @@ import UniformTypeIdentifiers
   func newProject() {
     guard confirmDiscard() else { return }
     documentRevision = UUID()
+    openTask?.cancel(); openingURL = nil; busy = false
     pause()
     project = RaceProject()
     telemetry = [:]
@@ -329,18 +332,27 @@ import UniformTypeIdentifiers
     if panel.runModal() == .OK, let url = panel.url { open(url) }
   }
   func open(_ url: URL) {
+    // Finder can resend a request while a large project is loading. Coalesce it.
+    guard openingURL != url.standardizedFileURL else { return }
     if ["rrt", "rro", "orrt"].contains(url.pathExtension.lowercased()), !project.inputs.isEmpty {
       importLayout(url)
       return
     }
     guard confirmDiscard() else { return }
-    documentRevision = UUID()
+    let revision = UUID()
+    documentRevision = revision
+    openTask?.cancel()
+    openingURL = url.standardizedFileURL
     pause()
     busy = true
     status = "Reading \(url.lastPathComponent)…"
-    Task {
+    openTask = Task {
+      defer {
+        if documentRevision == revision { busy = false; openingURL = nil }
+      }
       do {
         var p = try await Task.detached { try RaceProject.read(url) }.value
+        try Task.checkCancellation()
         let loaded = try await Self.loadTelemetry(p)
         for i in p.inputs.indices {
           if let d = loaded[p.inputs[i].legacyIndex] {
@@ -351,6 +363,8 @@ import UniformTypeIdentifiers
                 .seconds) ?? p.inputs[i].duration
           }
         }
+        try Task.checkCancellation()
+        guard documentRevision == revision else { return }
         project = p
         telemetry = loaded
         selected = p.objects.first { $0.kind != .video }?.id
@@ -366,11 +380,12 @@ import UniformTypeIdentifiers
         configurePlayers()
         status =
           "\(p.objects.count) displays · \(p.inputs.count) inputs · \(loaded.values.reduce(0){$0+$1.count}.formatted()) telemetry samples"
+      } catch is CancellationError {
       } catch {
+        guard documentRevision == revision else { return }
         self.error = error.localizedDescription
         status = "Could not open project"
       }
-      busy = false
     }
   }
   nonisolated static func loadTelemetry(_ p: RaceProject) async throws -> [Int: Telemetry] {

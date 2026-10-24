@@ -59,3 +59,5 @@ This audit improves these concrete workflows; it does not establish full RaceRen
 The managed library and template-save defaults subsequently moved from Documents to Application Support to remove automatic protected-folder access. See [library storage and macOS permissions](library-permissions.md). Older Documents libraries are imported explicitly once.
 
 The follow-up [missing-media recovery workflow](media-recovery-validation.md) compares RaceRender's unavailable-input/file-replacement behavior with OpenRaceRender, then verifies failed relinks, recovery, retained settings, save/reopen and marked-span rendering. It also records the export-sheet error visibility bug found during the live check.
+
+The [Finder-opening validation](finder-opening.md) records a separate launch-path failure: opening an RRP through Finder could leave an empty editor even though the in-app parser worked. URL/filename callback handling, early request retention, single-window routing and asynchronous load cancellation now have regression coverage, with a successful live Finder cold launch of the supplied session.

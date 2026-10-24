@@ -16,6 +16,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Finder project opens leaving a blank editor: handle URL and filename events, retain early launch requests until the editor is ready, and reuse one editor window. Repeated in-flight requests are coalesced, superseded loads are cancelled, and launch arguments run only once.
 - Failed relinks replacing the original path before validation, image relinks leaving the displayed file unchanged, and exports silently omitting missing sources. Recovery now retains settings and supports undo; export validation follows the selected span, camera switches, joined clips and embedded artwork, with visible feedback in the export sheet.
 - Missing RRP3 green/red output markers, including default export bounds and millisecond labels. Unchanged markers survive compatible RRP copies; native saves preserve edited bounds.
 - Picture controls exposing raw 0–2 multipliers. Brightness, contrast, saturation and sharpness now use −100…+100 with zero neutral; hue uses −180°…+180°. Existing project values remain compatible.
