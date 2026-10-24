@@ -201,7 +201,6 @@ struct SaveTemplateSheet: View {
 
 struct WidgetPalette: View {
   @ObservedObject var model: EditorModel
-  static let prefix = "openracerender.widget:"
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
@@ -213,17 +212,74 @@ struct WidgetPalette: View {
       ScrollView {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
           ForEach(ObjectKind.allCases.filter { ![.group, .audio, .video, .image, .enhanced].contains($0) }, id: \.self) { kind in
-            Button { model.addObject(kind) } label: {
-              VStack(spacing: 5) {
-                Image(systemName: kind.symbol).foregroundStyle(mint).font(.system(size: 18))
-                Text(kind.title).font(.system(size: 10)).lineLimit(1)
-              }.frame(maxWidth: .infinity).frame(height: 53).background(bg).clipShape(RoundedRectangle(cornerRadius: 5))
-            }.buttonStyle(.plain).draggable(Self.prefix + kind.rawValue)
+            WidgetTile(model: model, kind: kind).frame(maxWidth: .infinity).frame(height: 53)
           }
         }
       }.frame(height: 178)
       Button("Add image / logo…", action: model.chooseInputs).font(.system(size: 10))
     }.padding(12).background(panelColor)
+  }
+}
+
+struct WidgetTile: NSViewRepresentable {
+  var model: EditorModel
+  var kind: ObjectKind
+  func makeNSView(context: Context) -> WidgetTileView { WidgetTileView(model: model, kind: kind) }
+  func updateNSView(_ view: WidgetTileView, context: Context) { view.model = model; view.kind = kind }
+}
+
+/// Palette drags stay inside the editor. Track the release in window coordinates
+/// so AppKit's video view and SwiftUI don't compete for the drag destination.
+@MainActor final class WidgetTileView: NSView {
+  weak var model: EditorModel?
+  var kind: ObjectKind { didSet { setAccessibilityLabel(kind.title); needsDisplay = true } }
+  private var origin = CGPoint.zero
+  private var dragging = false
+  init(model: EditorModel, kind: ObjectKind) {
+    self.model = model; self.kind = kind
+    super.init(frame: .zero)
+    setAccessibilityElement(true); setAccessibilityRole(.button); setAccessibilityLabel(kind.title)
+    setAccessibilityHelp("Drag onto the preview, or press to add " + kind.title)
+  }
+  required init?(coder: NSCoder) { fatalError() }
+  override var acceptsFirstResponder: Bool { true }
+  override var isFlipped: Bool { true }
+  override func draw(_ dirtyRect: NSRect) {
+    NSColor(bg).setFill(); NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5).fill()
+    let symbol = NSImage(systemSymbolName: kind.symbol, accessibilityDescription: nil)?
+      .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 18, weight: .regular)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor(mint)])))
+    symbol?.draw(in: NSRect(x: bounds.midX-11, y: 8, width: 22, height: 22))
+    let paragraph = NSMutableParagraphStyle(); paragraph.alignment = .center; paragraph.lineBreakMode = .byTruncatingTail
+    (kind.title as NSString).draw(in: NSRect(x: 3, y: 34, width: max(1, bounds.width-6), height: 16),
+      withAttributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.white, .paragraphStyle: paragraph])
+  }
+  override func accessibilityPerformPress() -> Bool { model?.addObject(kind); return true }
+  override func mouseDown(with event: NSEvent) {
+    window?.makeFirstResponder(self); origin = event.locationInWindow; dragging = false
+  }
+  override func mouseDragged(with event: NSEvent) {
+    guard hypot(event.locationInWindow.x-origin.x, event.locationInWindow.y-origin.y) > 3 else { return }
+    dragging = true; alphaValue = 0.6
+    guard let canvas = model?.canvasView, canvas.window === window else { return }
+    let point = canvas.convert(event.locationInWindow, from: nil)
+    canvas.overlay.dropPoint = canvas.bounds.contains(point) ? point : nil
+    canvas.overlay.needsDisplay = true
+  }
+  override func mouseUp(with event: NSEvent) {
+    defer {
+      dragging = false; alphaValue = 1
+      model?.canvasView?.overlay.dropPoint = nil; model?.canvasView?.overlay.needsDisplay = true
+    }
+    guard dragging else { model?.addObject(kind); return }
+    guard let canvas = model?.canvasView, canvas.window === window, canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
+    let point = canvas.convert(event.locationInWindow, from: nil)
+    guard canvas.bounds.contains(point) else { return }
+    model?.addObject(kind, at: CGPoint(x: point.x/canvas.bounds.width*100, y: point.y/canvas.bounds.height*100))
+  }
+  override func keyDown(with event: NSEvent) {
+    if [36, 49].contains(event.keyCode) { model?.addObject(kind) }
+    else { super.keyDown(with: event) }
   }
 }
 

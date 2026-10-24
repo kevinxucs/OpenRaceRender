@@ -9,11 +9,13 @@ struct Preview: NSViewRepresentable {
     let v = PreviewView()
     v.model = model
     v.interactive = interactive
+    if interactive { model.canvasView = v }
     return v
   }
   func updateNSView(_ view: PreviewView, context: Context) {
     view.model = model
     view.interactive = interactive
+    if interactive { model.canvasView = view }
     view.refresh()
   }
 }
@@ -21,6 +23,7 @@ struct Preview: NSViewRepresentable {
 @MainActor final class OverlayView: NSView {
   weak var model: EditorModel?
   var showSelection = true
+  var dropPoint: CGPoint?
   override var isOpaque: Bool { false }
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
   override func draw(_ dirtyRect: NSRect) {
@@ -31,6 +34,12 @@ struct Preview: NSViewRepresentable {
       let r = OverlayRenderer.rect(base.resolved(at: m.time), size: bounds.size)
       c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1.5); c.stroke(r)
       c.setFillColor(OverlayRenderer.color("#5EE0B5")); c.fill(CGRect(x: r.maxX-4, y: r.maxY-4, width: 8, height: 8))
+    }
+    if let point = dropPoint {
+      c.setFillColor(OverlayRenderer.color("#5EE0B5", alpha: 0.25))
+      c.fillEllipse(in: CGRect(x: point.x-20, y: point.y-20, width: 40, height: 40))
+      c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(2)
+      c.strokeEllipse(in: CGRect(x: point.x-20, y: point.y-20, width: 40, height: 40))
     }
   }
 }

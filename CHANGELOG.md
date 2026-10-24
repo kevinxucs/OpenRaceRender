@@ -13,6 +13,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Widget palette dragging across the AppKit video preview: native mouse tracking places widgets at release, provides a drop indicator and cancels outside the canvas. Completed live template-design/save/reuse validation.
 - Library discovery and thumbnail reads blocking the main thread; custom and bundled libraries now load asynchronously.
 - Missing session dirty/undo tracking, preview selections creating edits, and duplicated native save extensions.
 - Concurrent multi-file drops colliding on source numbers, template source placeholders remaining unbound, incompatible source choices, retained session configuration in templates, and video/audio relink duration.

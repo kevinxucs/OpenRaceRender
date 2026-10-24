@@ -30,12 +30,7 @@ struct EditorView: View {
                 emptyState
               } else {
                 Preview(model: model).frame(width: max(1, w), height: max(1, h))
-                  .dropDestination(for: String.self) { items, location in
-                    guard let text = items.first, text.hasPrefix(WidgetPalette.prefix),
-                      let kind = ObjectKind(rawValue: String(text.dropFirst(WidgetPalette.prefix.count))) else { return false }
-                    model.addObject(kind, at: CGPoint(x: location.x/max(1,w)*100, y: (h-location.y)/max(1,h)*100))
-                    return true
-                  }.shadow(
+                  .shadow(
                   color: .black.opacity(0.5), radius: 15, y: 6)
               }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)

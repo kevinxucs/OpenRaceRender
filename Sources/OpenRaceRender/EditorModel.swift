@@ -16,6 +16,7 @@ import UniformTypeIdentifiers
   @Published var selected: UUID? { didSet { if oldValue != selected { editingSegment = nil } } }
   @Published var editingSegment: Double?
   @Published var previewPlayer: AVPlayer?
+  weak var canvasView: PreviewView?
   @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
   @Published var showSync = false
   @Published var selectedInput: UUID?
