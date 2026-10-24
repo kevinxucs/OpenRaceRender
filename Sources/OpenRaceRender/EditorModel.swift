@@ -5,8 +5,12 @@ import UniformTypeIdentifiers
 
 @MainActor final class EditorModel: ObservableObject {
   @Published var project = RaceProject() { didSet {
-    schedulePreview()
-    if oldValue.inputs.map(\.dataSettings) != project.inputs.map(\.dataSettings) { scheduleTelemetry() }
+    guard oldValue != project else { return }
+    dirty = true
+    if oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration { schedulePreview() }
+    let oldData = oldValue.inputs.filter { $0.kind == "data" }
+    let newData = project.inputs.filter { $0.kind == "data" }
+    if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) { scheduleTelemetry() }
   } }
   @Published var telemetry: [Int: Telemetry] = [:]
   @Published var selected: UUID? { didSet { if oldValue != selected { editingSegment = nil } } }
@@ -22,9 +26,14 @@ import UniformTypeIdentifiers
   @Published var error: String?
   @Published var showTemplates = false
   @Published var showExport = false
+  @Published var showWidgets = false
+  @Published var showSaveTemplate = false
+  @Published var templateSelectedOnly = false
+  @Published var templateIncludesVideo = false
+  @Published var templateName = ""
   @Published var exportProgress: Float?
   @Published var exportStart: Double = 0
-  @Published var exportDuration: Double = 10
+  @Published var exportDuration: Double = 0
   @Published var fileURL: URL?
   @Published var dirty = false
   private var previewTask: Task<Void, Never>?
@@ -36,6 +45,8 @@ import UniformTypeIdentifiers
   private var epochTime = 0.0
   private var undoStack: [RaceProject] = []
   private var redoStack: [RaceProject] = []
+  private var pendingInputs: [URL] = []
+  private var importingInputs = false
   var scene: RenderScene { RenderScene(project: project, telemetry: telemetry) }
   var activeData: Telemetry? { telemetry.sorted { $0.key < $1.key }.first?.value }
   var dataIndex: Int? { project.inputs.first { $0.kind == "data" }?.legacyIndex }
@@ -69,6 +80,33 @@ import UniformTypeIdentifiers
     dirty = true
     configurePlayers()
   }
+  func projectBinding<Value: Equatable>(_ keyPath: WritableKeyPath<RaceProject, Value>) -> Binding<Value> {
+    Binding(get: { self.project[keyPath: keyPath] }, set: {
+      guard self.project[keyPath: keyPath] != $0 else { return }
+      self.checkpoint(); self.project[keyPath: keyPath] = $0
+    })
+  }
+  func prepareExport() {
+    guard exportProgress == nil else { status = "An export is already running"; return }
+    guard project.inputs.contains(where: { $0.kind == "video" && !$0.path.isEmpty }) else {
+      error = "Add or link a video file before exporting. Templates can be saved without media."; return
+    }
+    let range = project.defaultExportRange
+    useExportRange(range)
+    showExport = true
+  }
+  func markStart() { checkpoint(); project.markExportStart(at: time); status = "Export starts at " + clockText(time) }
+  func markEnd() { checkpoint(); project.markExportEnd(at: time); status = "Export ends at " + clockText(time) }
+  func clearMarks() {
+    checkpoint(); project.rangeStart = nil; project.rangeEnd = nil
+    if project.lastExport != nil { project.lastExport?.start = 0; project.lastExport?.duration = project.duration }
+  }
+  func blankLayout() {
+    checkpoint()
+    project.objects.removeAll { ![.video, .audio].contains($0.kind) }
+    selected = nil; selectedInput = nil; showWidgets = true
+    status = "Blank layout · drag widgets into the preview"
+  }
   func objectBinding(_ id: UUID) -> Binding<DisplayObject> {
     Binding(
       get: {
@@ -77,6 +115,7 @@ import UniformTypeIdentifiers
       },
       set: { value in
         guard let i = self.project.objects.firstIndex(where: { $0.id == id }) else { return }
+        guard self.objectBinding(id).wrappedValue != value else { return }
         self.checkpoint()
         self.updateObject(at: i, value: value)
       })
@@ -88,6 +127,7 @@ import UniformTypeIdentifiers
       },
       set: { value in
         guard let i = self.project.inputs.firstIndex(where: { $0.id == id }) else { return }
+        guard self.project.inputs[i] != value else { return }
         self.checkpoint()
         self.project.inputs[i] = value
         self.seek(self.time)
@@ -116,6 +156,7 @@ import UniformTypeIdentifiers
     previewPlayer?.pause()
   }
   func seek(_ t: Double) {
+    guard t.isFinite else { return }
     time = max(0, min(project.duration, t))
     epochTime = time
     epoch = CFAbsoluteTimeGetCurrent()
@@ -229,15 +270,14 @@ import UniformTypeIdentifiers
     selectedInput = nil
   }
   func synchronize(inputIndex: Int, sourceTime: Double) {
-    guard let i = project.inputs.firstIndex(where: { $0.legacyIndex == inputIndex }) else { return }
-    checkpoint()
-    let timing = project.inputs[i].timing ?? InputTiming()
-    guard sourceTime >= timing.trimStart, sourceTime <= (timing.trimEnd ?? project.inputs[i].duration) else {
-      error = "The event is outside this source's trim range. Adjust the trim first."; return
-    }
-    project.inputs[i].offset = sourceTime - timing.trimStart - (time-timing.projectStart)*timing.safeRate
-    seek(time)
+    do {
+      var updated = project
+      try updated.synchronize(inputIndex: inputIndex, sourceTime: sourceTime, projectTime: time)
+      checkpoint(); project = updated; seek(time)
+      status = "Synchronized · source " + clockText(sourceTime) + " at video " + clockText(time)
+    } catch { self.error = error.localizedDescription }
   }
+
   func useExportRange(_ range: ClosedRange<Double>) {
     exportStart = range.lowerBound; exportDuration = range.upperBound-range.lowerBound
   }
@@ -335,8 +375,9 @@ import UniformTypeIdentifiers
     var url = fileURL
     if saveAs || url == nil {
       let panel = NSSavePanel()
-      panel.nameFieldStringValue = project.name + ".orrp"
-      panel.allowedContentTypes = [UTType(filenameExtension: "orrp") ?? .json]
+      panel.allowedContentTypes = [UTType(exportedAs: "org.openracerender.project", conformingTo: .json)]
+      panel.nameFieldStringValue = project.name
+      panel.isExtensionHidden = false
       guard panel.runModal() == .OK else { return }
       url = panel.url
     }
@@ -349,34 +390,34 @@ import UniformTypeIdentifiers
     } catch { self.error = error.localizedDescription }
   }
   func saveTemplate() {
-    saveLayout(selectedOnly: false)
+    templateSelectedOnly = false; templateIncludesVideo = false
+    templateName = project.name + " Layout"; showSaveTemplate = true
   }
   func saveSelectedStyle() {
-    saveLayout(selectedOnly: true)
+    guard let object = project.objects.first(where: { $0.id == selected }) else { return }
+    templateSelectedOnly = true; templateIncludesVideo = true
+    templateName = object.name; showSaveTemplate = true
   }
-  func saveLayout(selectedOnly: Bool) {
-    let panel = NSSavePanel()
-    panel.nameFieldStringValue = "\(project.name) Layout.orrt"
-    guard panel.runModal() == .OK, let url = panel.url else { return }
+  func saveLayout() {
     do {
-      var p = project
-      p.legacyData = nil
-      p.sourcePath = nil
-      p.explicitDuration = nil; p.rangeStart = nil; p.rangeEnd = nil
-      if selectedOnly { p.objects = p.objects.filter { $0.id == selected } }
-      let used = Set(p.objects.flatMap { [$0.inputIndex] + ($0.segments ?? []).compactMap(\.inputIndex) })
-      p.inputs = p.inputs.filter { used.contains($0.legacyIndex) }
-      for i in p.inputs.indices {
-        p.inputs[i].path = ""; p.inputs[i].duration = 0; p.inputs[i].offset = 0
-        p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
-      }
-      for i in p.objects.indices where p.objects[i].kind == .image {
-        if let data = try? Data(contentsOf: URL(fileURLWithPath: p.objects[i].text)), NSImage(data: data) != nil {
-          p.objects[i].embeddedImage = data; p.objects[i].text = ""
-        }
-      }
-      try p.save(url)
-      status = "Saved reusable layout"
+      var source = project
+      if !templateIncludesVideo && !templateSelectedOnly { source.objects.removeAll { [.video, .audio].contains($0.kind) } }
+      var layout = try source.reusableLayout(selected: templateSelectedOnly ? selected : nil)
+      layout.name = templateName.trimmingCharacters(in: .whitespacesAndNewlines)
+      if layout.name.isEmpty { layout.name = "Custom Layout" }
+      let panel = NSSavePanel()
+      panel.allowedContentTypes = [UTType(exportedAs: "org.openracerender.template", conformingTo: .json)]
+      panel.nameFieldStringValue = layout.name
+      panel.isExtensionHidden = false
+      let category = templateSelectedOnly ? "Styles" : "Templates"
+      let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("OpenRaceRender/" + category)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      panel.directoryURL = folder
+      guard panel.runModal() == .OK, let url = panel.url else { return }
+      try layout.save(url)
+      showSaveTemplate = false
+      status = "Saved reusable " + (templateSelectedOnly ? "style" : "template") + " · " + url.lastPathComponent
     } catch { self.error = error.localizedDescription }
   }
   func exportRRP() {
@@ -397,12 +438,19 @@ import UniformTypeIdentifiers
     if panel.runModal() == .OK { addInputs(panel.urls) }
   }
   func addInputs(_ urls: [URL]) {
+    pendingInputs.append(contentsOf: urls)
+    guard !importingInputs else { return }
     checkpoint()
-    busy = true
+    importingInputs = true; busy = true
     Task {
-      for url in urls {
+      while !pendingInputs.isEmpty {
+        let url = pendingInputs.removeFirst()
         if ["rrt", "rro", "orrt"].contains(url.pathExtension.lowercased()) {
-          importLayout(url)
+          do {
+            let layout = try await Task.detached { try RaceProject.read(url) }.value
+            if url.pathExtension.lowercased() == "rro" { applyStyle(layout) }
+            else { apply(layout, replace: false, mapping: [:]) }
+          } catch { self.error = error.localizedDescription }
           continue
         }
         let ext = url.pathExtension.lowercased()
@@ -411,7 +459,8 @@ import UniformTypeIdentifiers
           ? "data"
           : (["mp3", "wav", "m4a", "aac"].contains(ext)
             ? "audio" : (["png", "jpg", "jpeg", "tif", "bmp"].contains(ext) ? "image" : "video"))
-        let index = (project.inputs.map(\.legacyIndex).max() ?? -1) + 1
+        let placeholder = project.inputs.firstIndex { $0.kind == kind && $0.path.isEmpty && $0.joinedTo == nil }
+        let index = placeholder.map { project.inputs[$0].legacyIndex } ?? ((project.inputs.map(\.legacyIndex).max() ?? -1) + 1)
         var input = MediaInput(
           name: url.deletingPathExtension().lastPathComponent, path: url.path, kind: kind,
           legacyIndex: index)
@@ -423,8 +472,14 @@ import UniformTypeIdentifiers
           } else if kind != "image" {
             input.duration = try await AVURLAsset(url: url).load(.duration).seconds
           }
-          project.inputs.append(input)
-          if kind == "video" {
+          if let placeholder { input.id = project.inputs[placeholder].id; project.inputs[placeholder] = input }
+          else { project.inputs.append(input) }
+          if kind == "data" && project.inputs.filter({ $0.kind == "data" }).count == 1 {
+            for i in project.objects.indices where project.objects[i].inputIndex < 0 && ![.video, .audio, .image, .group].contains(project.objects[i].kind) {
+              project.objects[i].inputIndex = index
+            }
+          }
+          if kind == "video" && !project.objects.contains(where: { $0.kind == .video && $0.inputIndex == index }) {
             var o = DisplayObject(name: input.name, kind: .video)
             o.inputIndex = index
             let firstVideo = !project.objects.contains { $0.kind == .video }
@@ -432,7 +487,7 @@ import UniformTypeIdentifiers
             o.width = firstVideo ? 100 : 27; o.height = firstVideo ? 100 : 27
             if firstVideo { project.objects.insert(o, at: 0) } else { project.objects.append(o) }
           }
-          if kind == "audio" {
+          if kind == "audio" && !project.objects.contains(where: { $0.kind == .audio && $0.inputIndex == index }) {
             var o = DisplayObject(name: input.name, kind: .audio); o.inputIndex = index; project.objects.append(o)
           }
           if kind == "image" {
@@ -444,7 +499,7 @@ import UniformTypeIdentifiers
         } catch { self.error = error.localizedDescription }
       }
       configurePlayers()
-      busy = false
+      importingInputs = false; busy = false
       status = "Inputs added"
     }
   }
@@ -461,6 +516,8 @@ import UniformTypeIdentifiers
         telemetry = try await Self.loadTelemetry(project)
         if let d = telemetry[project.inputs[i].legacyIndex] {
           project.inputs[i].duration = d.duration
+        } else if ["video", "audio"].contains(project.inputs[i].kind) {
+          project.inputs[i].duration = try await AVURLAsset(url: url).load(.duration).seconds
         }
         configurePlayers()
         status = "Input relinked"
@@ -468,11 +525,11 @@ import UniformTypeIdentifiers
       busy = false
     }
   }
-  func addObject(_ kind: ObjectKind) {
+  func addObject(_ kind: ObjectKind, at point: CGPoint? = nil) {
     checkpoint()
     var o = DisplayObject(name: kind.title, kind: kind)
     o.inputIndex =
-      project.inputs.first { $0.kind == (kind == .video ? "video" : "data") }?.legacyIndex ?? 0
+      project.inputs.first { $0.kind == (kind == .video ? "video" : "data") }?.legacyIndex ?? -1
     if kind == .rpm || kind == .lights { o.maximum = 8000 }
     if kind == .speed { o.maximum = 160 }
     if [.map, .gforce, .speed, .rpm].contains(kind) {
@@ -482,6 +539,11 @@ import UniformTypeIdentifiers
     if [.timer, .lap, .text, .throttle, .lights, .gear].contains(kind) {
       o.width = 20
       o.height = 8
+    }
+    if kind == .text { o.text = "Your text" }
+    if let point {
+      o.x = max(0, min(100-o.width, point.x-o.width/2))
+      o.y = max(0, min(100-o.height, point.y-o.height/2))
     }
     project.objects.append(o)
     selected = o.id
@@ -539,30 +601,10 @@ import UniformTypeIdentifiers
   }
   func apply(_ layout: RaceProject, replace: Bool, mapping: [Int: Int]) {
     checkpoint()
-    if replace {
-      let includesVideo = layout.objects.contains { $0.kind == .video }
-      project.objects.removeAll { includesVideo || ($0.kind != .video && $0.kind != .audio) }
-    }
-    for var o in layout.objects {
-      func remap(_ index: Int) -> Int {
-        let source = layout.inputs.first { $0.legacyIndex == index }
-        return mapping[index] ?? project.inputs.first {
-          $0.kind == (source?.kind ?? (o.kind == .video ? "video" : "data")) && $0.joinedTo == nil
-        }?.legacyIndex ?? project.inputs.first { $0.kind == "data" }?.legacyIndex ?? -1
-      }
-      o.inputIndex = remap(o.inputIndex)
-      o.segments = o.segments?.map { segment in
-        var segment = segment
-        if let index = segment.inputIndex { segment.inputIndex = remap(index) }
-        return segment
-      }
-      o.id = UUID()
-      o.legacyOffset = nil
-      project.objects.append(o)
-    }
-    project.warnings += layout.warnings.filter { !project.warnings.contains($0) }
-    selected = project.objects.last?.id
+    project.applyLayout(layout, replace: replace, mapping: mapping)
+    selected = project.objects.last?.id; selectedInput = nil
   }
+
   func snapshot() {
     let panel = NSSavePanel()
     panel.nameFieldStringValue = project.name + "-frame.png"
@@ -578,14 +620,37 @@ import UniformTypeIdentifiers
       busy = false
     }
   }
+  func availableOutputURL(_ url: URL) -> URL {
+    guard FileManager.default.fileExists(atPath: url.path) else { return url }
+    var number = 2
+    while true {
+      let next = url.deletingLastPathComponent().appendingPathComponent(url.deletingPathExtension().lastPathComponent + "-\(number).mp4")
+      if !FileManager.default.fileExists(atPath: next.path) { return next }
+      number += 1
+    }
+  }
+  var exportRangeError: String? {
+    do { try project.validateExportRange(start: exportStart, duration: exportDuration); return nil }
+    catch { return error.localizedDescription }
+  }
   func exportVideo() {
+    if let message = exportRangeError { error = message; return }
     let panel = NSSavePanel()
-    panel.nameFieldStringValue = project.name + "-render.mp4"
+    if let path = project.lastExport?.path {
+      let previous = URL(fileURLWithPath: path)
+      panel.directoryURL = previous.deletingLastPathComponent()
+      panel.nameFieldStringValue = availableOutputURL(previous).lastPathComponent
+    } else { panel.nameFieldStringValue = project.name + "-render.mp4" }
     panel.allowedContentTypes = [.mpeg4Movie]
     guard panel.runModal() == .OK, let url = panel.url else { return }
     if FileManager.default.fileExists(atPath: url.path) {
       error = "Choose a new filename; export does not overwrite existing files."
       return
+    }
+    project.lastExport = ExportDestination(path: url.path, start: exportStart, duration: exportDuration)
+    if let fileURL {
+      do { try project.save(fileURL); dirty = false }
+      catch { self.error = error.localizedDescription; return }
     }
     pause()
     showExport = false

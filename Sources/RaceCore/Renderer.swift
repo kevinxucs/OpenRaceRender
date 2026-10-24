@@ -353,7 +353,7 @@ public enum OverlayRenderer {
     let radius = min(r.width, r.height) * 0.46
     let cx = r.midX
     let cy = r.midY
-    if let path = g.backgroundPath, let image = NSImage(contentsOfFile: path), let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) { c.draw(cg, in: r) }
+    if let image = g.backgroundImage.flatMap({ NSImage(data: $0) }) ?? g.backgroundPath.flatMap({ NSImage(contentsOfFile: $0) }), let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) { c.draw(cg, in: r) }
     if g.showFace {
       c.setFillColor(color("#0D1218", alpha: 0.65))
       c.fillEllipse(in: CGRect(x: cx-radius, y: cy-radius, width: radius*2, height: radius*2))

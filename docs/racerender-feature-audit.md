@@ -44,7 +44,7 @@ These observations informed behavior. They do not establish that every reference
 | Per-display inherited timeline segments | Implemented subset | Source, visible, geometry, opacity, text, color and channel; discrete changes |
 | Timeline tracks and markers | Implemented subset | Select, scrub, create/remove, reset inheritance; no zoom/shift tool yet |
 | Timed titles/captions and camera switching | Implemented | Segments and active start/end span |
-| Explicit project length and export marks | Implemented | Project inspector and flag menu |
+| Explicit project length and export marks | Implemented | Visible In/Out controls, keyboard shortcuts, timeline boundaries and saved export defaults |
 | Crop/digital zoom, aspect preservation, rotation and flip | Implemented | Normalized crop fractions; source and media-display picture settings |
 | Brightness, contrast, saturation | Implemented | Shared CoreImage pipeline |
 | Hue, sharpness, colorize, chroma key | Not implemented | Additional input picture operations |
@@ -77,7 +77,7 @@ These observations informed behavior. They do not establish that every reference
 | Legacy timeline/join/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
 | `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
-| Reusable layout/single-display export | Implemented native format | `.orrt` with source placeholders; no legacy RRT/RRO writer |
+| Reusable layout/single-display export | Implemented native format | Named `.orrt` layouts/styles, blank layout and widget palette, embedded image/gauge artwork and sanitized source placeholders; no legacy RRT/RRO writer |
 | Enhanced script execution/editor | Bounded interpreter; editor absent | All 56 installed Enhanced styles render in the local-library check; bounded persistent replay is supported; complete language parity remains incomplete |
 | H.264 MP4 export, audio, 4K and selected ranges | Implemented | Native export; resolution, FPS, project/time/lap ranges |
 | Manual bitrate, output profiles, audio format/scaling quality | Partial | Explicit H.264 High Profile video bitrate and stereo 48 kHz AAC bitrate; automatic quality-oriented rate, hardware encoding and Lanczos downscaling. Additional codec/audio formats and profile import remain absent |
@@ -85,7 +85,7 @@ These observations informed behavior. They do not establish that every reference
 | Stereoscopic/anaglyph color-channel compositing | Not implemented | Specialized composition modes |
 | TrackAddict network/WiFi transfer | Not implemented | Local import only |
 | Direct upload and portable media packaging | Not implemented | Export video and manage media locally |
-| Setup wizard and side-by-side synchronization | Partial | Add inputs/templates and manual event sheet; no dedicated wizard or two-pane sync tool |
+| Setup wizard and side-by-side synchronization | Partial | Video-backed lap/event data sync wizard with exact time entry and frame stepping; no general multi-camera setup wizard |
 
 ## Verification
 
@@ -122,3 +122,7 @@ The two supplied peak banners are Enhanced displays with Auto activation and the
 Auto now renders while its input is active. Older native imports are migrated once, with a marker that preserves subsequent native hide edits. Built-in Speed uses project units and Accel Y resolves to lateral G-force. The original local scripts retain their peak/base detection and turn-direction logic. Their background initializes once; foreground variables persist on the project frame grid. Bounded replay/checkpoints rebuild state for backward seeks, repeated frames, source offsets/rates, timeline segments and exports starting mid-session. Histories are isolated by object, script, telemetry revision, channel, units and timing. History replay is limited to one million frames, with bounded checkpoint storage; historical drawing calls are suppressed while variable updates run.
 
 Reference-app inspection confirmed Auto and Persistent Script Variables for these displays. With the supplied telemetry at ten minutes, OpenRaceRender now renders Base Speed: 70 MPH and Right Turn: 1.08 G. The speed style alternates between recent maximum and minimum events as its original script specifies. Synthetic regression tests cover event holding, seeking, rewind, repeat rendering, isolation, delayed input availability, speed units, text clipping and migration. Vendor scripts, session data and comparison renders remain local.
+
+## Session and template usability audit
+
+The [workflow audit](workflow-audit.md) records the session-to-export and blank-template stories, the gaps found through actual editor use, related recovery workflows, and their verification. It supersedes the earlier manual-sheet description of data synchronization above.

@@ -6,6 +6,20 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Video-backed lap/event synchronization wizard, exact-time navigation, visible In/Out controls and timeline range marks.
+- Blank layout, draggable widget palette, named template/style saving, embedded gauge artwork and native template previews.
+- Remembered export ranges/settings/destinations, consistent toolbar/keyboard/CLI defaults, and safe numbered repeat filenames.
+- Workflow regression coverage for synchronization, reusable layouts, source remapping and moved-project asset paths.
+
+### Fixed
+
+- Library discovery and thumbnail reads blocking the main thread; custom and bundled libraries now load asynchronously.
+- Missing session dirty/undo tracking, preview selections creating edits, and duplicated native save extensions.
+- Concurrent multi-file drops colliding on source numbers, template source placeholders remaining unbound, incompatible source choices, retained session configuration in templates, and video/audio relink duration.
+- Reloading telemetry after undoing a removed source, and image/gauge references after relocating project folders.
+
+### Earlier additions
+
 - Original macOS app icon, generated artwork source and automatic multi-resolution ICNS packaging.
 - Optional self-contained app packaging for local RaceRender libraries, with automatic discovery, checksummed manifests, user overrides and separate template/style/image/video-position categories.
 - Matched 4K chunk comparisons: imported camera picture controls, HSV saturation and multiplicative brightness, legacy Rec.709 decoder compatibility, recorded longitudinal G, map stroke/zoom and native text corrections.

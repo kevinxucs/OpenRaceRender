@@ -1,20 +1,104 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>org.openracerender.app</string>
-<key>CFBundleName</key><string>OpenRaceRender</string>
-<key>CFBundleDisplayName</key><string>OpenRaceRender</string>
-<key>CFBundleExecutable</key><string>OpenRaceRender</string>
-<key>CFBundleIconFile</key><string>AppIcon.icns</string>
-<key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>LSMinimumSystemVersion</key><string>14.0</string>
-<key>NSHighResolutionCapable</key><true/>
-<key>NSPrincipalClass</key><string>NSApplication</string>
-<key>CFBundleDocumentTypes</key><array><dict>
-<key>CFBundleTypeName</key><string>Telemetry Video Project</string>
-<key>CFBundleTypeRole</key><string>Editor</string>
-<key>LSHandlerRank</key><string>Alternate</string>
-<key>CFBundleTypeExtensions</key><array><string>orrp</string><string>orrt</string><string>rrp</string><string>rrt</string><string>rro</string></array>
-</dict></array>
-</dict></plist>
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>org.openracerender.app</string>
+	<key>CFBundleName</key>
+	<string>OpenRaceRender</string>
+	<key>CFBundleDisplayName</key>
+	<string>OpenRaceRender</string>
+	<key>CFBundleExecutable</key>
+	<string>OpenRaceRender</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon.icns</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>OpenRaceRender Project</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openracerender.project</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>OpenRaceRender Template</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openracerender.template</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>RaceRender Project or Layout</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>rrp</string>
+				<string>rrt</string>
+				<string>rro</string>
+			</array>
+		</dict>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.openracerender.project</string>
+			<key>UTTypeDescription</key>
+			<string>OpenRaceRender Project</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>orrp</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.openracerender.template</string>
+			<key>UTTypeDescription</key>
+			<string>OpenRaceRender Template</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>orrt</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+</dict>
+</plist>

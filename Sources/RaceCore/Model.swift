@@ -101,7 +101,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   }
 }
 
-public struct RaceProject: Codable, Sendable {
+public struct RaceProject: Codable, Equatable, Sendable {
   public var formatVersion = 1
   public var name: String = "Untitled Session"
   public var width: Int = 1920
@@ -117,6 +117,7 @@ public struct RaceProject: Codable, Sendable {
   public var rangeStart: Double?
   public var rangeEnd: Double?
   public var exportSettings: ExportSettings?
+  public var lastExport: ExportDestination?
   public init() {}
   public var duration: Double {
     if let value = explicitDuration, value.isFinite, value > 0 { return value }
@@ -131,6 +132,10 @@ public struct RaceProject: Codable, Sendable {
     else { throw RaceError.invalid("Unsupported or invalid OpenRaceRender project.") }
     let base = url.deletingLastPathComponent()
     for i in p.inputs.indices { p.inputs[i].path = resolvePath(p.inputs[i].path, base: base) }
+    for i in p.objects.indices {
+      if p.objects[i].kind == .image, !p.objects[i].text.isEmpty { p.objects[i].text = resolvePath(p.objects[i].text, base: base) }
+      if let path = p.objects[i].gauge?.backgroundPath { p.objects[i].gauge?.backgroundPath = resolvePath(path, base: base) }
+    }
     // Earlier native imports omitted the original camera's picture adjustments.
     if let legacy = p.legacyData,let original = try? LegacyReader.project(legacy,base:base) {
       for i in p.inputs.indices where p.inputs[i].picture == nil && p.inputs[i].kind == "video" {
@@ -161,6 +166,10 @@ public struct RaceProject: Codable, Sendable {
     for i in p.inputs.indices where p.inputs[i].path.hasPrefix(base) {
       p.inputs[i].path = String(p.inputs[i].path.dropFirst(base.count))
     }
+    for i in p.objects.indices {
+      if p.objects[i].kind == .image, p.objects[i].text.hasPrefix(base) { p.objects[i].text = String(p.objects[i].text.dropFirst(base.count)) }
+      if let path = p.objects[i].gauge?.backgroundPath, path.hasPrefix(base) { p.objects[i].gauge?.backgroundPath = String(path.dropFirst(base.count)) }
+    }
     let e = JSONEncoder()
     e.outputFormatting = [.prettyPrinted, .sortedKeys]
     try e.encode(p).write(to: url, options: .atomic)
@@ -168,11 +177,12 @@ public struct RaceProject: Codable, Sendable {
   public static func resolvePath(_ path: String, base: URL) -> String {
     if path.isEmpty { return "" }
     let normalized = path.replacingOccurrences(of: "\\", with: "/")
-    if FileManager.default.fileExists(atPath: normalized) { return normalized }
+    let absolute = normalized.hasPrefix("/")
+    if absolute && FileManager.default.fileExists(atPath: normalized) { return normalized }
     let relative = base.appendingPathComponent(normalized).standardized.path
     if FileManager.default.fileExists(atPath: relative) { return relative }
     let sibling = base.appendingPathComponent((normalized as NSString).lastPathComponent).path
-    return FileManager.default.fileExists(atPath: sibling) ? sibling : relative
+    return FileManager.default.fileExists(atPath: sibling) ? sibling : (absolute ? normalized : relative)
   }
   public func patchLegacy() throws -> Data {
     guard var b = legacyData, String(data: b.prefix(4), encoding: .ascii) == "RRP3" else {

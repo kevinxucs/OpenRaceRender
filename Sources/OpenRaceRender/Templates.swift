@@ -14,7 +14,10 @@ struct TemplateBrowser: View {
   @State var failure: String?
   @State var replace = true
   @State var mapping: [Int: Int] = [:]
-  var isStyle: Bool { category != .templates }
+  @State var thumbnails: [URL: NSImage] = [:]
+  @State var scanning = false
+  @State var scanTask: Task<Void, Never>?
+  var isStyle: Bool { category != .templates || selected?.pathExtension.lowercased() == "rro" }
   var filtered: [LayoutLibrary.Entry] {
     files.filter { $0.category == category }.filter {
       search.isEmpty || $0.url.lastPathComponent.localizedCaseInsensitiveContains(search)
@@ -50,7 +53,7 @@ struct TemplateBrowser: View {
           ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 14) {
               if category == .templates {
-                ForEach(["Circuit", "Minimal", "Broadcast"], id: \.self) { name in
+                ForEach(["Blank", "Circuit", "Minimal", "Broadcast"], id: \.self) { name in
                   Button {
                     selected = nil
                     layout = builtin(name)
@@ -79,7 +82,7 @@ struct TemplateBrowser: View {
                   load(url)
                 } label: {
                   VStack(alignment: .leading, spacing: 8) {
-                    if let thumbnail = thumbnail(url) {
+                    if let thumbnail = thumbnails[url] {
                       Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fit).frame(
                         height: 96
                       ).clipShape(RoundedRectangle(cornerRadius: 4))
@@ -95,11 +98,16 @@ struct TemplateBrowser: View {
                       RoundedRectangle(cornerRadius: 7).stroke(
                         selected == url ? mint : .clear, lineWidth: 1)
                     }
-                }.buttonStyle(.plain)
+                }.buttonStyle(.plain).task(id: url) {
+                  if thumbnails[url] == nil {
+                    let image = await Task.detached(priority: .utility) { Self.thumbnail(url) }.value
+                    if let image { thumbnails[url] = image }
+                  }
+                }
               }
             }.padding(.vertical, 4)
           }
-          Text("\(filtered.count) library files").font(
+          Text("\(filtered.count) library files" + (scanning ? " · scanning…" : "")).font(
             .system(size: 10)
           ).foregroundStyle(muted)
         }.padding(20).frame(width: 550)
@@ -122,7 +130,7 @@ struct TemplateBrowser: View {
                   }, set: { mapping[input.legacyIndex] = $0 })
               ) {
                 Text("None").tag(-1)
-                ForEach(model.project.inputs) { Text($0.name).tag($0.legacyIndex) }
+                ForEach(model.project.inputs.filter { $0.kind == input.kind && $0.joinedTo == nil }) { Text($0.name).tag($0.legacyIndex) }
               }
             }
             if isStyle {
@@ -169,6 +177,7 @@ struct TemplateBrowser: View {
         Button(isStyle ? "Apply style" : "Apply layout") {
           if let p = layout {
             if isStyle { model.applyStyle(p) }
+            else if p.name == "Blank" && p.objects.isEmpty { model.blankLayout() }
             else { model.apply(p, replace: replace, mapping: mapping) }
             dismiss()
           }
@@ -176,8 +185,8 @@ struct TemplateBrowser: View {
       }.padding(20)
     }.frame(width: 840, height: 630).background(bg).preferredColorScheme(.dark).tint(mint)
       .onAppear {
-        files = LayoutLibrary.entries(in: LayoutLibrary.defaultRoots())
-      }
+        scan(LayoutLibrary.defaultRoots())
+      }.onDisappear { scanTask?.cancel() }
   }
   func displayName(_ u: URL) -> String {
     u.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "Data - ", with: "")
@@ -190,7 +199,22 @@ struct TemplateBrowser: View {
     if p.runModal() == .OK, let url = p.url { scan(url) }
   }
   func scan(_ root: URL) {
-    files = LayoutLibrary.entries(in: [root])
+    scan([root])
+  }
+  func scan(_ roots: [URL]) {
+    scanTask?.cancel(); files = []; scanning = true
+    scanTask = Task {
+      var seen = Set<String>()
+      for root in roots {
+        let entries = await Task.detached(priority: .utility) { LayoutLibrary.entries(in: [root]) }.value
+        guard !Task.isCancelled else { return }
+        for entry in entries {
+          let key = (entry.category.rawValue + "/" + entry.relativePath).lowercased()
+          if seen.insert(key).inserted { files.append(entry) }
+        }
+      }
+      scanning = false
+    }
   }
   func load(_ url: URL) {
     selected = url
@@ -208,7 +232,13 @@ struct TemplateBrowser: View {
       loading = false
     }
   }
-  func thumbnail(_ url: URL) -> NSImage? {
+  nonisolated static func thumbnail(_ url: URL) -> NSImage? {
+    if url.pathExtension.lowercased() == "orrt", let p = try? RaceProject.read(url),
+      let c = CGContext(data: nil, width: 180, height: 101, bitsPerComponent: 8, bytesPerRow: 0,
+        space: OverlayRenderer.colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+      OverlayRenderer.draw(c, scene: RenderScene(project: p, telemetry: [:]), time: 0, size: CGSize(width: 180, height: 101))
+      if let image = c.makeImage() { return NSImage(cgImage: image, size: NSSize(width: 180, height: 101)) }
+    }
     guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
     defer { try? h.close() }
     guard var bytes = try? h.read(upToCount: 65536), bytes.count >= 20 else { return nil }
@@ -267,6 +297,7 @@ struct TemplateBrowser: View {
       o.maximum = kind == .rpm || kind == .lights ? 8000 : (kind == .speed ? 160 : 100)
       p.objects.append(o)
     }
+    if name == "Blank" { p.inputs = []; return p }
     if name == "Minimal" {
       add(.speed, 3, 3, 13, 23)
       add(.timer, 78, 4, 19, 7)
@@ -300,12 +331,17 @@ struct ExportSheet: View {
   @State var lastLap = -1
   var videoRate: Binding<Int> {
     Binding(get:{ (model.project.exportSettings ?? ExportSettings()).videoBitRate.map { $0/1000 } ?? 0 },set:{ value in
-      var settings = model.project.exportSettings ?? ExportSettings();settings.videoBitRate = value > 0 ? value*1000 : nil;model.project.exportSettings = settings
+      var settings = model.project.exportSettings ?? ExportSettings()
+      let rate = value > 0 ? value*1000 : nil
+      guard settings.videoBitRate != rate else { return }
+      model.checkpoint(); settings.videoBitRate = rate; model.project.exportSettings = settings
     })
   }
   var audioRate: Binding<Int> {
     Binding(get:{ (model.project.exportSettings ?? ExportSettings()).audioBitRate/1000 },set:{ value in
-      var settings = model.project.exportSettings ?? ExportSettings();settings.audioBitRate = value*1000;model.project.exportSettings = settings
+      var settings = model.project.exportSettings ?? ExportSettings()
+      guard settings.audioBitRate != value*1000 else { return }
+      model.checkpoint(); settings.audioBitRate = value*1000; model.project.exportSettings = settings
     })
   }
   var body: some View {
@@ -322,10 +358,14 @@ struct ExportSheet: View {
           selection: Binding(
             get: { model.project.width },
             set: {
+              let height = $0 == 856 ? 480 : Int(Double($0) * 9 / 16)
+              guard model.project.width != $0 || model.project.height != height else { return }
+              model.checkpoint()
               model.project.width = $0
-              model.project.height = $0 == 856 ? 480 : Int(Double($0) * 9 / 16)
+              model.project.height = height
             })
         ) {
+          if ![3840,1920,1280,854,856].contains(model.project.width) { Text("Custom · \(model.project.width) × \(model.project.height)").tag(model.project.width) }
           Text("4K · 3840 × 2160").tag(3840)
           Text("1080p · 1920 × 1080").tag(1920)
           Text("720p · 1280 × 720").tag(1280)
@@ -336,7 +376,7 @@ struct ExportSheet: View {
       HStack {
         Text("Frame rate")
         Spacer()
-        Picker("Frame rate", selection: $model.project.fps) {
+        Picker("Frame rate", selection: model.projectBinding(\.fps)) {
           ForEach(Array(Set([5.0,10,15,24,25,30000.0/1001,30,50,60000.0/1001,60,120,model.project.fps])).sorted(), id: \.self) {
             Text("\($0.formatted()) fps").tag($0)
           }
@@ -367,7 +407,9 @@ struct ExportSheet: View {
         }
       }.textFieldStyle(.roundedBorder)
       HStack {
-        Button("Entire video") {
+        Button("Marked range") { model.useExportRange(model.project.defaultExportRange) }
+          .disabled(model.project.rangeStart == nil && model.project.rangeEnd == nil)
+        Button("Entire project") {
           model.exportStart = 0
           model.exportDuration = model.project.duration
         }
@@ -386,12 +428,18 @@ struct ExportSheet: View {
           }.disabled(firstLap < 0 || lastLap < firstLap)
         }
       }
+      if let message = model.exportRangeError { Text(message).font(.caption).foregroundStyle(.orange) }
+      else { Text("End: " + clockText(model.exportStart + model.exportDuration)).font(.caption).foregroundStyle(mint) }
+      if let path = model.project.lastExport?.path {
+        Text("Previous output: " + URL(fileURLWithPath: path).lastPathComponent + ". A new filename is suggested for repeat exports.").font(.caption).foregroundStyle(muted)
+      }
+      Text("Export settings and output location are saved with the project when rendering begins.").font(.caption).foregroundStyle(muted)
       Divider()
       HStack {
         Button("Cancel") { dismiss() }
         Spacer()
         Button("Choose output & export…", action: model.exportVideo).buttonStyle(.borderedProminent)
-          .foregroundStyle(bg).disabled(model.exportDuration <= 0 || model.exportStart < 0)
+          .foregroundStyle(bg).disabled(model.exportRangeError != nil || model.exportProgress != nil)
       }
     }.padding(28).frame(width: 490).background(bg).preferredColorScheme(.dark).tint(mint)
   }

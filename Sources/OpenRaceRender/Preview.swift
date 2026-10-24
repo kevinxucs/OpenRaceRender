@@ -4,26 +4,30 @@ import SwiftUI
 
 struct Preview: NSViewRepresentable {
   @ObservedObject var model: EditorModel
+  var interactive = true
   func makeNSView(context: Context) -> PreviewView {
     let v = PreviewView()
     v.model = model
+    v.interactive = interactive
     return v
   }
   func updateNSView(_ view: PreviewView, context: Context) {
     view.model = model
+    view.interactive = interactive
     view.refresh()
   }
 }
 
 @MainActor final class OverlayView: NSView {
   weak var model: EditorModel?
+  var showSelection = true
   override var isOpaque: Bool { false }
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
   override func draw(_ dirtyRect: NSRect) {
     guard let m = model, let c = NSGraphicsContext.current?.cgContext else { return }
     if m.previewPlayer == nil {
-      OverlayRenderer.draw(c, scene: m.scene, time: m.time, size: bounds.size, selection: m.selected)
-    } else if let base = m.project.objects.first(where: { $0.id == m.selected }) {
+      OverlayRenderer.draw(c, scene: m.scene, time: m.time, size: bounds.size, selection: showSelection ? m.selected : nil)
+    } else if showSelection, let base = m.project.objects.first(where: { $0.id == m.selected }) {
       let r = OverlayRenderer.rect(base.resolved(at: m.time), size: bounds.size)
       c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1.5); c.stroke(r)
       c.setFillColor(OverlayRenderer.color("#5EE0B5")); c.fill(CGRect(x: r.maxX-4, y: r.maxY-4, width: 8, height: 8))
@@ -35,6 +39,8 @@ struct Preview: NSViewRepresentable {
   weak var model: EditorModel?
   let overlay = OverlayView()
   let compositionLayer = AVPlayerLayer()
+  var interactive = true
+  var dragCheckpoint = false
   var dragging: UUID?
   var initialPoint = CGPoint.zero
   var initialObject: DisplayObject?
@@ -42,6 +48,9 @@ struct Preview: NSViewRepresentable {
   override init(frame: NSRect) {
     super.init(frame: frame)
     wantsLayer = true
+    setAccessibilityElement(true)
+    setAccessibilityRole(.image)
+    setAccessibilityLabel("Composition preview · drop widgets here")
     layer?.backgroundColor = NSColor.black.cgColor
     compositionLayer.videoGravity = .resizeAspect
     layer?.addSublayer(compositionLayer)
@@ -58,6 +67,7 @@ struct Preview: NSViewRepresentable {
     guard let m = model else { return }
     overlay.frame = bounds
     overlay.model = m
+    overlay.showSelection = interactive
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     if compositionLayer.player !== m.previewPlayer {
@@ -69,9 +79,10 @@ struct Preview: NSViewRepresentable {
     overlay.needsDisplay = true
   }
   override func mouseDown(with event: NSEvent) {
-    guard let m = model else { return }
+    guard interactive, let m = model else { return }
     window?.makeFirstResponder(self)
     let p = convert(event.locationInWindow, from: nil)
+    dragCheckpoint = false
     if let selected = m.project.objects.first(where: { $0.id == m.selected }) {
       let r = OverlayRenderer.rect(selected.resolved(at: m.time), size: bounds.size)
       if hypot(p.x - r.maxX, p.y - r.maxY) < 10 {
@@ -79,7 +90,6 @@ struct Preview: NSViewRepresentable {
         initialObject = selected.resolved(at: m.time)
         initialPoint = p
         resizing = true
-        m.checkpoint()
         return
       }
     }
@@ -98,12 +108,12 @@ struct Preview: NSViewRepresentable {
     initialPoint = p
     initialObject = o
     resizing = false
-    m.checkpoint()
   }
   override func mouseDragged(with event: NSEvent) {
     guard let m = model, let id = dragging, var o = initialObject,
       let i = m.project.objects.firstIndex(where: { $0.id == id })
     else { return }
+    if !dragCheckpoint { m.checkpoint(); dragCheckpoint = true }
     let p = convert(event.locationInWindow, from: nil)
     let dx = (p.x - initialPoint.x) / bounds.width * 100
     let dy = (p.y - initialPoint.y) / bounds.height * 100

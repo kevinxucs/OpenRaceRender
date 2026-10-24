@@ -2,14 +2,14 @@ import Foundation
 
 /// Discovers both app resources and user libraries without modifying either.
 public enum LayoutLibrary {
-  public enum Category: String, CaseIterable, Codable {
+  public enum Category: String, CaseIterable, Codable, Sendable {
     case templates = "Templates"
     case styles = "Styles"
     case images = "Images"
     case videoPositions = "Video Positions"
   }
 
-  public struct Entry: Identifiable, Equatable {
+  public struct Entry: Identifiable, Equatable, Sendable {
     public var url: URL
     public var category: Category
     public var relativePath: String
@@ -34,6 +34,8 @@ public enum LayoutLibrary {
     let fm = FileManager.default
     for root in roots {
       let root = root.standardizedFileURL.resolvingSymlinksInPath()
+      var directory: ObjCBool = false
+      guard fm.fileExists(atPath: root.path, isDirectory: &directory), directory.boolValue else { continue }
       guard let enumerator = fm.enumerator(
         at: root, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]
       ) else { continue }

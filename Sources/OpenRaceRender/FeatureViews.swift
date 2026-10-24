@@ -46,9 +46,9 @@ struct PictureControls: View {
           HStack { value("Top", $settings.top); value("Bottom", $settings.bottom) }
           value("Brightness (0–2)", $settings.brightness)
           value("Contrast (0–2)", $settings.contrast)
-          value("Color (0–2)", $settings.saturation)
+          value("Saturation (0–2)", $settings.saturation)
         }
-        Button("Reset picture") { settings = PictureSettings() }
+        Button("Reset picture") { let interpretation = settings.legacyColorInterpretation; settings = PictureSettings(); settings.legacyColorInterpretation = interpretation }
       }.padding(.top, 8)
     }.font(.system(size: 11))
   }
@@ -99,36 +99,131 @@ struct SyncSheet: View {
   @State var index = -1
   @State var eventID = ""
   @State var sourceTime = 0.0
+  @State var events: [SyncEvent] = []
+  @State var aligned = false
   @Environment(\.dismiss) var dismiss
-  var events: [SyncEvent] { model.telemetry[index]?.syncEvents ?? [] }
+  var body: some View {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack {
+        Text("Data synchronization wizard").font(.title2)
+        Spacer()
+        Button("Done") { model.pause(); dismiss() }.keyboardShortcut(.cancelAction)
+      }
+      Text("1. Choose a lap start or another recorded event.  2. Find the same frame in the video.  3. Align.")
+        .font(.callout).foregroundStyle(muted)
+      HStack(alignment: .top, spacing: 22) {
+        VStack(spacing: 10) {
+          Preview(model: model, interactive: false).aspectRatio(Double(model.project.width)/Double(model.project.height), contentMode: .fit)
+            .frame(width: 560, height: 315).background(.black)
+          HStack {
+            Button("−1 s") { model.seek(model.time-1) }
+            Button("−1 frame") { model.seek(model.time-1/model.project.fps) }
+            Button(model.playing ? "Pause" : "Play") { model.togglePlayback() }
+            Button("+1 frame") { model.seek(model.time+1/model.project.fps) }
+            Button("+1 s") { model.seek(model.time+1) }
+          }
+          Slider(value: Binding(get: { model.time }, set: { model.seek($0) }), in: 0...max(1, model.project.duration))
+          HStack {
+            Text("Video frame (seconds)")
+            TextField("Video event time", value: Binding(get: { model.time }, set: { model.seek($0) }), format: .number.precision(.fractionLength(0...4)))
+              .textFieldStyle(.roundedBorder).frame(width: 125)
+            Text(clockText(model.time)).monospacedDigit().foregroundStyle(mint)
+          }
+        }
+        VStack(alignment: .leading, spacing: 16) {
+          Picker("Data source", selection: $index) {
+            Text("Select telemetry").tag(-1)
+            ForEach(model.project.inputs.filter { $0.kind == "data" && $0.joinedTo == nil }) { Text($0.name).tag($0.legacyIndex) }
+          }.onChange(of: index) { _, _ in loadEvents() }
+          Picker("Recorded event", selection: $eventID) {
+            Text("Custom source time").tag("")
+            ForEach(events) { Text($0.name + " · " + clockText($0.time)).tag($0.id) }
+          }.onChange(of: eventID) { _, id in
+            if let e = events.first(where: { $0.id == id }) { sourceTime = e.time }
+            aligned = false
+          }
+          if events.isEmpty { Text("No lap events? Enter a source time, or configure a GPS finish line in the data inspector.").font(.caption).foregroundStyle(muted) }
+          TextField("Source event time (seconds)", value: $sourceTime, format: .number.precision(.fractionLength(0...4)))
+            .textFieldStyle(.roundedBorder)
+          Text("Data event: " + clockText(sourceTime)).monospacedDigit()
+          Text("Scrub until the car crosses the same start/finish line. Use frame steps for the first or second lap crossing.")
+            .font(.callout).foregroundStyle(muted)
+          Button("Align event to video frame") {
+            model.pause(); model.synchronize(inputIndex: index, sourceTime: sourceTime)
+            aligned = model.error == nil
+          }.buttonStyle(.borderedProminent).disabled(index < 0)
+          if aligned { Label("Aligned. Choose another lap to check the match.", systemImage: "checkmark.circle").foregroundStyle(mint) }
+          if let input = model.project.inputs.first(where: { $0.legacyIndex == index }) {
+            Text("Offset: \(input.offset.formatted(.number.precision(.fractionLength(3)))) s").monospacedDigit().font(.caption)
+            Button("Seek to selected event using current sync") { model.seek(model.projectTime(for: sourceTime, inputIndex: index)) }
+          }
+        }.frame(width: 295)
+      }
+    }.padding(24).frame(width: 925).background(bg).preferredColorScheme(.dark).tint(mint)
+    .onAppear {
+      model.pause()
+      index = model.project.inputs.first(where: { $0.id == model.selectedInput && $0.kind == "data" })?.legacyIndex ?? model.dataIndex ?? -1
+      loadEvents()
+    }
+    .onDisappear { model.pause() }
+  }
+  func loadEvents() {
+    events = model.telemetry[index]?.syncEvents ?? []
+    let lap = events.first { $0.name.hasPrefix("Lap ") && $0.time > 0 }
+    eventID = lap?.id ?? ""; sourceTime = lap?.time ?? 0; aligned = false
+  }
+}
+
+struct SaveTemplateSheet: View {
+  @ObservedObject var model: EditorModel
+  @Environment(\.dismiss) var dismiss
+  var count: Int {
+    model.project.objects.filter { object in
+      model.templateSelectedOnly ? object.id == model.selected : model.templateIncludesVideo || ![.video, .audio].contains(object.kind)
+    }.count
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
-      Text("Synchronize a source").font(.title2)
-      Text("Find the same event in the video and the source. Aligning these two times updates the source offset.").foregroundStyle(muted)
-      Picker("Source", selection: $index) {
-        Text("Select an input").tag(-1)
-        ForEach(model.project.inputs.filter { $0.joinedTo == nil }) { Text($0.name).tag($0.legacyIndex) }
-      }
-      if !events.isEmpty {
-        Picker("Data event", selection: $eventID) {
-          Text("Choose an event or enter a time").tag("")
-          ForEach(events) { Text($0.name + " · " + clockText($0.time)).tag($0.id) }
-        }.onChange(of: eventID) { _, id in if let e = events.first(where: { $0.id == id }) { sourceTime = e.time } }
-      }
-      TextField("Source event time (seconds)", value: $sourceTime, format: .number).textFieldStyle(.roundedBorder)
+      Text(model.templateSelectedOnly ? "Save reusable style" : "Save reusable template").font(.title2)
+      TextField("Template name", text: $model.templateName).textFieldStyle(.roundedBorder)
+      if !model.templateSelectedOnly { Toggle("Include video and audio display positions", isOn: $model.templateIncludesVideo) }
+      Text("\(count) displays. Media files, synchronization, export marks and session settings are removed. Images and gauge backgrounds are embedded.")
+        .font(.callout).foregroundStyle(muted)
+      Text("Save in the suggested folder to find it in the layout library next time.").font(.caption).foregroundStyle(muted)
       HStack {
-        Text("Project event: " + clockText(model.time)).monospacedDigit()
-        Button("−1 frame") { model.seek(model.time-1/model.project.fps) }
-        Button("+1 frame") { model.seek(model.time+1/model.project.fps) }
-      }
-      Slider(value: Binding(get: { model.time }, set: { model.seek($0) }), in: 0...max(1, model.project.duration))
-      HStack {
-        Button("Done") { dismiss() }
+        Button("Cancel") { dismiss() }
         Spacer()
-        Button("Align source event to playhead") { model.synchronize(inputIndex: index, sourceTime: sourceTime) }.buttonStyle(.borderedProminent).disabled(index < 0)
+        Button("Choose file & save…", action: model.saveLayout).buttonStyle(.borderedProminent).disabled(count == 0)
       }
-    }.padding(28).frame(width: 590).background(bg).preferredColorScheme(.dark).tint(mint)
-    .onAppear { index = model.project.inputs.first(where: { $0.id == model.selectedInput })?.legacyIndex ?? model.dataIndex ?? -1 }
+    }.padding(26).frame(width: 470).background(bg).preferredColorScheme(.dark).tint(mint)
+  }
+}
+
+struct WidgetPalette: View {
+  @ObservedObject var model: EditorModel
+  static let prefix = "openracerender.widget:"
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack {
+        Text("WIDGETS").font(.system(size: 10, weight: .bold)).tracking(1.6).foregroundStyle(muted)
+        Spacer()
+        Button { model.showWidgets = false } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Close widgets")
+      }
+      Text("Drag onto the preview, or click to add.").font(.system(size: 10)).foregroundStyle(muted)
+      ScrollView {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
+          ForEach(ObjectKind.allCases.filter { ![.group, .audio, .video, .image, .enhanced].contains($0) }, id: \.self) { kind in
+            Button { model.addObject(kind) } label: {
+              VStack(spacing: 5) {
+                Image(systemName: kind.symbol).foregroundStyle(mint).font(.system(size: 18))
+                Text(kind.title).font(.system(size: 10)).lineLimit(1)
+              }.frame(maxWidth: .infinity).frame(height: 53).background(bg).clipShape(RoundedRectangle(cornerRadius: 5))
+            }.buttonStyle(.plain).draggable(Self.prefix + kind.rawValue)
+          }
+        }
+      }.frame(height: 178)
+      Button("Add image / logo…", action: model.chooseInputs).font(.system(size: 10))
+    }.padding(12).background(panelColor)
   }
 }
 
@@ -225,9 +320,9 @@ struct GaugeControls: View {
         if settings.redline != nil { field("Redline threshold", Binding(get: { settings.redline ?? 6000 }, set: { settings.redline = $0 })) }
         Button("Set gauge background…") {
           let panel = NSOpenPanel(); panel.allowedContentTypes = [.image]
-          if panel.runModal() == .OK { settings.backgroundPath = panel.url?.path; settings.showFace = false }
+          if panel.runModal() == .OK { settings.backgroundImage = panel.url.flatMap { try? Data(contentsOf: $0) }; settings.backgroundPath = nil; settings.showFace = false }
         }
-        if settings.backgroundPath != nil { Button("Remove background") { settings.backgroundPath = nil } }
+        if settings.backgroundPath != nil || settings.backgroundImage != nil { Button("Remove background") { settings.backgroundPath = nil; settings.backgroundImage = nil } }
       }.padding(.top, 10)
     }.font(.system(size: 11))
   }

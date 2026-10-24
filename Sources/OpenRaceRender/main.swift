@@ -154,8 +154,10 @@ enum CLI {
         print(dest.path)
       case "export":
         let dest = try output()
-        let start = Double(option("--start") ?? "0") ?? 0
-        let duration = Double(option("--duration") ?? "10") ?? 10
+        let savedRange = p.defaultExportRange
+        let start = Double(option("--start") ?? "") ?? savedRange.lowerBound
+        let duration = Double(option("--duration") ?? "") ?? max(0, savedRange.upperBound-start)
+        try p.validateExportRange(start: start, duration: duration)
         let exporter = VideoExporter()
         let began = Date()
         let monitor: Task<Void,Never>? = a.contains("--progress") ? Task {
@@ -224,14 +226,23 @@ struct RaceRenderApp: App {
           Button("Save layout as template…", action: model.saveTemplate)
           Button("Export RaceRender copy…", action: model.exportRRP)
           Divider()
-          Button("Export video…") { model.showExport = true }.keyboardShortcut("e")
+          Button("Export video…", action: model.prepareExport).keyboardShortcut("e")
           Button("Save snapshot…", action: model.snapshot)
         }
         CommandGroup(replacing: .undoRedo) {
           Button("Undo", action: model.undo).keyboardShortcut("z")
           Button("Redo", action: model.redo).keyboardShortcut("z", modifiers: [.command, .shift])
         }
+        CommandMenu("Timeline") {
+          Button("Synchronize data…") { model.showSync = true }.disabled(model.dataIndex == nil)
+          Button("Mark export start", action: model.markStart).keyboardShortcut("i", modifiers: [])
+          Button("Mark export end", action: model.markEnd).keyboardShortcut("o", modifiers: [])
+          Button("Clear export marks", action: model.clearMarks)
+        }
         CommandMenu("Display") {
+          Button("Start blank layout", action: model.blankLayout)
+          Button("Show widget palette") { model.showWidgets = true }
+          Divider()
           ForEach(ObjectKind.allCases.filter { $0 != .group }, id: \.self) { kind in
             Button("Add \(kind.title)") { model.addObject(kind) }
           }

@@ -15,5 +15,6 @@ public struct GaugeSettings: Codable, Equatable, Sendable {
   public var redline: Double?
   public var warningColor = "#FF616D"
   public var backgroundPath: String?
+  public var backgroundImage: Data?
   public init() {}
 }

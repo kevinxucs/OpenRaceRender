@@ -10,6 +10,7 @@ let muted = Color(red: 0.52, green: 0.59, blue: 0.68)
 struct EditorView: View {
   @ObservedObject var model: EditorModel
   @State var bottomTab = 0
+  @State var showSeek = false
   var body: some View {
     VStack(spacing: 0) {
       topBar
@@ -25,10 +26,16 @@ struct EditorView: View {
             let h = w / aspect
             ZStack {
               bg
-              if model.project.inputs.isEmpty {
+              if model.project.inputs.isEmpty && model.project.objects.isEmpty && !model.showWidgets {
                 emptyState
               } else {
-                Preview(model: model).frame(width: max(1, w), height: max(1, h)).shadow(
+                Preview(model: model).frame(width: max(1, w), height: max(1, h))
+                  .dropDestination(for: String.self) { items, location in
+                    guard let text = items.first, text.hasPrefix(WidgetPalette.prefix),
+                      let kind = ObjectKind(rawValue: String(text.dropFirst(WidgetPalette.prefix.count))) else { return false }
+                    model.addObject(kind, at: CGPoint(x: location.x/max(1,w)*100, y: (h-location.y)/max(1,h)*100))
+                    return true
+                  }.shadow(
                   color: .black.opacity(0.5), radius: 15, y: 6)
               }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -48,6 +55,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showTemplates) { TemplateBrowser(model: model) }
     .sheet(isPresented: $model.showSync) { SyncSheet(model: model) }
     .sheet(isPresented: $model.showExport) { ExportSheet(model: model) }
+    .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .alert(
       "OpenRaceRender",
       isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })
@@ -57,17 +65,17 @@ struct EditorView: View {
       Text(model.error ?? "")
     }
     .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
-      for provider in providers {
-        _ = provider.loadObject(ofClass: URL.self) { url, _ in
-          guard let url = url else { return }
-          Task { @MainActor in
-            if ["rrp", "orrp"].contains(url.pathExtension.lowercased()) {
-              model.open(url)
-            } else {
-              model.addInputs([url])
-            }
+      Task { @MainActor in
+        var urls: [URL] = []
+        for provider in providers {
+          let url = await withCheckedContinuation { (continuation: CheckedContinuation<URL?, Never>) in
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in continuation.resume(returning: url) }
           }
+          if let url { urls.append(url) }
         }
+        if let project = urls.first(where: { ["rrp", "orrp"].contains($0.pathExtension.lowercased()) }) {
+          model.open(project)
+        } else if !urls.isEmpty { model.addInputs(urls) }
       }
       return true
     }
@@ -90,11 +98,9 @@ struct EditorView: View {
       tool("Templates", icon: "square.grid.2x2") { model.showTemplates = true }
       tool("Save", icon: "square.and.arrow.down") { model.save() }
       Rectangle().fill(muted.opacity(0.25)).frame(width: 1, height: 24)
-      Button {
-        model.exportStart = model.project.rangeStart ?? 0
-        model.exportDuration = max(0.1, (model.project.rangeEnd ?? model.project.duration)-model.exportStart)
-        model.showExport = true
-      } label: {
+      tool("Sync", icon: "arrow.left.and.right") { model.showSync = true }
+        .disabled(model.dataIndex == nil)
+      Button(action: model.prepareExport) {
         Label("Export video", systemImage: "arrow.up.right").font(
           .system(size: 12, weight: .semibold)
         ).padding(.horizontal, 10).padding(.vertical, 7)
@@ -112,11 +118,13 @@ struct EditorView: View {
   }
   var sidebar: some View {
     VStack(spacing: 0) {
+      if model.showWidgets { WidgetPalette(model: model); Divider() }
       HStack {
         sectionLabel("DISPLAY OBJECTS")
         Spacer()
         Text("\(model.project.objects.count)").font(.system(size: 10, design: .monospaced))
           .foregroundStyle(muted)
+        Button { model.showWidgets.toggle() } label: { Image(systemName: "square.grid.2x2").foregroundStyle(mint) }.buttonStyle(.plain).help("Show widget palette")
         Menu {
           ForEach(ObjectKind.allCases.filter { $0 != .group }, id: \.self) { kind in
             Button(kind.title) { model.addObject(kind) }
@@ -197,7 +205,7 @@ struct EditorView: View {
                 Text(
                   input.exists
                     ? "\(input.kind.uppercased())  ·  \(clockText(input.duration))"
-                    : "MISSING · Relink file"
+                    : (input.path.isEmpty ? "TEMPLATE SOURCE · Choose file" : "MISSING · Relink file")
                 ).font(.system(size: 9)).foregroundStyle(input.exists ? muted : Color.orange)
               }
               Spacer(minLength: 0)
@@ -265,17 +273,28 @@ struct EditorView: View {
       } label: {
         Image(systemName: "forward.frame.fill")
       }
-      Text(clockText(model.time)).font(.system(size: 12, weight: .medium, design: .monospaced))
+      Button(clockText(model.time)) { showSeek.toggle() }
+        .font(.system(size: 12, weight: .medium, design: .monospaced)).help("Go to exact time")
+        .popover(isPresented: $showSeek) {
+          VStack(alignment: .leading, spacing: 12) {
+            Text("Go to time (seconds)")
+            TextField("Project time", value: Binding(get: { model.time }, set: { model.seek($0) }), format: .number.precision(.fractionLength(0...4)))
+              .textFieldStyle(.roundedBorder)
+            Button("Done") { showSeek = false }
+          }.padding(18).frame(width: 240)
+        }
       Text("/  " + clockText(model.project.duration)).font(.system(size: 10, design: .monospaced))
         .foregroundStyle(muted)
       Spacer()
       Button { model.previewMuted.toggle() } label: { Image(systemName: model.previewMuted ? "speaker.slash" : "speaker.wave.2") }.help("Mute preview audio")
+      Button("In", action: model.markStart).help("Mark export start at playhead (I)")
+      Button("Out", action: model.markEnd).help("Mark export end at playhead (O)")
       Menu {
-        Button("Mark export start here") { model.checkpoint(); model.project.rangeStart = model.time }
-        Button("Mark export end here") { model.checkpoint(); model.project.rangeEnd = model.time }
-        Button("Clear export marks") { model.checkpoint(); model.project.rangeStart = nil; model.project.rangeEnd = nil }
+        Button("Mark export start here", action: model.markStart)
+        Button("Mark export end here", action: model.markEnd)
+        Button("Clear export marks", action: model.clearMarks)
       } label: { Image(systemName: "flag.checkered") }.frame(width: 24)
-      Picker("Speed units", selection: $model.project.speedUnit) {
+      Picker("Speed units", selection: model.projectBinding(\.speedUnit)) {
         Text("MPH").tag("mph")
         Text("km/h").tag("km/h")
         Text("m/s").tag("m/s")
@@ -308,13 +327,13 @@ struct EditorView: View {
   var projectInspector: some View {
     VStack(alignment: .leading, spacing: 18) {
       Text("Session settings").font(.system(size: 16, weight: .semibold))
-      TextField("Session name", text: $model.project.name)
+      TextField("Session name", text: model.projectBinding(\.name))
       HStack {
-        TextField("Width", value: $model.project.width, format: .number)
+        TextField("Width", value: model.projectBinding(\.width), format: .number)
         Text("×").foregroundStyle(muted)
-        TextField("Height", value: $model.project.height, format: .number)
+        TextField("Height", value: model.projectBinding(\.height), format: .number)
       }
-      Picker("Frame rate", selection: $model.project.fps) {
+      Picker("Frame rate", selection: model.projectBinding(\.fps)) {
         ForEach([24.0, 25, 29.97, 30, 50, 59.94, 60], id: \.self) { Text($0.formatted()).tag($0) }
       }
       Toggle("Set project length", isOn: Binding(get: { model.project.explicitDuration != nil }, set: { enabled in
@@ -327,6 +346,8 @@ struct EditorView: View {
       Text(
         "Click a display to edit its position and data source. Drag it in the preview; drag its upper right handle to resize. Hold Shift to snap to whole percentages."
       ).font(.system(size: 11)).foregroundStyle(muted).lineSpacing(4)
+      Button("Start blank layout", action: model.blankLayout)
+      Button("Show widget palette") { model.showWidgets = true }
       Button("Save layout as template…", action: model.saveTemplate)
       Button("Export compatible RRP copy…", action: model.exportRRP).disabled(
         model.project.legacyData == nil)
@@ -362,7 +383,12 @@ struct EditorView: View {
             Spacer()
             Text(clockText(model.project.duration))
           }.font(.system(size: 9, design: .monospaced)).foregroundStyle(muted)
-          TimelineGraph(model: model).frame(height: 55)
+          TimelineGraph(model: model).frame(height: 45)
+          HStack {
+            Text("Export: " + clockText(model.project.defaultExportRange.lowerBound) + " → " + clockText(model.project.defaultExportRange.upperBound)).foregroundStyle(mint)
+            Spacer()
+            if model.project.rangeStart != nil || model.project.rangeEnd != nil { Button("Clear marks", action: model.clearMarks).buttonStyle(.plain) }
+          }.font(.system(size: 10, design: .monospaced))
           Slider(
             value: Binding(get: { model.time }, set: { model.seek($0) }),
             in: 0...max(1, model.project.duration)
@@ -575,7 +601,7 @@ struct InputInspector: View {
       TextField("Label", text: $input.name)
       Text(input.path).font(.system(size: 10)).foregroundStyle(muted).textSelection(.enabled)
         .lineLimit(5)
-      Button("Relink file…") { model.relink(input.id) }
+      Button(input.path.isEmpty ? "Choose source file…" : "Relink file…") { model.relink(input.id) }
       Divider()
       Text("Synchronization").font(.system(size: 13, weight: .semibold))
       Text("Increase the offset to advance this source relative to its trimmed start. Set playback rate and project delay below.").font(
@@ -637,6 +663,15 @@ struct TimelineGraph: View {
         line.addLine(to: CGPoint(x: x, y: size.height))
         c.stroke(
           line, with: .color(muted.opacity(0.3)), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+      }
+      if model.project.rangeStart != nil || model.project.rangeEnd != nil {
+        let range = model.project.defaultExportRange
+        let a = range.lowerBound/maxTime*size.width, b = range.upperBound/maxTime*size.width
+        c.fill(Path(CGRect(x: a, y: 0, width: max(0, b-a), height: size.height)), with: .color(mint.opacity(0.12)))
+        for (position, color) in [(a, Color.green), (b, Color.red)] {
+          var mark = Path(); mark.move(to: CGPoint(x: position, y: 0)); mark.addLine(to: CGPoint(x: position, y: size.height))
+          c.stroke(mark, with: .color(color), lineWidth: 2)
+        }
       }
       let x = model.time / maxTime * size.width
       var cursor = Path()

@@ -83,3 +83,18 @@ assert pixel[2] > 200 and pixel[0] < 30 and pixel[1] < 30, list(pixel)
 audio = array.array("f",run("ffmpeg","-v","error","-i",partial,"-vn","-ac",1,"-f","f32le","-"))
 assert math.sqrt(sum(x*x for x in audio)/max(1,len(audio))) > 0.01
 print("PASS nonzero range, fractional FPS, High Profile, Rec.709 tags and stereo AAC")
+
+# Opening a saved project and exporting without CLI range flags must honor its
+# In/Out marks, even when an older remembered export covered another span.
+project["rangeStart"], project["rangeEnd"] = 1.25, 1.75
+project["lastExport"] = dict(path="previous.mp4", start=0, duration=4)
+path.write_text(json.dumps(project, indent=2))
+marked = out/"marked.mp4"
+if marked.exists(): marked.unlink()
+run(exe, "export", path, "--out", marked)
+metadata = json.loads(run("ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", marked))
+assert abs(float(metadata["format"]["duration"])-0.5) < 0.05
+frame = run("ffmpeg", "-v", "error", "-i", marked, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-")
+pixel = frame[(90*320+160)*3:(90*320+160)*3+3]
+assert pixel[2] > 200 and pixel[0] < 30 and pixel[1] < 30, list(pixel)
+print("PASS saved In/Out marks override remembered ranges and CLI exports default to the marked span")
