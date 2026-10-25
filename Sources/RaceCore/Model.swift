@@ -95,6 +95,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var segments: [ObjectSegment]?
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
+  public var hud: HUDSettings?
   public init(name: String, kind: ObjectKind) {
     self.name = name
     self.kind = kind

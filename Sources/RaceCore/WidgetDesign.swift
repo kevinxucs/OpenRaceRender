@@ -75,6 +75,12 @@ extension DisplayObject {
     result.segments = segments; result.parentIndex = parentIndex
     result.legacyIndex = legacyIndex; result.legacyOffset = nil
     result.picture = picture
+    if result.hud != nil, let hud {
+      result.hud?.label = hud.label
+      if hud.role == .metric && result.hud?.role == .metric {
+        result.hud?.unit = hud.unit; result.hud?.decimals = hud.decimals; result.hud?.multiplier = hud.multiplier
+      }
+    }
     if kind == .text { result.text = text }
     if kind == .image, style.artwork == nil, style.embeddedImage == nil, style.text.isEmpty {
       result.artwork = artwork; result.embeddedImage = embeddedImage; result.text = text

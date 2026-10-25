@@ -14,6 +14,8 @@ enum CLI {
       OpenRaceRender validate-library DIRECTORY
       OpenRaceRender list-library [DIRECTORY]
       OpenRaceRender import-library DIRECTORY [--out LIBRARY_DIRECTORY]
+      OpenRaceRender make-template apex --out Apex.orrt
+      OpenRaceRender make-template apex-road --out Apex-Road.orrt
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       OpenRaceRender convert PROJECT --out converted.orrp
@@ -63,6 +65,13 @@ enum CLI {
         let result = try LayoutLibrary.importLibrary(from: url, to: destination)
         let output: [String: Any] = ["destination": destination.path, "imported": result.imported, "keptExisting": result.keptExisting]
         print(String(data: try JSONSerialization.data(withJSONObject: output, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
+        return 0
+      }
+      if a[1] == "make-template" {
+        guard ["apex", "apex-road"].contains(a[2].lowercased()) else { throw RaceError.invalid("Available templates: apex, apex-road") }
+        let template = ApexTemplate.make(road: a[2].lowercased() == "apex-road")
+        try template.reusableLayout().save(output())
+        print("Saved " + template.name + " template")
         return 0
       }
       if a[1] == "validate-library" {
@@ -310,7 +319,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "snapshot", "export", "convert", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

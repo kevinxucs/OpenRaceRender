@@ -582,6 +582,9 @@ struct ObjectInspector: View {
         }
       }
       if object.hasScriptStyleSettings { ScriptStyleControls(object: $object) }
+      if object.hud != nil {
+        HUDControls(settings: Binding(get: { object.hud! }, set: { object.hud = $0 }))
+      }
       if [.speed, .rpm].contains(object.kind) { GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 })) }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)

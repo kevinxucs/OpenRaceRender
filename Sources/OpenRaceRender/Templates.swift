@@ -56,7 +56,7 @@ struct TemplateBrowser: View {
           ScrollView {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 14) {
               if category == .templates {
-                ForEach(["Blank", "Circuit", "Minimal", "Broadcast"], id: \.self) { name in
+                ForEach(["Blank", "Apex Telemetry", "Apex Road", "Circuit", "Minimal", "Broadcast"], id: \.self) { name in
                   Button {
                     selected = nil
                     layout = builtin(name)
@@ -312,6 +312,8 @@ struct TemplateBrowser: View {
     return image
   }
   func builtin(_ name: String) -> RaceProject {
+    if name == "Apex Telemetry" { return ApexTemplate.make() }
+    if name == "Apex Road" { return ApexTemplate.make(road: true) }
     var p = RaceProject()
     p.name = name
     p.inputs = [MediaInput(name: "Telemetry", path: "", kind: "data", legacyIndex: 0)]

@@ -248,6 +248,7 @@ import UniformTypeIdentifiers
       project.objects[index].picture = value.picture
       project.objects[index].gauge = value.gauge
       project.objects[index].legacyPayload = value.legacyPayload
+      project.objects[index].hud = value.hud
     } else { project.objects[index] = value }
   }
   func addSegment() {

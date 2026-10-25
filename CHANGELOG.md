@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Original Apex Telemetry and Apex Road templates with 30 editable vector instruments, tyre pressure/temperature display, steering/yaw, completed peak/minimum speeds and turn G, plus native instrument settings and CLI template generation. Cached routes and extrema keep seeking and chunk exports deterministic.
 - Searchable draggable library styles and individual widgets from saved templates, a compatible style chooser in the inspector, sample telemetry for template design, proportional resizing, canvas alignment and pixel nudges.
 - Editable imported bar/script ranges, script captions/font size, trigger threshold and Color A–H slots, retained in native projects and reusable templates.
 - Manual telemetry synchronization by −1/+1 video frame, using the project frame rate and the data input's playback rate; offset entry retains six decimal places.

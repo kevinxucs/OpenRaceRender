@@ -68,6 +68,13 @@ The widget palette offers **Basic widgets**, **Library styles**, and individual 
 
 ## Formats
 
+**Apex Telemetry** and **Apex Road** are original built-in templates inspired by motorsport game HUDs. They include 30 editable instruments: speed/RPM/gear, shift lights, throttle/brake, steering and yaw, longitudinal/lateral G, route, completed peak/base speeds and turn G, timing, tyre pressures/temperatures, engine temperatures and GPS/logger metrics. Road mode hides the lap timing instruments. No RaceRender library is required. See [Apex template details](docs/apex-template.md).
+
+```sh
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender make-template apex --out Apex.orrt
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender make-template apex-road --out Apex-Road.orrt
+```
+
 | Format | Support |
 | --- | --- |
 | `.orrp` | Native JSON project, read/write, including segments, source timing, picture and data settings |

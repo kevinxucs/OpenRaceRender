@@ -62,6 +62,9 @@ public enum OverlayRenderer {
         c.translateBy(x: -r.midX, y: -r.midY)
       }
       if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
+      if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
+        c.restoreGState(); continue
+      }
       if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,timeline:timeline) {
         c.restoreGState(); continue
       }
