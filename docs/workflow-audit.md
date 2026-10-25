@@ -37,6 +37,8 @@ RaceRender likewise distinguishes reusable display layouts from session inputs a
 
 ## Additional stories explored
 
+The subsequent [template designer audit](template-designer.md) exercises rebuilding `Customized - 1` from individual widgets, choosing styles, adjusting imported style settings, precise placement and template saving. It adds a pixel-verified reconstruction and live drag/style/undo checks.
+
 | Story | Gap fixed | Verification |
 | --- | --- | --- |
 | Open a library on a slow or unavailable filesystem | Synchronous directory enumeration froze the editor during the live check. Discovery and thumbnails now run outside the main thread, with incremental results and cancellation. Missing roots are checked before enumeration. | The rebuilt browser displayed all 61 packaged templates and remained responsive while scanning fallback folders. |

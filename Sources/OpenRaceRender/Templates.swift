@@ -179,7 +179,7 @@ struct TemplateBrowser: View {
         Button("Cancel") { dismiss() }
         Button(isStyle ? "Apply style" : "Apply layout") {
           if let p = layout {
-            if isStyle { model.applyStyle(p) }
+            if isStyle { model.applyStyle(p, preservePlacement: category != .videoPositions) }
             else if p.name == "Blank" && p.objects.isEmpty { model.blankLayout() }
             else { model.apply(p, replace: replace, mapping: mapping) }
             dismiss()

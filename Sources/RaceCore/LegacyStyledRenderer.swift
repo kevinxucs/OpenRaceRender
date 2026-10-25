@@ -232,7 +232,7 @@ enum LegacyStyledRenderer {
       label(c,value.map { String(format:"%.*f",max(0,min(6,g.decimals)),$0) } ?? "—",font:d.utf16(480,128),size:size,color:rgb(d.u32(336)),x:p.x,y:p.y-size)
     }
     if g.showLabels {
-      let title = g.label
+      let title = g.resolvedLabel(unit: unit)
       let p = textPosition(d,common:o.legacyCommon,offset:344,rect:r,fallback:CGPoint(x:r.midX,y:r.midY+radius*0.3))
       let labelSize = min(radius*0.25,max(5,d.f32(608)*scale))
       label(c,title,font:d.utf16(352,128),size:labelSize,color:rgb(d.u32(332)),x:p.x,y:p.y-labelSize)

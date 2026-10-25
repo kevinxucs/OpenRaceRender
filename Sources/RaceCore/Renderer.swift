@@ -400,6 +400,6 @@ public enum OverlayRenderer {
       c.strokePath()
     }
     if g.showNumber { text(c, number(value, decimals: max(0,min(6,g.decimals))), x: cx, y: cy-radius*0.13, size: radius*0.32) }
-    if g.showLabels { text(c, g.label.isEmpty ? label : g.label, x: cx, y: cy-radius*0.34, size: radius*0.11, color: "#B8C5D5") }
+    if g.showLabels { text(c, g.label.isEmpty ? label : g.resolvedLabel(unit: label), x: cx, y: cy-radius*0.34, size: radius*0.11, color: "#B8C5D5") }
   }
 }

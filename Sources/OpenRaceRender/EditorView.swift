@@ -58,6 +58,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showSync) { SyncSheet(model: model) }
     .sheet(isPresented: $model.showExport) { ExportSheet(model: model) }
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
+    .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .alert(
       "OpenRaceRender",
       isPresented: Binding(get: { model.error != nil && !model.showExport }, set: { if !$0 { model.error = nil } })
@@ -188,6 +189,7 @@ struct EditorView: View {
         }.padding(.horizontal, 7)
       }
       Divider()
+      if !model.showWidgets {
       HStack {
         sectionLabel("INPUT FILES")
         Spacer()
@@ -219,11 +221,16 @@ struct EditorView: View {
           }
         }
       }.frame(height: 130).padding(.horizontal, 7)
+      } else {
+        Button("Show input files (\(model.project.inputs.count))") { model.showWidgets = false }
+          .font(.system(size: 10)).padding(10)
+      }
     }.background(panelColor)
   }
   var previewHeader: some View {
     HStack {
       sectionLabel("COMPOSITION")
+      if model.usesDesignSamples { Text("SAMPLE DATA").font(.system(size: 9, weight: .bold)).foregroundStyle(.orange).help("Design preview only. Sample values are never saved or exported.") }
       Text("\(model.project.width) × \(model.project.height)").font(
         .system(size: 10, design: .monospaced)
       ).foregroundStyle(muted)
@@ -506,6 +513,10 @@ struct ObjectInspector: View {
       }
       SegmentControls(model: model, object: model.project.objects.first { $0.id == object.id } ?? object)
       TextField("Display label", text: $object.name)
+      if ![.video, .audio, .group].contains(object.kind) {
+        Button("Choose widget style…") { model.showWidgetStyles = true }
+        Text(object.style.isEmpty ? "Native style" : object.style).font(.system(size: 10)).foregroundStyle(muted).lineLimit(2)
+      }
       Toggle("Visible", isOn: $object.visible)
       Divider()
       small("POSITION & SIZE (%)")
@@ -517,6 +528,13 @@ struct ObjectInspector: View {
         field("Width", $object.width)
         field("Height", $object.height)
       }
+      Toggle("Keep aspect ratio when resizing", isOn: $model.lockWidgetAspect)
+      Menu("Align to canvas") {
+        ForEach(["Left", "Horizontal center", "Right", "Top", "Vertical center", "Bottom"], id: \.self) { alignment in
+          Button(alignment) { model.alignWidget(alignment) }
+        }
+      }
+      Text("Option-arrow: move 1 pixel. Add Shift for 10 pixels.").font(.system(size: 9)).foregroundStyle(muted)
       HStack {
         Text("Opacity").font(.system(size: 11)).foregroundStyle(muted)
         Slider(value: $object.opacity, in: 0...1)
@@ -525,7 +543,7 @@ struct ObjectInspector: View {
       small("DATA SOURCE")
       Picker("Input", selection: $object.inputIndex) {
         Text("None").tag(-1)
-        ForEach(model.project.inputs) { Text($0.name).tag($0.legacyIndex) }
+        ForEach(model.project.inputs.filter { $0.joinedTo == nil && $0.kind == (object.kind == .video ? "video" : object.kind == .audio ? "audio" : object.kind == .image ? "image" : "data") }) { Text($0.name).tag($0.legacyIndex) }
       }.labelsHidden()
       if object.kind != .video && object.kind != .audio {
         Picker("Channel", selection: $object.channel) {
@@ -544,10 +562,12 @@ struct ObjectInspector: View {
             Text("Channel unavailable in this input").font(.system(size: 10)).foregroundStyle(.orange)
           }
         }
-        HStack {
+        if object.hasStyleRange { WidgetRangeControls(object: $object) }
+        else { HStack {
           field("Min", $object.minimum)
           field("Max", $object.maximum)
-        }
+        } }
+        if !object.hasScriptStyleSettings && object.legacyType != 31 {
         ColorPicker(
           "Accent",
           selection: Binding(
@@ -559,7 +579,9 @@ struct ObjectInspector: View {
                   Int(rgb.greenComponent * 255), Int(rgb.blueComponent * 255))
               }
             }))
+        }
       }
+      if object.hasScriptStyleSettings { ScriptStyleControls(object: $object) }
       if [.speed, .rpm].contains(object.kind) { GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 })) }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)

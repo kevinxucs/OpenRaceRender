@@ -30,7 +30,7 @@ struct Preview: NSViewRepresentable {
   override func draw(_ dirtyRect: NSRect) {
     guard let m = model, let c = NSGraphicsContext.current?.cgContext else { return }
     if m.previewPlayer == nil {
-      OverlayRenderer.draw(c, scene: m.scene, time: m.time, size: bounds.size, selection: showSelection ? m.selected : nil)
+      OverlayRenderer.draw(c, scene: m.designScene, time: m.time, size: bounds.size, selection: showSelection ? m.selected : nil)
     } else if showSelection, let base = m.project.objects.first(where: { $0.id == m.selected }) {
       let r = OverlayRenderer.rect(base.resolved(at: m.time), size: bounds.size)
       c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1.5); c.stroke(r)
@@ -154,8 +154,14 @@ struct Preview: NSViewRepresentable {
     let dx = (p.x - initialPoint.x) / bounds.width * 100
     let dy = (p.y - initialPoint.y) / bounds.height * 100
     if resizing {
-      o.width = max(1, o.width + dx)
-      o.height = max(1, o.height + dy)
+      if m.lockWidgetAspect, o.width > 0, o.height > 0 {
+        let change = abs(dx/o.width) > abs(dy/o.height) ? dx/o.width : dy/o.height
+        let scale = max(max(1/o.width, 1/o.height), 1+change)
+        o.width *= scale; o.height *= scale
+      } else {
+        o.width = max(1, o.width + dx)
+        o.height = max(1, o.height + dy)
+      }
     } else {
       o.x += dx
       o.y += dy
@@ -175,6 +181,12 @@ struct Preview: NSViewRepresentable {
   }
   override func keyDown(with event: NSEvent) {
     guard let m = model else { return }
+    if event.modifierFlags.contains(.option), [123, 124, 125, 126].contains(event.keyCode), m.selected != nil {
+      let amount = event.modifierFlags.contains(.shift) ? 10.0 : 1.0
+      m.nudgeWidget(x: event.keyCode == 123 ? -amount : event.keyCode == 124 ? amount : 0,
+        y: event.keyCode == 125 ? -amount : event.keyCode == 126 ? amount : 0)
+      refresh(); return
+    }
     if event.keyCode == 49 {
       m.togglePlayback()
       return

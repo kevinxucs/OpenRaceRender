@@ -223,6 +223,17 @@ struct SaveTemplateSheet: View {
 
 struct WidgetPalette: View {
   @ObservedObject var model: EditorModel
+  @ObservedObject var catalog: WidgetCatalog
+  @State var source = ""
+  @State var search = ""
+  @State var kind = ""
+  init(model: EditorModel) { self.model = model; self.catalog = model.widgetCatalog }
+  var basicKinds: [ObjectKind] { ObjectKind.allCases.filter { ![.group, .audio, .video, .image, .enhanced].contains($0) } }
+  var filtered: [WidgetStyle] {
+    catalog.styles.filter {
+      (kind.isEmpty || $0.object.kind.rawValue == kind) && (search.isEmpty || ($0.name + " " + $0.object.style).localizedCaseInsensitiveContains(search))
+    }
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
@@ -231,30 +242,77 @@ struct WidgetPalette: View {
         Button { model.showWidgets = false } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Close widgets")
       }
       Text("Drag onto the preview, or click to add.").font(.system(size: 10)).foregroundStyle(muted)
+      WidgetSourcePicker(catalog: catalog, source: $source)
+      TextField("Search widgets or styles", text: $search).textFieldStyle(.roundedBorder)
+      if !source.isEmpty {
+        Picker("Widget type", selection: $kind) {
+          Text("All types").tag("")
+          ForEach(ObjectKind.allCases.filter { ![.group, .video, .audio].contains($0) }, id: \.self) { Text($0.title).tag($0.rawValue) }
+        }.labelsHidden().accessibilityLabel("Widget type")
+      }
       ScrollView {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 7) {
-          ForEach(ObjectKind.allCases.filter { ![.group, .audio, .video, .image, .enhanced].contains($0) }, id: \.self) { kind in
-            WidgetTile(model: model, kind: kind).frame(maxWidth: .infinity).frame(height: 53)
+          if source.isEmpty {
+            ForEach(basicKinds.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) }, id: \.self) { kind in
+              WidgetTile(model: model, kind: kind).frame(maxWidth: .infinity).frame(height: 53)
+            }
+          } else {
+            ForEach(filtered) { style in
+              WidgetTile(model: model, kind: style.object.kind, style: style).frame(maxWidth: .infinity).frame(height: 94)
+            }
           }
         }
-      }.frame(height: 178)
-      Button("Add image / logo…", action: model.chooseInputs).font(.system(size: 10))
+      }.frame(minHeight: 100, maxHeight: 200)
+      if catalog.loading { ProgressView("Reading widgets…").controlSize(.small) }
+      else if !source.isEmpty { Text("\(filtered.count) widgets").font(.system(size: 10)).foregroundStyle(muted) }
+      if let message = catalog.message { Text(message).font(.system(size: 10)).foregroundStyle(.orange).lineLimit(2) }
+      HStack {
+        Button("From file…") {
+          let panel = NSOpenPanel(); panel.directoryURL = LayoutLibrary.userRoot().appendingPathComponent("Templates")
+          if panel.runModal() == .OK, let url = panel.url { source = url.path }
+        }
+        Button("Image / logo…", action: model.chooseInputs)
+      }.font(.system(size: 10))
+      Button("Save template…", action: model.saveTemplate).font(.system(size: 11))
+        .disabled(model.project.objects.isEmpty)
     }.padding(12).background(panelColor)
+      .task(id: source + "#\(model.widgetLibraryRevision)") { await catalog.discover(refresh: true); await catalog.load(source) }
   }
 }
 
 struct WidgetTile: NSViewRepresentable {
   var model: EditorModel
   var kind: ObjectKind
+  var style: WidgetStyle?
   func makeNSView(context: Context) -> WidgetTileView { WidgetTileView(model: model, kind: kind) }
-  func updateNSView(_ view: WidgetTileView, context: Context) { view.model = model; view.kind = kind }
+  func updateNSView(_ view: WidgetTileView, context: Context) { view.model = model; view.kind = kind; view.setStyle(style) }
 }
 
 /// Palette drags stay inside the editor. Track the release in window coordinates
 /// so AppKit's video view and SwiftUI don't compete for the drag destination.
 @MainActor final class WidgetTileView: NSView {
   weak var model: EditorModel?
-  var kind: ObjectKind { didSet { setAccessibilityLabel(kind.title); needsDisplay = true } }
+  var kind: ObjectKind { didSet { setAccessibilityLabel(style?.name ?? kind.title); needsDisplay = true } }
+  private var style: WidgetStyle?
+  private var thumbnail: NSImage?
+  func setStyle(_ value: WidgetStyle?) {
+    guard value?.id != style?.id else { return }
+    style = value; thumbnail = nil
+    setAccessibilityLabel(value?.name ?? kind.title)
+    setAccessibilityHelp("Drag onto the preview, or press to add " + (value?.name ?? kind.title))
+    needsDisplay = true
+    if let value {
+      Task { [weak self] in
+        let image = await Task.detached(priority: .utility) { WidgetDesign.thumbnail(value.object) }.value
+        guard self?.style?.id == value.id else { return }
+        self?.thumbnail = image; self?.needsDisplay = true
+      }
+    }
+  }
+  func add(at point: CGPoint? = nil) {
+    if let style { model?.addWidget(style, at: point) }
+    else { model?.addObject(kind, at: point) }
+  }
   private var origin = CGPoint.zero
   private var dragging = false
   init(model: EditorModel, kind: ObjectKind) {
@@ -271,12 +329,14 @@ struct WidgetTile: NSViewRepresentable {
     let symbol = NSImage(systemSymbolName: kind.symbol, accessibilityDescription: nil)?
       .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 18, weight: .regular)
         .applying(NSImage.SymbolConfiguration(paletteColors: [NSColor(mint)])))
-    symbol?.draw(in: NSRect(x: bounds.midX-11, y: 8, width: 22, height: 22))
+    if let thumbnail {
+      thumbnail.draw(in: NSRect(x: 4, y: 3, width: max(1, bounds.width-8), height: 57), from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    } else { symbol?.draw(in: NSRect(x: bounds.midX-11, y: 8, width: 22, height: 22)) }
     let paragraph = NSMutableParagraphStyle(); paragraph.alignment = .center; paragraph.lineBreakMode = .byTruncatingTail
-    (kind.title as NSString).draw(in: NSRect(x: 3, y: 34, width: max(1, bounds.width-6), height: 16),
+    ((style?.name ?? kind.title) as NSString).draw(in: NSRect(x: 3, y: style == nil ? 34 : 62, width: max(1, bounds.width-6), height: style == nil ? 16 : 30),
       withAttributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.white, .paragraphStyle: paragraph])
   }
-  override func accessibilityPerformPress() -> Bool { model?.addObject(kind); return true }
+  override func accessibilityPerformPress() -> Bool { add(); return true }
   override func mouseDown(with event: NSEvent) {
     window?.makeFirstResponder(self); origin = event.locationInWindow; dragging = false
   }
@@ -293,14 +353,14 @@ struct WidgetTile: NSViewRepresentable {
       dragging = false; alphaValue = 1
       model?.canvasView?.overlay.dropPoint = nil; model?.canvasView?.overlay.needsDisplay = true
     }
-    guard dragging else { model?.addObject(kind); return }
+    guard dragging else { add(); return }
     guard let canvas = model?.canvasView, canvas.window === window, canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
     let point = canvas.convert(event.locationInWindow, from: nil)
     guard canvas.bounds.contains(point) else { return }
-    model?.addObject(kind, at: CGPoint(x: point.x/canvas.bounds.width*100, y: point.y/canvas.bounds.height*100))
+    add(at: CGPoint(x: point.x/canvas.bounds.width*100, y: point.y/canvas.bounds.height*100))
   }
   override func keyDown(with event: NSEvent) {
-    if [36, 49].contains(event.keyCode) { model?.addObject(kind) }
+    if [36, 49].contains(event.keyCode) { add() }
     else { super.keyDown(with: event) }
   }
 }

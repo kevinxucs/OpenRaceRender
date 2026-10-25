@@ -28,7 +28,11 @@ import UniformTypeIdentifiers
   @Published var error: String?
   @Published var showTemplates = false
   @Published var showExport = false
-  @Published var showWidgets = false
+  @Published var showWidgets = false { didSet { if oldValue != showWidgets { schedulePreview() } } }
+  @Published var showWidgetStyles = false
+  @Published var widgetLibraryRevision = 0
+  @Published var lockWidgetAspect = true
+  let widgetCatalog = WidgetCatalog()
   @Published var showSaveTemplate = false
   @Published var templateSelectedOnly = false
   @Published var templateIncludesVideo = false
@@ -58,6 +62,8 @@ import UniformTypeIdentifiers
     selected = nil; selectedInput = input.id
   }
   var scene: RenderScene { RenderScene(project: project, telemetry: telemetry) }
+  var usesDesignSamples: Bool { showWidgets && project.objects.contains { ![.video, .audio, .image, .shape, .text, .group].contains($0.kind) } && telemetry.isEmpty && !project.inputs.contains { $0.kind == "data" && !$0.path.isEmpty } }
+  var designScene: RenderScene { usesDesignSamples ? WidgetDesign.scene(project) : scene }
   var activeData: Telemetry? { telemetry.sorted { $0.key < $1.key }.first?.value }
   var dataIndex: Int? { project.inputs.first { $0.kind == "data" }?.legacyIndex }
   var dataTime: Double { dataIndex.flatMap { project.sourceTime(for: $0, at: time) } ?? -1 }
@@ -192,7 +198,7 @@ import UniformTypeIdentifiers
       do {
         try await Task.sleep(nanoseconds: 200_000_000)
         guard let self else { return }
-        let scene = self.scene
+        let scene = self.designScene
         guard scene.project.inputs.contains(where: { $0.kind == "video" && $0.exists }) else {
           self.previewPlayer?.pause(); self.previewPlayer = nil; return
         }
@@ -241,6 +247,7 @@ import UniformTypeIdentifiers
       project.objects[index].maximum = value.maximum
       project.objects[index].picture = value.picture
       project.objects[index].gauge = value.gauge
+      project.objects[index].legacyPayload = value.legacyPayload
     } else { project.objects[index] = value }
   }
   func addSegment() {
@@ -453,6 +460,7 @@ import UniformTypeIdentifiers
       panel.directoryURL = folder
       guard panel.runModal() == .OK, let url = panel.url else { return }
       try layout.save(url)
+      widgetLibraryRevision += 1
       showSaveTemplate = false
       status = "Saved reusable " + (templateSelectedOnly ? "style" : "template") + " · " + url.lastPathComponent
     } catch { self.error = error.localizedDescription }
@@ -622,13 +630,42 @@ import UniformTypeIdentifiers
       o.height = 8
     }
     if kind == .text { o.text = "Your text" }
-    if let point {
-      o.x = max(0, min(100-o.width, point.x-o.width/2))
-      o.y = max(0, min(100-o.height, point.y-o.height/2))
-    }
+    if let point { o = o.placed(at: point) }
     project.objects.append(o)
     selected = o.id
     selectedInput = nil
+  }
+  func addWidget(_ style: WidgetStyle, at point: CGPoint? = nil) {
+    checkpoint()
+    var o = style.object
+    o.id = UUID(); o.legacyOffset = nil; o.legacyIndex = nil; o.parentIndex = -1
+    o.start = 0; o.end = 1_000_000; o.segments = nil; o.visible = true
+    o.inputIndex = project.inputs.first { $0.kind == (o.kind == .image ? "image" : "data") && $0.joinedTo == nil }?.legacyIndex ?? -1
+    if let point { o = o.placed(at: point) }
+    project.objects.append(o); selected = o.id; selectedInput = nil
+    status = "Added " + style.name
+  }
+  func alignWidget(_ alignment: String) {
+    guard let id = selected else { return }
+    let binding = objectBinding(id)
+    var o = binding.wrappedValue
+    switch alignment {
+    case "Left": o.x = 0
+    case "Right": o.x = 100-o.width
+    case "Top": o.y = 100-o.height
+    case "Bottom": o.y = 0
+    case "Horizontal center": o.x = (100-o.width)/2
+    case "Vertical center": o.y = (100-o.height)/2
+    default: return
+    }
+    binding.wrappedValue = o
+  }
+  func nudgeWidget(x: Double, y: Double) {
+    guard let id = selected else { return }
+    let binding = objectBinding(id)
+    var o = binding.wrappedValue
+    o.x += x / Double(project.width) * 100; o.y += y / Double(project.height) * 100
+    binding.wrappedValue = o
   }
   func deleteSelected() {
     guard let id = selected else { return }
@@ -666,18 +703,23 @@ import UniformTypeIdentifiers
       busy = false
     }
   }
-  func applyStyle(_ layout: RaceProject) {
-    guard var style = layout.objects.first else { return }
+  func applyStyle(_ layout: RaceProject, preservePlacement: Bool = true) {
+    guard let style = layout.objects.first else { return }
     guard let index = project.objects.firstIndex(where: { $0.id == selected }) else {
       apply(layout, replace: false, mapping: [:]); return
     }
-    checkpoint()
     let old = project.objects[index]
-    let kind = style.kind == .video ? "video" : (style.kind == .audio ? "audio" : (style.kind == .image ? "image" : "data"))
-    let oldSource = project.inputs.first { $0.legacyIndex == old.inputIndex }
-    style.inputIndex = oldSource?.kind == kind ? old.inputIndex : project.inputs.first { $0.kind == kind && $0.joinedTo == nil }?.legacyIndex ?? -1
-    style.id = old.id; style.name = old.name; style.segments = old.segments; style.legacyOffset = nil
-    project.objects[index] = style
+    guard style.kind == old.kind else {
+      error = "Choose a \(old.kind.title) style for this widget. Add a different widget from the palette instead."; return
+    }
+    checkpoint()
+    project.objects[index] = old.applyingStyle(style)
+    if !preservePlacement {
+      project.objects[index].x = style.x; project.objects[index].y = style.y
+      project.objects[index].width = style.width; project.objects[index].height = style.height
+      project.objects[index].picture = style.picture
+    }
+    status = "Applied " + (style.style.isEmpty ? style.name : style.style)
     project.warnings += layout.warnings.filter { !project.warnings.contains($0) }
   }
   func apply(_ layout: RaceProject, replace: Bool, mapping: [Int: Int]) {

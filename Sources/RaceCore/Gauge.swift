@@ -17,4 +17,7 @@ public struct GaugeSettings: Codable, Equatable, Sendable {
   public var backgroundPath: String?
   public var backgroundImage: Data?
   public init() {}
+  public func resolvedLabel(unit: String) -> String {
+    label.replacingOccurrences(of: "%su%", with: unit == "mph" ? "MPH" : unit, options: .caseInsensitive)
+  }
 }
