@@ -2,13 +2,14 @@ import Foundation
 
 public struct HUDSettings: Codable, Equatable, Sendable {
   public enum Role: String, Codable, CaseIterable, Sendable {
-    case speed, rpm, gear, pedal, lights, gforce, map, metric, lap, timer, delta, bestLap, bestTime, elapsed, peakSpeed, baseSpeed, peakG, tyres, steering
+    case speed, rpm, gear, pedal, lights, gforce, map, metric, odometer, lap, timer, delta, bestLap, bestTime, elapsed, peakSpeed, baseSpeed, peakG, tyres, steering
   }
   public var role: Role
   public var label: String
   public var unit: String
   public var decimals: Int
   public var multiplier: Double
+  public var presentation: String?
   public init(_ role: Role, label: String = "", unit: String = "", decimals: Int = 0, multiplier: Double = 1) {
     self.role = role; self.label = label; self.unit = unit; self.decimals = decimals; self.multiplier = multiplier
   }
@@ -16,7 +17,7 @@ public struct HUDSettings: Codable, Equatable, Sendable {
 
 /// Original vector instruments; no vendor artwork, fonts or scripts are required.
 public enum ApexTemplate {
-  public static func make(road: Bool = false) -> RaceProject {
+  public static func make(road: Bool = false, gt: Bool = false) -> RaceProject {
     var p = RaceProject(); p.name = "Apex Telemetry"
     p.inputs = [MediaInput(name: "Telemetry", path: "", kind: "data", legacyIndex: 1)]
     func add(_ name: String, _ kind: ObjectKind, _ role: HUDSettings.Role,
@@ -71,6 +72,31 @@ public enum ApexTemplate {
         case "Heading": p.objects[i].x = 20; p.objects[i].y = 84; p.objects[i].width = 16; p.objects[i].height = 5
         default: break
         }
+      }
+    }
+    if gt {
+      p.name = road ? "Apex GT Road" : "Apex GT"
+      for i in p.objects.indices {
+        p.objects[i].hud?.presentation = "gt"
+        func place(_ x: Double, _ y: Double, _ width: Double, _ height: Double) {
+          p.objects[i].x = x; p.objects[i].y = y; p.objects[i].width = width; p.objects[i].height = height
+        }
+        switch p.objects[i].name {
+        case "Speed": place(29, 2, 15, 26.6666666667); p.objects[i].maximum = 160
+        case "Engine RPM": place(56, 2, 15, 26.6666666667)
+        case "Gear": place(46.5, 9, 7, 10)
+        case "Brake": place(44.5, 4, 2, 18)
+        case "Throttle": place(53.5, 4, 2, 18)
+        case "Shift lights": place(44, 23, 12, 1.1)
+        case "Steering": place(47, 1, 6, 7)
+        case "Distance":
+          place(32, 4, 9, 3.2); p.objects[i].hud?.role = .odometer
+          p.objects[i].hud?.label = "Trip distance"; p.objects[i].style = "Apex GT / odometer"
+        case "Heading" where road: place(20, 91, 16, 6)
+        case "Tyres": place(80, 2, 17, 25)
+        default: break
+        }
+        if p.objects[i].name != "Distance" { p.objects[i].style = "Apex GT / " + (p.objects[i].hud?.role.rawValue ?? "metric") }
       }
     }
     return p

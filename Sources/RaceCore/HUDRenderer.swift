@@ -10,6 +10,7 @@ enum HUDRenderer {
   }
   static func draw(_ c: CGContext, object o: DisplayObject, rect r: CGRect, data d: Telemetry?, time t: Double, unit: String) -> Bool {
     guard let hud = o.hud else { return false }
+    if GTInstrumentRenderer.draw(c, object: o, rect: r, data: d, time: t, unit: unit) { return true }
     let w = r.width, h = r.height, cx = r.midX, cy = r.midY
     let scale = max(0.1, min(w/100, h/60))
     func text(_ s: String, _ x: Double, _ y: Double, _ size: Double, _ color: String = white, _ align: Double = 0.5, _ weight: NSFont.Weight = .medium) {
@@ -64,7 +65,7 @@ enum HUDRenderer {
       fill(o.color, bar, 0.16); fill(o.color, CGRect(x: bar.minX, y: bar.minY, width: bar.width, height: bar.height*factor))
       text(format(v), 0.62, 0.21, 0.38, white, 0.5, .light)
       text("%", 0.62, 0.07, 0.13, muted)
-    case .metric:
+    case .metric, .odometer:
       panel(); label()
       let v = value(o.resolvedChannel).map { $0*hud.multiplier }
       let digits = format(v)

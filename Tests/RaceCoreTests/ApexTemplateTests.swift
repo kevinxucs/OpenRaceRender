@@ -28,7 +28,7 @@ final class ApexTemplateTests: XCTestCase {
   func testTemplateContainsAllCoreAndAdditionalInstrumentsWithoutVendorAssets() throws {
     let template = try ApexTemplate.make().reusableLayout()
     XCTAssertEqual(template.objects.count, 30)
-    XCTAssertEqual(Set(template.objects.compactMap { $0.hud?.role }), Set(HUDSettings.Role.allCases))
+    XCTAssertEqual(Set(template.objects.compactMap { $0.hud?.role }), Set(HUDSettings.Role.allCases.filter { $0 != .odometer }))
     XCTAssertTrue(template.objects.allSatisfy { $0.legacyPayload == nil && $0.embeddedImage == nil && $0.artwork == nil })
     XCTAssertTrue(template.inputs.allSatisfy { $0.path.isEmpty && $0.duration == 0 })
     for object in template.objects {
@@ -64,6 +64,46 @@ final class ApexTemplateTests: XCTestCase {
     XCTAssertTrue(speed === HUDPeaks.get(data, channel: "speed", speed: true))
     let missing = HUDPeaks.get(data, channel: "oil", speed: false)
     XCTAssertNil(missing.value(at: 10))
+  }
+  func testGTClusterHasRoundGaugesTripCounterAndIndependentWheelGraphics() throws {
+    var p = ApexTemplate.make(road: true, gt: true); p.inputs[0].duration = 10
+    XCTAssertEqual(p.objects.count, 30)
+    for kind in [ObjectKind.speed, .rpm] {
+      let gauge = try XCTUnwrap(p.objects.first { $0.kind == kind && $0.hud?.role != .peakSpeed && $0.hud?.role != .baseSpeed })
+      XCTAssertEqual(gauge.width*Double(p.width), gauge.height*Double(p.height), accuracy: 0.001)
+    }
+    XCTAssertTrue(p.objects.contains { $0.hud?.role == .odometer && $0.channel == "distance" })
+    XCTAssertTrue(p.objects.allSatisfy { $0.hud?.presentation == "gt" })
+    XCTAssertEqual(cos(GTInstrumentRenderer.angle(0)), -sqrt(0.5), accuracy: 1e-10)
+    XCTAssertEqual(sin(GTInstrumentRenderer.angle(0.5)), 1, accuracy: 1e-10)
+    XCTAssertEqual(cos(GTInstrumentRenderer.angle(1)), sqrt(0.5), accuracy: 1e-10)
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".orrt")
+    defer { try? FileManager.default.removeItem(at: file) }
+    try p.reusableLayout().save(file)
+    XCTAssertEqual(try RaceProject.read(file).objects.map(\.hud), p.objects.map(\.hud))
+    var originalDistance = ApexTemplate.make().objects.first { $0.name == "Distance" }!
+    originalDistance.hud?.unit = "km"; originalDistance.hud?.multiplier = 0.001
+    let odometer = p.objects.first { $0.hud?.role == .odometer }!
+    XCTAssertEqual(originalDistance.applyingStyle(odometer).hud?.unit, "km")
+    XCTAssertEqual(originalDistance.applyingStyle(odometer).hud?.multiplier, 0.001)
+    let scene = RenderScene(project: p, telemetry: [1: try data()])
+    let first = try pixels(scene, time: 5); _ = try pixels(scene, time: 10)
+    XCTAssertEqual(try pixels(scene, time: 5), first)
+  }
+  func testGTPedalTravelAndTyreGraphicsReflectTheirOwnData() throws {
+    let data = try data()
+    for name in ["Throttle", "Brake", "Tyres", "Distance"] {
+      var object = try XCTUnwrap(ApexTemplate.make(gt: true).objects.first { $0.name == name })
+      object.x = 0; object.y = 0; object.width = 100; object.height = 100
+      var p = RaceProject(); p.inputs = [MediaInput(name: "Data", path: "", kind: "data", legacyIndex: 1)]; p.inputs[0].duration = 10; p.objects = [object]
+      let first = try pixels(RenderScene(project: p, telemetry: [1: data]), time: 0)
+      if name == "Tyres" {
+        let unavailable = try pixels(RenderScene(project: p, telemetry: [:]), time: 0)
+        XCTAssertNotEqual(first, unavailable, "Available FL tyre must draw independently of three missing corners")
+      } else {
+        XCTAssertNotEqual(first, try pixels(RenderScene(project: p, telemetry: [1: data]), time: name == "Brake" ? 6 : 3), name)
+      }
+    }
   }
   func testPressureUnitConversionsPreserveRecordedValues() {
     XCTAssertEqual(HUDRenderer.tyrePressure(270, header: "Pressure (kPa)", unit: "psi"), 39.1602, accuracy: 0.0001)

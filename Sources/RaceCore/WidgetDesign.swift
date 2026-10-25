@@ -77,9 +77,10 @@ extension DisplayObject {
     result.picture = picture
     if result.hud != nil, let hud {
       result.hud?.label = hud.label
-      if hud.role == .metric && result.hud?.role == .metric {
+      if [.metric, .odometer].contains(hud.role), let role = result.hud?.role, [.metric, .odometer].contains(role) {
         result.hud?.unit = hud.unit; result.hud?.decimals = hud.decimals; result.hud?.multiplier = hud.multiplier
       }
+      if hud.role == .tyres && result.hud?.role == .tyres { result.hud?.unit = hud.unit }
     }
     if kind == .text { result.text = text }
     if kind == .image, style.artwork == nil, style.embeddedImage == nil, style.text.isEmpty {

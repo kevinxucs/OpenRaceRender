@@ -73,7 +73,10 @@ The widget palette offers **Basic widgets**, **Library styles**, and individual 
 ```sh
 ./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender make-template apex --out Apex.orrt
 ./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender make-template apex-road --out Apex-Road.orrt
+./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
 ```
+
+**Apex GT** and **Apex GT Road** move the cluster closer to a simulator HUD: round speedometer/tachometer with needles and redline, a padded TRIP odometer, tall pedal-travel bars, and a top-down car diagram with independently colored wheels and per-corner temperature/pressure readings. Existing digital Apex layouts retain their appearance.
 
 | Format | Support |
 | --- | --- |

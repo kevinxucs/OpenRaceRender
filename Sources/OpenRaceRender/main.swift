@@ -16,6 +16,7 @@ enum CLI {
       OpenRaceRender import-library DIRECTORY [--out LIBRARY_DIRECTORY]
       OpenRaceRender make-template apex --out Apex.orrt
       OpenRaceRender make-template apex-road --out Apex-Road.orrt
+      OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       OpenRaceRender convert PROJECT --out converted.orrp
@@ -68,8 +69,9 @@ enum CLI {
         return 0
       }
       if a[1] == "make-template" {
-        guard ["apex", "apex-road"].contains(a[2].lowercased()) else { throw RaceError.invalid("Available templates: apex, apex-road") }
-        let template = ApexTemplate.make(road: a[2].lowercased() == "apex-road")
+        let name = a[2].lowercased()
+        guard ["apex", "apex-road", "apex-gt", "apex-gt-road"].contains(name) else { throw RaceError.invalid("Available templates: apex, apex-road, apex-gt, apex-gt-road") }
+        let template = ApexTemplate.make(road: name.hasSuffix("-road"), gt: name.contains("-gt"))
         try template.reusableLayout().save(output())
         print("Saved " + template.name + " template")
         return 0

@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Apex GT track/road layouts: circular speed/RPM dials, session trip odometer, graphical pedal travel and a top-down car with temperature-colored tyres and individual pressure/temperature readings. GT presentation is optional, preserving earlier digital Apex layouts and metric unit preferences.
 - Original Apex Telemetry and Apex Road templates with 30 editable vector instruments, tyre pressure/temperature display, steering/yaw, completed peak/minimum speeds and turn G, plus native instrument settings and CLI template generation. Cached routes and extrema keep seeking and chunk exports deterministic.
 - Searchable draggable library styles and individual widgets from saved templates, a compatible style chooser in the inspector, sample telemetry for template design, proportional resizing, canvas alignment and pixel nudges.
 - Editable imported bar/script ranges, script captions/font size, trigger threshold and Color A–H slots, retained in native projects and reusable templates.

@@ -4,6 +4,8 @@ An original native vector design inspired by the hierarchy of the user's [GT7 HU
 
 ## Layout and channels
 
+**Apex GT / Apex GT Road** are analog variants: two 270° circular dials with white graduations, live needles and a red tachometer limit; a zero-padded TRIP counter below the speedometer; tall graphical brake/throttle travel bars around the central gear readout; and an original top-down car drawing with four temperature-colored wheels. Pressure and °C readings sit next to the corresponding wheel. Trip distance comes from the recording's distance channel, not the vehicle's unknown lifetime mileage. Gauge limits, redline, units and source bindings remain editable. Digital Apex files without the optional `presentation: gt` setting retain their existing rendering.
+
 | Area | Instruments |
 | --- | --- |
 | Bottom | Speed in project units, gear, RPM ribbon, shift lights, accelerator and brake percentages, steering angle/wheel, yaw rate, combined G and longitudinal/lateral components |
@@ -31,10 +33,12 @@ Choose the built-in template in **Templates**, or choose **Original: Apex Teleme
 ```sh
 OpenRaceRender make-template apex --out Apex.orrt
 OpenRaceRender make-template apex-road --out Apex-Road.orrt
+OpenRaceRender make-template apex-gt --out Apex-GT.orrt
+OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
 ```
 
 The private road-test project uses the native RCZ input and copies the existing project's source synchronization and render bounds. The RCZ begins 0.080 seconds earlier than the CSV's first timestamp, so its source offset is the existing CSV offset plus 0.080 seconds. This does not modify the recording or original project. Video and RCZ files remain external to the reusable template.
 
 ## Validation
 
-Four regression tests cover clean template generation/round trips, data source remapping, native instrument settings, road-mode visibility, missing values, tyre unit conversions, no future extrema, repeated forward/backward seeks and rendered pixel consistency. The full local suite has 119 tests. Private visual checks use multiple 1080p snapshots over the recording and a short H.264/AAC export. Recordings and rendered road-test images remain outside the public repository under ignored build validation files.
+Six regression tests cover clean template generation/round trips, data source remapping, native instrument settings, road-mode visibility, missing values, tyre unit conversions, no future extrema, repeated forward/backward seeks and rendered pixel consistency. The full local suite has 121 tests. Private visual checks use multiple 1080p snapshots over the recording and a short H.264/AAC export. Recordings and rendered road-test images remain outside the public repository under ignored build validation files.

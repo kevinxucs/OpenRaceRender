@@ -23,8 +23,8 @@ import UniformTypeIdentifiers
     let revision = UUID(); generation = revision
     styles = []; message = nil; loading = !source.isEmpty
     guard !source.isEmpty else { loading = false; return }
-    if source == "builtin:apex" {
-      styles = ApexTemplate.make().objects.enumerated().map { WidgetStyle(id: "apex:\($0.offset)", name: $0.element.name, object: $0.element) }
+    if source == "builtin:apex" || source == "builtin:apex-gt" {
+      styles = ApexTemplate.make(gt: source == "builtin:apex-gt").objects.enumerated().map { WidgetStyle(id: source+":\($0.offset)", name: $0.element.name, object: $0.element) }
       loading = false; return
     }
     let files = source == "styles" ? entries.filter { $0.category == .styles }.map(\.url) : [URL(fileURLWithPath: source)]
@@ -51,10 +51,11 @@ struct WidgetSourcePicker: View {
       if includeBasic { Text("Basic widgets").tag("") }
       Text("Library styles").tag("styles")
       Text("Original: Apex Telemetry").tag("builtin:apex")
+      Text("Original: Apex GT").tag("builtin:apex-gt")
       ForEach(catalog.templates) { entry in
         Text("Template: " + entry.url.deletingPathExtension().lastPathComponent).tag(entry.url.path)
       }
-      if !source.isEmpty && source != "styles" && source != "builtin:apex" && !catalog.templates.contains(where: { $0.url.path == source }) {
+      if !source.isEmpty && source != "styles" && !source.hasPrefix("builtin:") && !catalog.templates.contains(where: { $0.url.path == source }) {
         Text(URL(fileURLWithPath: source).deletingPathExtension().lastPathComponent).tag(source)
       }
     }.labelsHidden().accessibilityLabel("Widget source")
@@ -148,7 +149,7 @@ struct HUDControls: View {
     DisclosureGroup("Apex instrument") {
       VStack(alignment: .leading, spacing: 10) {
         TextField("Instrument label", text: $settings.label)
-        if settings.role == .metric {
+        if settings.role == .metric || settings.role == .odometer {
           TextField("Units", text: $settings.unit)
           Stepper("Decimals: \(settings.decimals)", value: $settings.decimals, in: 0...4)
           Text("Value multiplier").foregroundStyle(muted)
