@@ -143,6 +143,15 @@ import UniformTypeIdentifiers
         self.seek(self.time)
       })
   }
+  func nudgeOffset(_ id: UUID, frames: Int) {
+    guard frames != 0, project.fps.isFinite, project.fps > 0,
+      project.inputs.contains(where: { $0.id == id }) else { return }
+    let binding = inputBinding(id)
+    var input = binding.wrappedValue
+    // Offsets are source seconds; one project frame spans rate/fps seconds.
+    input.offset += Double(frames) * (input.timing?.safeRate ?? 1) / project.fps
+    binding.wrappedValue = input
+  }
   func tick() {
     guard playing else { return }
     let t = epochTime + CFAbsoluteTimeGetCurrent() - epoch

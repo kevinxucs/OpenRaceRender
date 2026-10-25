@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Manual telemetry synchronization by −1/+1 video frame, using the project frame rate and the data input's playback rate; offset entry retains six decimal places.
 - Native RaceChrono RCZ session import through Add input, drag/drop, Finder and the CLI, including GPS/CAN/sensor clocks, unit conversion, gyro calibration, recorded laps, resumed recordings, validated relinks and native project reopen. Includes ZIP integrity checks and RCZ/CSV data and render comparisons.
 - Hue and sharpness import, editing, saving and rendering; signed picture-adjustment sliders and numeric entry, plus a shortcut from video displays to their input picture settings.
 - Managed library under Application Support, explicit non-overwriting library import in the UI and CLI, and a Finder shortcut for managing custom layouts.
@@ -17,6 +18,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Recurring blank composition after redraws or synchronization-preview transitions. Video now uses a dedicated layer-hosting view, with the selection overlay as a sibling; AppKit cannot draw over AVPlayerLayer's opaque contents. The canvas and synchronization wizard explicitly hand off player ownership and detach discarded preview views.
 - Imported template channel names becoming corrupted by an extra decoder-state advance. Known affected native Enhanced payloads are repaired on open, preserving explicit channel and segment overrides. Automatic now overrides imported script channels, including gear, shift lights, temperatures and peak speed/G displays; the inspector shows the matched source column or an unavailable-channel message.
 - Numeric legacy displays interpreting their color/text bytes as channel names.
 - Repeated missing-gear channel lookup slowing synchronization event discovery for recordings with many channels.

@@ -18,6 +18,7 @@ struct Preview: NSViewRepresentable {
     if interactive { model.canvasView = view }
     view.refresh()
   }
+  static func dismantleNSView(_ view: PreviewView, coordinator: ()) { view.disconnect() }
 }
 
 @MainActor final class OverlayView: NSView {
@@ -44,12 +45,27 @@ struct Preview: NSViewRepresentable {
   }
 }
 
+/// AVPlayerLayer owns opaque contents. Host it without AppKit drawing into it;
+/// keep the selection overlay in a separate sibling view.
+@MainActor final class PlayerSurfaceView: NSView {
+  let playerLayer = AVPlayerLayer()
+  override init(frame: NSRect) {
+    super.init(frame: frame)
+    layer = playerLayer
+    wantsLayer = true
+    layerContentsRedrawPolicy = .never
+    playerLayer.backgroundColor = NSColor.black.cgColor
+    playerLayer.videoGravity = .resizeAspect
+  }
+  required init?(coder: NSCoder) { fatalError() }
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 @MainActor final class PreviewView: NSView {
   weak var model: EditorModel?
   let overlay = OverlayView()
-  // AppKit owns the sublayers of a layer-backed NSView. Use the player as the
-  // backing layer itself so view updates cannot cover or detach the video.
-  var compositionLayer: AVPlayerLayer { layer as! AVPlayerLayer }
+  let videoSurface = PlayerSurfaceView()
+  var compositionLayer: AVPlayerLayer { videoSurface.playerLayer }
   var interactive = true
   var dragCheckpoint = false
   var dragging: UUID?
@@ -63,12 +79,11 @@ struct Preview: NSViewRepresentable {
     setAccessibilityRole(.image)
     setAccessibilityLabel("Composition preview · drop widgets here")
     layer?.backgroundColor = NSColor.black.cgColor
-    compositionLayer.videoGravity = .resizeAspect
     overlay.wantsLayer = true
+    addSubview(videoSurface)
     addSubview(overlay)
   }
   required init?(coder: NSCoder) { fatalError() }
-  override func makeBackingLayer() -> CALayer { AVPlayerLayer() }
   override var acceptsFirstResponder: Bool { true }
   override func layout() {
     super.layout()
@@ -76,17 +91,28 @@ struct Preview: NSViewRepresentable {
   }
   func refresh() {
     guard let m = model else { return }
+    videoSurface.frame = bounds
+    compositionLayer.contentsScale = window?.backingScaleFactor ?? 2
     overlay.frame = bounds
     overlay.model = m
     overlay.showSelection = interactive
     CATransaction.begin()
     CATransaction.setDisableActions(true)
-    if compositionLayer.player !== m.previewPlayer {
-      compositionLayer.player = m.previewPlayer
+    // Only the active preview owns video output. Opening the sync wizard must
+    // detach the canvas, and dismissing it must explicitly return ownership.
+    let player = interactive != m.showSync ? m.previewPlayer : nil
+    if compositionLayer.player !== player {
+      compositionLayer.player = player
       m.syncPlayers(play: m.playing)
     }
     CATransaction.commit()
     overlay.needsDisplay = true
+  }
+  func disconnect() {
+    compositionLayer.player = nil
+    overlay.model = nil
+    if model?.canvasView === self { model?.canvasView = nil }
+    model = nil
   }
   override func mouseDown(with event: NSEvent) {
     guard interactive, let m = model else { return }

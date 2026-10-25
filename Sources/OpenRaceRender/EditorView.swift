@@ -631,13 +631,19 @@ struct InputInspector: View {
         .system(size: 11)
       ).foregroundStyle(muted)
       TextField(
-        "Offset in seconds", value: $input.offset, format: .number.precision(.fractionLength(0...3))
+        "Offset in seconds", value: $input.offset, format: .number.precision(.fractionLength(0...6))
       )
       HStack {
         Button("−1 s") { input.offset -= 1 }
         Button("−0.1") { input.offset -= 0.1 }
         Button("+0.1") { input.offset += 0.1 }
         Button("+1 s") { input.offset += 1 }
+      }
+      if input.kind == "data" {
+        HStack {
+          Button("−1 frame") { model.nudgeOffset(input.id, frames: -1) }
+          Button("+1 frame") { model.nudgeOffset(input.id, frames: 1) }
+        }.help("Adjust synchronization by one video frame at the project's frame rate and this input's playback rate.")
       }
       Text("Source at playhead: " + clockText(model.project.sourceTime(for: input.legacyIndex, at: model.time) ?? -1)).font(
         .system(size: 10, design: .monospaced)
