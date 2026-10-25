@@ -15,6 +15,7 @@ Reviewed on 2026-10-25 against the installed RaceRender 3.7.3 Ultimate and the u
 | Save/reuse | Saving was hidden in the File menu or project inspector once a widget was selected. | The palette has `Save template…`. Saving refreshes its template list, embeds artwork, and strips source paths, synchronization and export state. |
 | Gauge captions | A library gauge displayed `%su%` literally. | The token follows project speed units and remains a token in the reusable file. |
 | Sidebar space | Adding source, search and style controls left little room for input/object lists. | While designing, the input list collapses behind `Show input files`; the toolbar can still import media. The widget grid scrolls within the sidebar. |
+| Reopen a layout without media | Empty source roles reduced the design timeline to one second. | Templates with only empty roles use the same 60-second design timeline as an empty project; explicit project lengths still take precedence. |
 
 To recreate the familiar design: start blank, open the palette, choose `Template: Customized - 1`, then drag the desired widgets onto the canvas. Clicking a card retains its reference geometry; dragging centers it at the release point and keeps it within the canvas. Percentage fields can reproduce negative reference positions such as the gauges' Y = −19. Use the inspector to select other styles and data channels, then `Save template…`.
 

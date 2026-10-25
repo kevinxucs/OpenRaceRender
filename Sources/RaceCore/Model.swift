@@ -139,6 +139,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
   public init() {}
   public var duration: Double {
     if let value = explicitDuration, value.isFinite, value > 0 { return value }
+    if inputs.allSatisfy({ $0.path.isEmpty && $0.duration <= 0 }) { return 60 }
     return max(1, placements.map(\.end).max() ?? 60)
   }
   public static func read(_ url: URL) throws -> RaceProject {

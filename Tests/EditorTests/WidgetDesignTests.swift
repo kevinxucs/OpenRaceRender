@@ -106,6 +106,7 @@ final class WidgetDesignTests: XCTestCase {
     let styles = try WidgetStyle.read(file)
     XCTAssertEqual(styles.count, 17)
     let model = EditorModel(); model.project.inputs = original.inputs.filter { $0.kind == "data" }
+    model.project.name = "Customized - 1 (recreated)"
     for style in styles { model.addWidget(style) }
     XCTAssertEqual(model.project.objects.map(\.style), original.objects.map(\.style))
     XCTAssertTrue(model.project.objects.contains { $0.name.contains("Peak G") })
@@ -113,6 +114,7 @@ final class WidgetDesignTests: XCTestCase {
     defer { try? FileManager.default.removeItem(at: saved) }
     try model.project.reusableLayout().save(saved)
     let reopened = try RaceProject.read(saved)
+    XCTAssertEqual(reopened.duration, 60, "Empty template roles must not collapse the design timeline to one second")
     let output = ProcessInfo.processInfo.environment["OPENRACERENDER_DESIGN_OUTPUT"].map { URL(fileURLWithPath: $0) }
     if let output { try model.project.reusableLayout().save(output.appendingPathComponent("Customized - 1 - Recreated.orrt")) }
     func pixels(_ project: RaceProject, name: String) throws -> Data {

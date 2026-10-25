@@ -22,6 +22,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 - Changing a widget style resetting its position, size, data binding and timeline. Incompatible widget types are rejected; appearance changes retain the existing instance and support undo.
 - Imported bar/script range controls changing only the native inspector fields instead of the payload used for rendering.
+- Empty template source roles collapsing the design timeline to one second.
 - Recurring blank composition after redraws or synchronization-preview transitions. Video now uses a dedicated layer-hosting view, with the selection overlay as a sibling; AppKit cannot draw over AVPlayerLayer's opaque contents. The canvas and synchronization wizard explicitly hand off player ownership and detach discarded preview views.
 - Imported template channel names becoming corrupted by an extra decoder-state advance. Known affected native Enhanced payloads are repaired on open, preserving explicit channel and segment overrides. Automatic now overrides imported script channels, including gear, shift lights, temperatures and peak speed/G displays; the inspector shows the matched source column or an unavailable-channel message.
 - Numeric legacy displays interpreting their color/text bytes as channel names.
