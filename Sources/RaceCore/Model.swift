@@ -99,6 +99,24 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
     self.name = name
     self.kind = kind
   }
+  public var automaticChannel: String {
+    switch kind {
+    case .speed, .graph: return "speed"
+    case .rpm, .lights: return "rpm"
+    case .gear: return "gear"
+    case .gforce: return "gy"
+    case .throttle, .bar: return "throttle"
+    case .brake: return "brake"
+    case .temperature:
+      let label = (name + " " + style).lowercased()
+      return label.contains("oil") ? "oil" : (label.contains("coolant") ? "coolant" : "intake")
+    default: return ""
+    }
+  }
+  /// Empty means Automatic, including for imported scripted displays.
+  public var resolvedChannel: String {
+    LegacyEnhancedRenderer.resolveChannel(channel, fallback: automaticChannel)
+  }
 }
 
 public struct RaceProject: Codable, Equatable, Sendable {
@@ -135,6 +153,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
     for i in p.objects.indices {
       if p.objects[i].kind == .image, !p.objects[i].text.isEmpty { p.objects[i].text = resolvePath(p.objects[i].text, base: base) }
       if let path = p.objects[i].gauge?.backgroundPath { p.objects[i].gauge?.backgroundPath = resolvePath(path, base: base) }
+      LegacyReader.repairOldChannelDecode(&p.objects[i])
     }
     // Earlier native imports omitted the original camera's picture adjustments.
     if let legacy = p.legacyData,let original = try? LegacyReader.project(legacy,base:base) {
@@ -158,10 +177,6 @@ public struct RaceProject: Codable, Equatable, Sendable {
       guard let common = p.objects[i].legacyCommon,common.count > 284 else { continue }
       p.objects[i].legacyActivation = Int(common[284])
       if common[284] == 0 { p.objects[i].visible = true }
-      if p.objects[i].legacyType == 50,p.objects[i].channel.isEmpty,let payload = p.objects[i].legacyPayload {
-        let channel = payload.utf16(0,128)
-        p.objects[i].channel = channel.hasPrefix("(") && channel.hasSuffix(")") ? String(channel.dropFirst().dropLast()) : channel
-      }
     }
     p.warnings = p.warnings.map { $0.replacingOccurrences(of:"persistent script state is not yet reproduced.",with:"persistent state is replayed from the display start.") }
     return p

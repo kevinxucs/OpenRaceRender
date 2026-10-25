@@ -129,11 +129,11 @@ public enum OverlayRenderer {
     let s = min(w, h)
     let accent = o.color
     func value(_ name: String, _ interp: Bool = true) -> Double? {
-      data?.value(o.channel.isEmpty ? name : o.channel, at: time, interpolate: interp)
+      data?.value(o.channel.isEmpty ? name : o.resolvedChannel, at: time, interpolate: interp)
     }
     switch o.kind {
     case .speed, .rpm:
-      let v = o.kind == .speed ? data?.speed(at: time, unit: unit, channel:o.channel.isEmpty ? "speed":o.channel) : value("rpm")
+      let v = o.kind == .speed ? data?.speed(at: time, unit: unit, channel:o.resolvedChannel) : value("rpm")
       gauge(
         c, r: r, value: v, minimum: o.minimum, maximum: o.maximum, settings: o.gauge ?? GaugeSettings(), label: o.kind == .speed ? unit.uppercased() : "RPM",
         accent: accent)
@@ -273,9 +273,7 @@ public enum OverlayRenderer {
         c, content, x: r.minX + w * 0.06, y: r.minY + h * 0.08,
         size: min(h * 0.5, w / Double(max(3, content.count)) * 1.5), color: col, align: 0)
     case .temperature:
-      let key =
-        o.name.lowercased().contains("oil")
-        ? "oil" : (o.name.lowercased().contains("coolant") ? "coolant" : "intake")
+      let key = o.automaticChannel
       let v = value(key) ?? (o.channel.isEmpty ? data?.value(key, at: time) : nil)
       let radius = min(w * 0.2, h * 0.08)
       let base = CGPoint(x: cx, y: r.minY + h * 0.2)
@@ -300,7 +298,7 @@ public enum OverlayRenderer {
       text(c, number(v) + "°", x: cx, y: r.minY, size: min(w * 0.33, h * 0.1))
     case .graph:
       panel(c, r)
-      if let d = data, let column = d.channelIndex(o.channel.isEmpty ? "speed" : o.channel) {
+      if let d = data, let column = d.channelIndex(o.resolvedChannel) {
         c.setStrokeColor(color(accent))
         c.setLineWidth(max(1, h * 0.015))
         c.beginPath()

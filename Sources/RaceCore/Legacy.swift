@@ -211,7 +211,7 @@ public enum LegacyReader {
       o.color = String(format: "#%06X", d.u32(308) & 0x00ff_ffff)
       o.gauge = g
     }
-    if o.legacyType == 50 || [.enhanced, .gear, .lights, .temperature, .throttle, .brake, .bar, .graph].contains(o.kind),
+    if [31,35,50].contains(o.legacyType ?? -1),
       d.count >= 128
     {
       let channel = d.utf16(0,128)
@@ -220,6 +220,29 @@ public enum LegacyReader {
     if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
     // Retain all bytes, but never execute arbitrary imported code.
     if o.kind == .text, d.count >= 256 { o.text = d.utf16(0, 256) }
+  }
+
+  /// Recover the known early-generator error in native copies of 67,168-byte
+  /// Enhanced payloads. This exact signature came from the affected template
+  /// key/length pair; never guess at arbitrary missing or localized channels.
+  static func repairOldChannelDecode(_ o: inout DisplayObject) {
+    guard o.legacyType == 50, var payload = o.legacyPayload, payload.count == 67168,
+      payload[5] == 0x16, payload[7] == 0x3c, payload[9] == 0xa0 else { return }
+    let old = payload.utf16(0,128)
+    for (i, mask) in [UInt8(0x34),0x16,0x6e,0x3c,0x1a,0xa0].enumerated() { payload[4+i] ^= mask }
+    let repaired = payload.utf16(0,128)
+    guard !repaired.isEmpty, repaired.unicodeScalars.allSatisfy({ (32...126).contains($0.value) }) else { return }
+    func unwrapped(_ name: String) -> String {
+      name.hasPrefix("(") && name.hasSuffix(")") ? String(name.dropFirst().dropLast()) : name
+    }
+    // Explicit native overrides, including Automatic and segment overrides, win.
+    if o.channel == old || o.channel == unwrapped(old) { o.channel = unwrapped(repaired) }
+    for i in (o.segments ?? []).indices {
+      if let channel = o.segments?[i].channel, channel == old || channel == unwrapped(old) {
+        o.segments?[i].channel = unwrapped(repaired)
+      }
+    }
+    o.legacyPayload = payload
   }
 
   static func addWarnings(_ p: inout RaceProject) {
@@ -426,12 +449,17 @@ public enum LegacyCodec {
       let z = n &+ k &+ j &* (s + 1)
       let q = z / 255
       let den = n &+ k &+ 1 &+ j &* (s + 1) &- q &* 255
-      let t = state < 0 ? UInt32(0x7fff_ffff) &- UInt32(bitPattern: state) : UInt32(state)
-      let low = (t & 65535) &* 18000 &+ (t >> 16)
-      let a = (n &+ k &+ 1 &+ j &* (s + 1) &+ t &- q &* 255) & 65535
-      let value = ((t &- a &* 0x6f97_0000 &+ den) & 0xffff_0000) &+ low
-      state = Int32(Int16(truncatingIfNeeded: value))
-      let r = den == 0 ? 0 : value % den
+      var r: UInt32 = 0
+      // A zero remainder in the byte position skips the generator entirely.
+      // Advancing it when den == 1 corrupts subsequent bytes until it converges.
+      if den != 1 {
+        let t = state < 0 ? UInt32(0x7fff_ffff) &- UInt32(bitPattern: state) : UInt32(state)
+        let low = (t & 65535) &* 18000 &+ (t >> 16)
+        let a = (n &+ k &+ 1 &+ j &* (s + 1) &+ t &- q &* 255) & 65535
+        let value = ((t &- a &* 0x6f97_0000 &+ den) & 0xffff_0000) &+ low
+        state = Int32(Int16(truncatingIfNeeded: value))
+        r = den == 0 ? 0 : value % den
+      }
       let v =
         (n &+ k &+ j &* ((s + 1) & 255)) ^ r
         ^ (n &+ k &+ s &+ UInt32(key[i % key.count]) &+ j &* (s + 1) &+ j % mod)

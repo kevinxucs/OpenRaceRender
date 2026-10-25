@@ -37,7 +37,7 @@ enum LegacyEnhancedRenderer {
     let rawMin = payload.f64(256),rawMax = payload.f64(264)
     let autoMin = !rawMin.isFinite || abs(rawMin) >= 9e7
     let autoMax = !rawMax.isFinite || abs(rawMax) >= 9e7
-    let channel = resolveChannel(o.channel.isEmpty ? payload.utf16(0,128) : o.channel,fallback:defaultChannel(o))
+    let channel = o.resolvedChannel
     let measured = channelBounds(channel,data:data,unit:unit)
     let minimum = autoMin ? measured?.0 ?? o.minimum : rawMin
     let maximum = autoMax ? max(minimum+1,measured?.1 ?? o.maximum) : rawMax
@@ -115,7 +115,7 @@ enum LegacyEnhancedRenderer {
     } catch { failure?(error.localizedDescription);return false }
   }
   static func defaultChannel(_ o: DisplayObject) -> String {
-    switch o.kind { case .gear:return "gear"; case .lights,.rpm:return "rpm";case .speed:return "speed";case .gforce:return "gy"; default:return o.channel }
+    o.automaticChannel
   }
   static func resolveChannel(_ raw: String,fallback: String) -> String {
     switch raw.lowercased().filter({ $0.isLetter || $0.isNumber }) {
@@ -126,6 +126,9 @@ enum LegacyEnhancedRenderer {
     case "gear":return "gear"
     case "throttle":return "throttle"
     case "brake":return "brake"
+    case "coolant","coolanttemperature":return "coolant"
+    case "oil","oiltemperature","engineoiltemperature":return "oil"
+    case "intake","intaketemperature","intakeairtemperature":return "intake"
     case "heading":return "heading"
     case "posx":return "lon"
     case "posy":return "lat"

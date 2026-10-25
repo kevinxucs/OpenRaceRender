@@ -65,7 +65,7 @@ enum LegacyStyledRenderer {
       case .timer:value = compactTime(lap.map { time-$0.start } ?? 0)
       case .bestTime:value = compactTime(best?.duration ?? 0)
       case .delta:value = compactTime(data?.delta(at:time,reference:best) ?? 0)
-      default:value = data?.value(o.channel,at:time).map { String(format:"%.0f",$0) } ?? "—"
+      default:value = data?.value(o.resolvedChannel,at:time,interpolate:o.kind != .gear).map { String(format:"%.0f",$0) } ?? "—"
       }
       if type == 77,d[652] == 1 { prefix = "" }
       let size = min(r.height*0.85,max(8,d.f32(644)*scale))
@@ -80,7 +80,7 @@ enum LegacyStyledRenderer {
       return true
     }
     if type == 31,d.count >= 640 {
-      let channel = o.channel.isEmpty ? "throttle" : o.channel
+      let channel = o.resolvedChannel
       let value = data?.value(channel,at:time)
       let bounds = data?.bounds(channel)
       let rawMinimum = d.f64(256),rawMaximum = d.f64(264)
@@ -178,7 +178,7 @@ enum LegacyStyledRenderer {
   static func gauge(_ c: CGContext,object o: DisplayObject,data: Telemetry?,time: Double,unit: String,rect r: CGRect,scale: Double,payload d: Data) {
     let g = o.gauge ?? GaugeSettings(),radius = min(r.width,r.height)*0.48
     let range = max(0.00001,o.maximum-o.minimum)
-    let value = o.kind == .speed ? data?.speed(at:time,unit:unit,channel:o.channel.isEmpty ? "speed" : o.channel) : data?.value(o.channel.isEmpty ? "rpm" : o.channel,at:time)
+    let value = o.kind == .speed ? data?.speed(at:time,unit:unit,channel:o.resolvedChannel) : data?.value(o.resolvedChannel,at:time)
     func point(_ factor: Double,_ distance: Double) -> CGPoint {
       let angle = gaugeAngle(g,factor:factor)
       return CGPoint(x:r.midX+cos(angle)*distance,y:r.midY+sin(angle)*distance)

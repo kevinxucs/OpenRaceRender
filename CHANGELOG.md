@@ -17,6 +17,8 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Imported template channel names becoming corrupted by an extra decoder-state advance. Known affected native Enhanced payloads are repaired on open, preserving explicit channel and segment overrides. Automatic now overrides imported script channels, including gear, shift lights, temperatures and peak speed/G displays; the inspector shows the matched source column or an unavailable-channel message.
+- Numeric legacy displays interpreting their color/text bytes as channel names.
 - Repeated missing-gear channel lookup slowing synchronization event discovery for recordings with many channels.
 - Finder project opens leaving a blank editor: handle URL and filename events, retain early launch requests until the editor is ready, and reuse one editor window. Repeated in-flight requests are coalesced, superseded loads are cancelled, and launch arguments run only once.
 - Failed relinks replacing the original path before validation, image relinks leaving the displayed file unchanged, and exports silently omitting missing sources. Recovery now retains settings and supports undo; export validation follows the selected span, camera switches, joined clips and embedded artwork, with visible feedback in the export sheet.

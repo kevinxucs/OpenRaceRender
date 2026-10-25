@@ -530,10 +530,20 @@ struct ObjectInspector: View {
       if object.kind != .video && object.kind != .audio {
         Picker("Channel", selection: $object.channel) {
           Text("Automatic").tag("")
+          if !object.channel.isEmpty, !(model.telemetry[object.inputIndex]?.headers.contains(object.channel) ?? false) {
+            Text(object.channel).tag(object.channel)
+          }
           ForEach(model.telemetry[object.inputIndex]?.headers ?? [], id: \.self) {
             Text($0).tag($0)
           }
         }.labelsHidden()
+        if !object.resolvedChannel.isEmpty, let data = model.telemetry[object.inputIndex] {
+          if let index = data.channelIndex(object.resolvedChannel) {
+            Text("Using \(data.headers[index])").font(.system(size: 10)).foregroundStyle(muted)
+          } else {
+            Text("Channel unavailable in this input").font(.system(size: 10)).foregroundStyle(.orange)
+          }
+        }
         HStack {
           field("Min", $object.minimum)
           field("Max", $object.maximum)

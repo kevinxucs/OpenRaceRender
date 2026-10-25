@@ -128,10 +128,14 @@ enum CLI {
       case "inspect":
         var out: [String: Any] = [
           "name": p.name, "format": "OpenRaceRender 1", "width": p.width, "height": p.height,
-          "objects": p.objects.map {
+          "objects": p.objects.map { object in
             [
-              "name": $0.name, "kind": $0.kind.rawValue, "style": $0.style, "x": $0.x, "y": $0.y,
-              "width": $0.width, "height": $0.height, "visible": $0.visible, "input": $0.inputIndex,
+              "name": object.name, "kind": object.kind.rawValue, "style": object.style, "x": object.x, "y": object.y,
+              "width": object.width, "height": object.height, "visible": object.visible, "input": object.inputIndex,
+              "channel": object.channel, "resolvedChannel": object.resolvedChannel,
+              "dataChannel": telemetry[object.inputIndex].flatMap { data in
+                data.channelIndex(object.resolvedChannel).map { data.headers[$0] }
+              } as Any? ?? NSNull(),
             ] as [String: Any]
           }, "warnings": p.warnings,
         ]
