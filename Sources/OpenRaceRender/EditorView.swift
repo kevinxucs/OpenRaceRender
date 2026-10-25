@@ -248,7 +248,7 @@ struct EditorView: View {
           .foregroundStyle(bg)
         Button("Add footage & data…", action: model.chooseInputs).buttonStyle(.bordered)
       }
-      Text("RRP PROJECTS  /  RRT TEMPLATES  /  RRO STYLES  /  RACECHRONO CSV").font(
+      Text("RRP PROJECTS  /  RRT TEMPLATES  /  RRO STYLES  /  RACECHRONO RCZ & CSV").font(
         .system(size: 9, weight: .medium)
       ).tracking(1).foregroundStyle(muted).padding(.top, 8)
     }

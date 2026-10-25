@@ -357,6 +357,7 @@ import UniformTypeIdentifiers
         for i in p.inputs.indices {
           if let d = loaded[p.inputs[i].legacyIndex] {
             p.inputs[i].duration = d.duration
+            p.warnings += d.warnings.filter { !p.warnings.contains($0) }
           } else if ["video", "audio"].contains(p.inputs[i].kind), p.inputs[i].exists {
             p.inputs[i].duration =
               (try? await AVURLAsset(url: URL(fileURLWithPath: p.inputs[i].path)).load(.duration)
@@ -482,7 +483,7 @@ import UniformTypeIdentifiers
         }
         let ext = url.pathExtension.lowercased()
         let kind =
-          ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit"].contains(ext)
+          Telemetry.supportedExtensions.contains(ext)
           ? "data"
           : (["mp3", "wav", "m4a", "aac"].contains(ext)
             ? "audio" : (["png", "jpg", "jpeg", "tif", "bmp"].contains(ext) ? "image" : "video"))
@@ -496,6 +497,7 @@ import UniformTypeIdentifiers
             let d = try await Task.detached { try Telemetry(url: url) }.value
             telemetry[index] = d
             input.duration = d.duration
+            project.warnings += d.warnings.filter { !project.warnings.contains($0) }
           } else if kind != "image" {
             input.duration = try await AVURLAsset(url: url).load(.duration).seconds
           }
@@ -538,7 +540,7 @@ import UniformTypeIdentifiers
     case "video": panel.allowedContentTypes = [.movie]
     case "audio": panel.allowedContentTypes = [.audio, .movie]
     case "image": panel.allowedContentTypes = [.image]
-    default: panel.allowedContentTypes = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit"].compactMap { UTType(filenameExtension: $0) }
+    default: panel.allowedContentTypes = Telemetry.supportedExtensions.compactMap { UTType(filenameExtension: $0) }
     }
     guard panel.runModal() == .OK, let url = panel.url else { return }
     Task { await relink(id, to: url) }
@@ -578,7 +580,10 @@ import UniformTypeIdentifiers
         let i = project.inputs.firstIndex(where: { $0.id == id }), project.inputs[i] == original else { return false }
       checkpoint()
       project.inputs[i] = replacement
-      if let data { telemetry[replacement.legacyIndex] = data }
+      if let data {
+        telemetry[replacement.legacyIndex] = data
+        project.warnings += data.warnings.filter { !project.warnings.contains($0) }
+      }
       if original.kind == "image" {
         for j in project.objects.indices where project.objects[j].kind == .image && project.objects[j].inputIndex == original.legacyIndex && project.objects[j].text == original.path {
           project.objects[j].text = url.path

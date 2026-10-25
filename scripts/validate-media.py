@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """End-to-end compositor check. Requires ffmpeg/ffprobe only for generating/inspecting test media."""
-import json, subprocess, uuid, array, math, struct
+import json, subprocess, uuid, array, math, struct, zipfile
 from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 out = root / "build" / "validation" / "features"
@@ -167,3 +167,38 @@ recovery_path.write_text(json.dumps(recovery))
 rejected(exe,"export",recovery_path,"--start",1,"--duration",0.5,"--out",blocked)
 assert not blocked.exists()
 print("PASS missing camera/telemetry preflight, no incomplete output, snapshot preflight and unaffected export ranges")
+
+# RCZ uses binary device/individual-channel clocks. Equivalent CSV and RCZ
+# sources must produce the same overlay pixels through snapshot and video export.
+rcz = out/"telemetry.rcz"
+base = 1_700_000_000_000
+clock = struct.pack("<4q", *(base+i*1000 for i in range(4)))
+with zipfile.ZipFile(rcz,"w",compression=zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr("session.json",json.dumps({"title":"Synthetic render telemetry"}))
+    archive.writestr("channel_1_42_0_1_1",clock)
+    archive.writestr("channel_1_42_0_4_0",struct.pack("<4i",10000,20000,30000,40000))
+    archive.writestr("channel_12_88_10024_1_1",clock)
+    archive.writestr("channel2_12_88_10024_10024_3",struct.pack("<4d",1000,2000,3000,4000))
+    for channel, values in [(7,[0,0.5,0,-0.5]),(8,[0.5,0,-0.5,0])]:
+        archive.writestr(f"channel_12_88_{channel}_1_1",clock)
+        archive.writestr(f"channel2_12_88_{channel}_{channel}_3",struct.pack("<4d",*(v*9.80665 for v in values)))
+csv_source = out/"equivalent-telemetry.csv"
+csv_source.write_text("Time,Speed (m/s),RPM,Longitudinal acceleration (g) *calc,Lateral acceleration (g) *calc\n0,10,1000,0.5,0\n1,20,2000,0,0.5\n2,30,3000,-0.5,0\n3,40,4000,0,-0.5\n")
+telemetry_source = dict(id=uid(),name="Telemetry",path=str(rcz),kind="data",offset=0,duration=3,volume=1,legacyIndex=9)
+render_project = dict(formatVersion=1,name="RCZ render acceptance",width=320,height=180,fps=30,speedUnit="mph",inputs=[source("red",0,4),telemetry_source],
+    objects=[display("Camera","video"),display("Speed","speed",inputIndex=9,x=5,y=5,width=30,height=50),display("G-force","gforce",inputIndex=9,x=70,y=5,width=25,height=45)],warnings=[])
+for format, source_file in [("rcz",rcz),("csv",csv_source)]:
+    telemetry_source["path"] = str(source_file)
+    project_file = out/f"{format}-render.orrp"
+    project_file.write_text(json.dumps(render_project))
+    run(exe,"snapshot",project_file,"--time",1.25,"--out",out/f"{format}-overlay.png")
+    target = out/f"{format}-render.mp4"
+    if target.exists():target.unlink()
+    run(exe,"export",project_file,"--start",0.5,"--duration",1,"--out",target)
+assert (out/"rcz-overlay.png").read_bytes() == (out/"csv-overlay.png").read_bytes()
+for at in [0.1,0.5,0.9]:
+    frames = [run("ffmpeg","-v","error","-ss",at,"-i",out/f"{format}-render.mp4","-frames:v",1,"-f","rawvideo","-pix_fmt","rgb24","-") for format in ["rcz","csv"]]
+    assert len(frames[0]) == len(frames[1]) == 320*180*3
+    error = sum(abs(a-b) for a,b in zip(*frames))/len(frames[0])
+    assert error < 0.5, (at,error)
+print("PASS RCZ binary import, matching CSV snapshot pixels and matching rendered video overlays")

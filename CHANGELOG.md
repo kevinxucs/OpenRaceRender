@@ -6,6 +6,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Native RaceChrono RCZ session import through Add input, drag/drop, Finder and the CLI, including GPS/CAN/sensor clocks, unit conversion, gyro calibration, recorded laps, resumed recordings, validated relinks and native project reopen. Includes ZIP integrity checks and RCZ/CSV data and render comparisons.
 - Hue and sharpness import, editing, saving and rendering; signed picture-adjustment sliders and numeric entry, plus a shortcut from video displays to their input picture settings.
 - Managed library under Application Support, explicit non-overwriting library import in the UI and CLI, and a Finder shortcut for managing custom layouts.
 - Optional existing signing identity through `--sign-identity` or `OPENRACERENDER_SIGN_IDENTITY` for builds that need stable macOS permission identity.
@@ -16,6 +17,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Repeated missing-gear channel lookup slowing synchronization event discovery for recordings with many channels.
 - Finder project opens leaving a blank editor: handle URL and filename events, retain early launch requests until the editor is ready, and reuse one editor window. Repeated in-flight requests are coalesced, superseded loads are cancelled, and launch arguments run only once.
 - Failed relinks replacing the original path before validation, image relinks leaving the displayed file unchanged, and exports silently omitting missing sources. Recovery now retains settings and supports undo; export validation follows the selected span, camera switches, joined clips and embedded artwork, with visible feedback in the export sheet.
 - Missing RRP3 green/red output markers, including default export bounds and millisecond labels. Unchanged markers survive compatible RRP copies; native saves preserve edited bounds.

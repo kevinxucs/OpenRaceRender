@@ -22,7 +22,7 @@ cd OpenRaceRender
 
 The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no third-party package dependencies and does not require a RaceRender installation to run.
 
-In Finder, use **Open With → OpenRaceRender** for an `.rrp` or `.orrp`. File-open requests work at startup and while the app is running, using the same editor and unsaved-change checks as **Open project…**. Imported `.rrp` edits save to a new native `.orrp` unless you explicitly export a compatible RaceRender copy.
+In Finder, use **Open With → OpenRaceRender** for an `.rrp` or `.orrp`. File-open requests work at startup and while the app is running, using the same editor and unsaved-change checks as **Open project…**. Imported `.rrp` edits save to a new native `.orrp` unless you explicitly export a compatible RaceRender copy. Opening a telemetry file such as `.rcz` adds it as a data input.
 
 After importing a library, make a self-contained local app with that library:
 
@@ -55,7 +55,7 @@ python3 scripts/validate-media.py
 
 ## Editing a session
 
-1. Open an `.rrp` or `.orrp`, or add video and telemetry files. Additional cameras start as picture-in-picture displays.
+1. Open an `.rrp` or `.orrp`, or add video and telemetry files, including native RaceChrono `.rcz` sessions. Additional cameras start as picture-in-picture displays.
 2. Browse templates, styles, images and video-position presets from the bundled or installed library; native `.orrt` layouts also work. Map template inputs to your sources before applying.
 3. Select an input to relink it, set its synchronization offset, trim it, change playback rate, delay its start, or join it after the previous media input. Set picture crop fractions, rotation, mirroring, brightness, contrast, and color here.
 4. Select a display to position and resize it, choose its channel and range, or customize a gauge. Use **Base settings** for project-wide defaults. Seek to a time and choose **Add at playhead** to create a segment; its field changes are inherited by later segments until overridden. This supports camera switches and timed titles.
@@ -74,6 +74,7 @@ Save edits as `.orrp`. For a custom template, choose **Blank** in the library or
 | `.rrt` / rrt1, rrt2 | Layout import, thumbnails, saved widget styling and supported embedded artwork |
 | `.rro` / rro1, rro2, rro3 | Style import, original drawing scripts/artwork, and compressed previews |
 | CSV / TSV / text | Time column required; RaceChrono preamble, sparse values, quoted cells, interpolation and channel aliases |
+| RaceChrono RCZ | Native recorded-session import: independent GPS/CAN/sensor clocks, channel units, recorded laps and resumed fragments; see [RCZ support and validation](docs/rcz-import.md) |
 | GPX / TCX | Timestamped track points, GPS and common sensor extensions |
 | NMEA | RMC, GGA, GLL, valid fixes, checksum checks when present, merged samples, midnight rollover |
 | VBO | Common `[column names]` and `[data]` layouts, UTC time, velocity, signed minute coordinates |
@@ -87,6 +88,7 @@ Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absen
 ```sh
 ./scripts/run.sh inspect session.rrp
 ./scripts/run.sh inspect-data telemetry.fit
+./scripts/run.sh inspect-data session.rcz --time 60
 ./scripts/run.sh validate-library "$HOME/Library/Application Support/OpenRaceRender/Library/Templates"
 ./build/OpenRaceRender.app/Contents/MacOS/OpenRaceRender list-library
 ./scripts/run.sh convert session.rrp --out session.orrp

@@ -26,6 +26,16 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
+			<string>RaceChrono Session Data</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array><string>org.openracerender.racechrono-session</string></array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
 			<string>OpenRaceRender Project</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
@@ -61,6 +71,19 @@
 				<string>rrt</string>
 				<string>rro</string>
 			</array>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.openracerender.racechrono-session</string>
+			<key>UTTypeDescription</key>
+			<string>RaceChrono Session Data</string>
+			<key>UTTypeConformsTo</key>
+			<array><string>com.pkware.zip-archive</string></array>
+			<key>UTTypeTagSpecification</key>
+			<dict><key>public.filename-extension</key><array><string>rcz</string></array></dict>
 		</dict>
 	</array>
 	<key>UTExportedTypeDeclarations</key>

@@ -31,6 +31,8 @@ __pycache__/
 *.fit
 *.nmea
 *.vbo
+*.rcz
+*.RCZ
 *.mp4
 *.mov
 *.m4v

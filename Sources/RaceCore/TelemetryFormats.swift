@@ -148,6 +148,7 @@ extension Telemetry {
     var result = laps.prefix(20).map { SyncEvent(name: "Lap \($0.number) start", time: $0.start) }
     var wasStopped = false, wasMoving = false, foundStart = false, foundStop = false
     var gears: Set<Int> = []
+    let gearChannel = channelIndex("gear")
     for i in stride(from: 0, to: times.count, by: max(1, times.count / 20000)) {
       let t = times[i]
       if let v = speed(at: t, unit: "m/s") {
@@ -156,7 +157,7 @@ extension Telemetry {
         if wasStopped && v > 2 && !foundStart { result.append(SyncEvent(name: "Start moving after a stop", time: t)); foundStart = true }
         if wasMoving && v < 0.5 && !foundStop { result.append(SyncEvent(name: "First stop after moving", time: t)); foundStop = true }
       }
-      if let gear = value("gear", at: t, interpolate: false), gear >= 2, gear <= 12 {
+      if let gear = gearChannel.map({ columns[$0][i] }), gear >= 2, gear <= 12 {
         let g = Int(gear)
         if gears.insert(g).inserted { result.append(SyncEvent(name: "First shift into gear \(g)", time: t)) }
       }

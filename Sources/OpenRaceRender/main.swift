@@ -10,7 +10,7 @@ enum CLI {
 
       OpenRaceRender [--open] PROJECT
       OpenRaceRender inspect PROJECT
-      OpenRaceRender inspect-data DATAFILE
+      OpenRaceRender inspect-data DATAFILE [--time SECONDS]
       OpenRaceRender validate-library DIRECTORY
       OpenRaceRender list-library [DIRECTORY]
       OpenRaceRender import-library DIRECTORY [--out LIBRARY_DIRECTORY]
@@ -19,7 +19,7 @@ enum CLI {
       OpenRaceRender convert PROJECT --out converted.orrp
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
-    Telemetry: CSV/TSV, RaceChrono CSV, GPX, TCX, NMEA, VBO and FIT. GUI: add via Add input.
+    Telemetry: RaceChrono RCZ/CSV, CSV/TSV, GPX, TCX, NMEA, VBO and FIT. GUI: add via Add input.
     """
   static func run(_ a: [String]) async -> Int32 {
     do {
@@ -89,9 +89,15 @@ enum CLI {
       }
       if a[1] == "inspect-data" {
         let d = try Telemetry(url: url)
-        let out: [String: Any] = ["samples": d.count, "duration": d.duration, "channels": d.headers,
+        var out: [String: Any] = ["samples": d.count, "duration": d.duration, "channels": d.headers, "title": d.title, "warnings": d.warnings,
           "laps": d.laps.count, "mapPoints": d.mapPoints.count,
           "events": d.syncEvents.map { ["name": $0.name, "time": $0.time] as [String: Any] }]
+        if let epoch = d.firstSampleUnixTime { out["firstSampleUnixTime"] = epoch }
+        if let value = option("--time") {
+          guard let time = Double(value), time.isFinite, time >= 0, time <= d.duration else { throw RaceError.invalid("Choose a sample time within the telemetry duration.") }
+          out["sampleTime"] = time
+          out["values"] = Dictionary(d.headers.map { ($0, d.value($0, at: time) as Any? ?? NSNull()) }, uniquingKeysWith: { first, _ in first })
+        }
         print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
         return 0
       }
@@ -193,9 +199,9 @@ enum CLI {
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
   weak var model: EditorModel? {
     didSet {
-      if let model, let url = pendingOpenURL {
+      if model != nil, let url = pendingOpenURL {
         pendingOpenURL = nil
-        model.open(url)
+        requestOpen(url)
       }
     }
   }
@@ -219,7 +225,10 @@ enum CLI {
     requestOpen(url)
   }
   private func requestOpen(_ url: URL) {
-    if let model { model.open(url) }
+    if let model {
+      if Telemetry.supportedExtensions.contains(url.pathExtension.lowercased()) { model.addInputs([url]) }
+      else { model.open(url) }
+    }
     else { pendingOpenURL = url }
   }
   func openLaunchArguments(_ arguments: [String]) {
@@ -235,7 +244,7 @@ enum CLI {
     // macOS may append options such as -NSDocumentRevisionsDebugMode YES.
     // Only a positional project path is a launch document, not an option value.
     guard arguments.count > 1, !arguments[1].hasPrefix("-"),
-      ["rrp", "rrt", "rro", "orrp", "orrt"].contains((arguments[1] as NSString).pathExtension.lowercased()) else { return nil }
+      (["rrp", "rrt", "rro", "orrp", "orrt"] + Telemetry.supportedExtensions).contains((arguments[1] as NSString).pathExtension.lowercased()) else { return nil }
     return URL(fileURLWithPath: arguments[1])
   }
 }

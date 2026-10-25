@@ -35,6 +35,7 @@ extension Telemetry {
     for field in settings.fields where !field.name.isEmpty {
       guard let i = channelIndex(field.source), field.multiply.isFinite, field.add.isFinite else { continue }
       headers.append(field.name); columns.append(columns[i].map { $0*field.multiply+field.add })
+      if discreteColumns.contains(i) { discreteColumns.insert(headers.count - 1) }
     }
     if let latitude = aliases["lat"], let longitude = aliases["lon"] {
       let lat = columns[latitude], lon = columns[longitude]

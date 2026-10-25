@@ -67,7 +67,8 @@ These observations informed behavior. They do not establish that every reference
 | Best-lap delta | Implemented subset | Requires compatible distance and recorded/calculated lap boundaries |
 | GPS speed fallback and four speed units | Implemented | mph, km/h, m/s, knots |
 | Derived heading, G-force and gear estimation | Partial | Longitudinal G uses the recorded channel when available, otherwise a two-second speed-difference window; heading and gear estimation remain absent |
-| CSV/TSV and RaceChrono | Implemented | Bounded text reader with preamble/header recognition |
+| CSV/TSV and RaceChrono CSV | Implemented | Bounded text reader with preamble/header recognition |
+| RaceChrono RCZ sessions | Implemented subset | Independent stream clocks, units, recorded laps, resumed fragments and native project reload; [scope and measured validation](rcz-import.md) |
 | GPX/TCX | Implemented subset | Timestamped track points and common sensors; not every vendor extension |
 | NMEA | Implemented subset | RMC/GGA/GLL; GP/GN talkers and valid fixes; no camera-container extraction |
 | VBO | Implemented subset | Common whitespace sections; no claim of every device-specific variation |
@@ -90,9 +91,9 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 88 tests pass with the local-library check and graphics services available (CI skips the optional local-library check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion, canvas-edge text, markers, signed picture controls, preview surface layout, validated relinks and export dependencies.
+All 98 tests pass with the local-library check and graphics services available (CI skips the optional local-library check). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, RCZ clocks/units/calibration/resumed fragments/integrity, Finder input dispatch and project reopen, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion, canvas-edge text, markers, signed picture controls, preview surface layout, validated relinks and export dependencies.
 
-The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching and layers. Generated media and external samples live under ignored `build/validation`.
+The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching, layers and equivalent RCZ/CSV overlays. Generated media and external samples live under ignored `build/validation`.
 
 The full installed legacy library contains 61 templates and 303 style files (255 main styles, 28 image styles and 20 video-position presets). Structural validation reads all 364 files and 1,091 display objects without failures, including compact presets with no thumbnail. The sample RRP imports 18 supported displays and its telemetry. This is deliberately separate from a claim of pixel-identical output.
 

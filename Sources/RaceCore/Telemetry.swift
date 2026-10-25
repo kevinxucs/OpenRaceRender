@@ -10,9 +10,13 @@ public struct TelemetryLap: Identifiable, Sendable {
 }
 
 public final class Telemetry: @unchecked Sendable {
+  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz"]
+  public internal(set) var firstSampleUnixTime: Double?
+  public internal(set) var warnings: [String] = []
   private let boundsLock = NSLock()
   private var cachedBounds: [Int:(Double,Double)] = [:]
   var renderRevision = 0
+  var discreteColumns = Set<Int>()
   public internal(set) var headers: [String]
   public let times: [Double]
   public internal(set) var columns: [[Double]]
@@ -31,6 +35,10 @@ public final class Telemetry: @unchecked Sendable {
     guard d.count <= 512 * 1024 * 1024 else {
       throw RaceError.invalid("Telemetry file is larger than 512 MB.")
     }
+    if url.pathExtension.lowercased() == "rcz" {
+      try self.init(rcz: RCZReader.read(d, title: url.deletingPathExtension().lastPathComponent))
+      return
+    }
     if url.pathExtension.lowercased() == "fit" || (d.count >= 12 && String(data: d[8..<12], encoding: .ascii) == ".FIT") {
       try self.init(text: FITReader.csv(d), title: url.deletingPathExtension().lastPathComponent)
       return
@@ -41,6 +49,19 @@ public final class Telemetry: @unchecked Sendable {
     else { throw RaceError.invalid("Could not decode telemetry text.") }
     let normalized = try TelemetryFormats.csv(from: d, text: text, extension: url.pathExtension.lowercased())
     try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent)
+  }
+  private init(rcz table: RCZReader.Table) {
+    headers = table.headers; times = table.times; columns = table.columns
+    title = table.title; aliases = table.aliases; laps = table.laps
+    firstSampleUnixTime = table.firstSampleUnixTime; warnings = table.warnings
+    discreteColumns = table.discreteColumns
+    if let lat = aliases["lat"], let lon = aliases["lon"] {
+      let factor = cos((table.columns[lat].first(where: \.isFinite) ?? 0) * .pi / 180)
+      mapPoints = stride(from: 0, to: table.times.count, by: max(1, table.times.count / 4000)).compactMap {
+        let x = table.columns[lon][$0] * factor, y = table.columns[lat][$0]
+        return x.isFinite && y.isFinite ? (x, y) : nil
+      }
+    } else { mapPoints = [] }
   }
   public init(text: String, title initialTitle: String = "Telemetry") throws {
     var header: [String] = []
@@ -248,7 +269,7 @@ public final class Telemetry: @unchecked Sendable {
     let i = index(at: t)
     let v = columns[c][i]
     guard v.isFinite else { return nil }
-    if interpolate && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
+    if interpolate && !discreteColumns.contains(c) && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
       return v + (columns[c][i + 1] - v)
         * max(0, min(1, (t - times[i]) / (times[i + 1] - times[i])))
     }
