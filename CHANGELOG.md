@@ -26,6 +26,7 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Fixed
 
+- Saved 4:3/16:9 workspace aspect import and a virtual joined-stream root reading a nonexistent picture record at end of file.
 - Changing a widget style resetting its position, size, data binding and timeline. Incompatible widget types are rejected; appearance changes retain the existing instance and support undo.
 - Imported bar/script range controls changing only the native inspector fields instead of the payload used for rendering.
 - Empty template source roles collapsing the design timeline to one second.

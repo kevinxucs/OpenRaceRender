@@ -7,6 +7,11 @@ enum LegacyProjectSettings {
     p.legacyImportVersion = 2
     guard sourceStart >= 2152, b.count >= 2152 else { return }
     p.notes = b.utf16(48, 2048)
+    // Workspace selection is saved in the project; preview/export profiles are
+    // separate application preferences. These two modes were verified in RR3.
+    if b[2126] == 0 { p.width = 1440; p.height = 1080 }
+    else if b[2126] == 2 { p.width = 1920; p.height = 1080 }
+    else { p.warnings.append("The RRP uses workspace mode \(b[2126]); verify the canvas aspect ratio before rendering.") }
     p.speedUnit = b[2120] == 2 ? "km/h" : b[2120] == 3 ? "knots" : b[2120] == 4 ? "m/s" : "mph"
     let lengthInput = Int(b[2121])
     if lengthInput != 255, lengthInput < Int(b.u32(16)) { p.lengthInputIndex = lengthInput }

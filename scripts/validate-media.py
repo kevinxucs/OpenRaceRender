@@ -103,6 +103,8 @@ print("PASS saved In/Out marks override remembered ranges and CLI exports defaul
 # rather than only assigning marks and picture settings to a native JSON file.
 legacy = bytearray(2152 + 2216 + 56 + 348)
 legacy[:4] = b"RRP3"
+struct.pack_into("<II",legacy,4,20191031,20161216)
+legacy[2126] = 2
 for offset, value in [(12,2152),(16,1),(20,2216),(28,56),(32,1),(36,344)]:
     struct.pack_into("<I", legacy, offset, value)
 struct.pack_into("<ff", legacy, 2128, 1.25, 1.75)

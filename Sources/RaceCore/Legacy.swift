@@ -66,17 +66,17 @@ public enum LegacyReader {
       let sourceSettings = Data(b[cursor + sourceSize..<cursor + sourceSize + settingsSize])
       // RRP3 stores input picture controls in the following settings record.
       // Percentages are bytes; leave unknown fields and non-video settings opaque.
-      if kind == "video", segmentSize >= 28 {
+      if kind == "video", type == 1, settingsSize >= 28 {
         let settings = cursor + sourceSize
         var picture = PictureSettings()
         picture.legacyColorInterpretation = true
         picture.brightness = Double(b[settings + 25]) / 100
         picture.contrast = Double(b[settings + 26]) / 100
         picture.saturation = Double(b[settings + 27]) / 100
-        if segmentSize >= 30 {
+        if settingsSize >= 30 {
           picture.hue = Double(Int16(bitPattern: UInt16(b[settings + 28]) | UInt16(b[settings + 29]) << 8))
         }
-        if segmentSize >= 31 { picture.sharpness = Double(b[settings + 30]) / 100 }
+        if settingsSize >= 31 { picture.sharpness = Double(b[settings + 30]) / 100 }
         input.picture = picture
       }
       if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
@@ -332,6 +332,10 @@ public enum LegacyReader {
   static func template(_ b: Data) throws -> RaceProject {
     var p = RaceProject()
     let version2 = b[3] == 50
+    if version2, b.count > 64825, b.u32(64817) == 136 {
+      if b[12] == 0 { p.width = 1440; p.height = 1080 }
+      else if b[12] != 2 { p.warnings.append("The template uses workspace mode \(b[12]); verify the canvas aspect ratio.") }
+    }
     var cursor = 64812
     if b.count > 64825, b.u32(64817) == 136 { cursor = 64813 }
     guard cursor + 12 < b.count else { throw RaceError.invalid("Truncated template preview.") }

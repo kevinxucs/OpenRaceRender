@@ -6,7 +6,7 @@ final class RRPImportTests: XCTestCase {
     var b = Data(repeating: 0, count: 2152)
     b.replaceSubrange(0..<4, with: Data("RRP3".utf8))
     for (offset, value) in [(12,2152),(16,inputs),(20,2216),(24,11312),(28,56),(32,objects),(36,344),(40,24),(44,208)] { b.putU32(UInt32(value), offset) }
-    b[2120] = 2; b[2121] = 255
+    b[2120] = 2; b[2121] = 255; b[2126] = 2
     b.putUTF16("Synthetic import notes", 48, 2048)
     return b
   }
@@ -74,6 +74,21 @@ final class RRPImportTests: XCTestCase {
     XCTAssertEqual(p.objects[1].resolved(at: 7).text, "Before")
     XCTAssertEqual(p.objects[1].resolved(at: 7.25).text, "After")
     XCTAssertTrue(p.warnings.contains { $0.contains("2 timeline segments") })
+  }
+  func testSavedStandardAndWideWorkspacesAreImported() throws {
+    var bytes = fixture()
+    XCTAssertEqual(try read(bytes).width, 1920)
+    bytes[2126] = 0
+    let standard = try read(bytes)
+    XCTAssertEqual(standard.width, 1440); XCTAssertEqual(standard.height, 1080)
+    bytes[2126] = 254
+    XCTAssertTrue(try read(bytes).warnings.contains { $0.contains("workspace mode 254") })
+  }
+  func testVirtualJoinRootHasNoPictureRecordEvenAtEndOfFile() throws {
+    let project = try read(header(inputs: 1, objects: 0) + input("Empty joined stream", type: 5))
+    XCTAssertEqual(project.inputs[0].isJoinRoot, true)
+    XCTAssertNil(project.inputs[0].picture)
+    XCTAssertEqual(project.objects.count, 0)
   }
   func testNativeRoundTripAndConservativeCopyKeepImportedSettings() throws {
     let bytes = fixture(), p = try read(bytes)

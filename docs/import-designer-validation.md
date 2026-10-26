@@ -8,7 +8,7 @@ The structured RRP3 reader follows the source/object/timeline tables instead of 
 
 Supported settings include:
 
-- Project notes, preferred speed units, explicit duration or duration bound to an input, and output In/Out marks.
+- Standard (4:3) and wide (16:9) workspace selection, project notes, preferred speed units, explicit duration or duration bound to an input, and output In/Out marks.
 - Source offsets, end trim, project delay, playback rate and looping; virtual joined roots and ordered children.
 - Source crop, rotation, mirroring, brightness, contrast, saturation, hue and sharpness.
 - Source gain, balance and stereo/swap/left-to-both/right-to-both/mono routing; display gain/balance and timed audio changes.
@@ -30,7 +30,7 @@ Text widgets expose font, size, bold/italic/underline/strike, alignment, reduce-
 
 ## Validation
 
-- 134 tests pass with graphics services and the optional local library enabled: 116 core tests and 18 editor tests. CI omits the optional installation-dependent checks.
+- 136 tests pass with graphics services and the optional local library enabled: 118 core tests and 18 editor tests. CI omits the optional installation-dependent checks.
 - Structured synthetic RRP fixtures cover joins/source clocks, segment inheritance, text replacement, crop/rotation/flip, audio matrices, data time units/conversions, malformed tables, native roundtrip and unchanged legacy copy bytes.
 - Drawing checks distinguish seven shapes, gradient/outline and typography changes. Gauge checks cover nonlinear scale endpoints, three modes, geometry/threshold edits, smoothing, automatic bounds and repeatable seeking.
 - Live OpenRaceRender validation opened the synthetic project, changed gauge mode, exercised undo, enabled text outline, added a diamond with gradient/outline and saved. The saved JSON retained all edits.
@@ -38,3 +38,5 @@ Text widgets expose font, size, bold/italic/underline/strike, alignment, reduce-
 - `python3 scripts/validate-media.py` passes the existing trim/rate/join, layered cameras, visibility-gated audio, selected ranges, fractional FPS, H.264/AAC/color tags, imported marks/hue/sharpness, missing-media preflight and RCZ/CSV render comparisons.
 
 These are targeted correctness checks, not a new full-session speed/quality comparison. Local library assets and private reference-app probes stay outside source control.
+
+The subsequent legacy-writer probe was opened in RaceRender itself. RRP version-date fields select the native schema: zeroed fields caused older parsing and incorrect object names/duration, while `20191031`/`20161216` loaded the three synthetic displays and three-second media correctly. The acceptance generator now emits these fields. The probe also verified saved 4:3 workspace behavior. Virtual joined roots carry no picture record; an empty root at end of file is covered by a bounds regression.
