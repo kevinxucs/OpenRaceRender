@@ -5,6 +5,7 @@ public struct InputTiming: Codable, Equatable, Sendable {
   public var trimEnd: Double?
   public var projectStart: Double = 0
   public var rate: Double = 1
+  public var loop: Bool?
   public init() {}
   public var safeRate: Double { rate.isFinite ? max(0.01, min(100, rate)) : 1 }
 }
@@ -71,6 +72,18 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var text: String?
   public var color: String?
   public var channel: String?
+  public var picture: PictureSettings?
+  public var gauge: GaugeSettings?
+  public var typography: TextSettings?
+  public var shape: ShapeSettings?
+  public var hud: HUDSettings?
+  public var audio: AudioSettings?
+  public var legacyPayload: Data?
+  public var style: String?
+  public var minimum: Double?
+  public var maximum: Double?
+  public var artwork: Data?
+  public var embeddedImage: Data?
   public init(time: Double) { self.time = time }
   public func apply(to object: inout DisplayObject) {
     if let v = visible { object.visible = v }
@@ -83,6 +96,18 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
     if let v = text { object.text = v }
     if let v = color { object.color = v }
     if let v = channel { object.channel = v }
+    if let v = picture { object.picture = v }
+    if let v = gauge { object.gauge = v }
+    if let v = typography { object.typography = v }
+    if let v = shape { object.shape = v }
+    if let v = hud { object.hud = v }
+    if let v = audio { object.audio = v }
+    if let v = legacyPayload { object.legacyPayload = v }
+    if let v = style { object.style = v }
+    if let v = minimum { object.minimum = v }
+    if let v = maximum { object.maximum = v }
+    if let v = artwork { object.artwork = v }
+    if let v = embeddedImage { object.embeddedImage = v }
   }
 }
 
@@ -109,6 +134,18 @@ extension DisplayObject {
     if old.text != value.text { list[i].text = value.text }
     if old.color != value.color { list[i].color = value.color }
     if old.channel != value.channel { list[i].channel = value.channel }
+    if old.picture != value.picture { list[i].picture = value.picture }
+    if old.gauge != value.gauge { list[i].gauge = value.gauge }
+    if old.typography != value.typography { list[i].typography = value.typography }
+    if old.shape != value.shape { list[i].shape = value.shape }
+    if old.hud != value.hud { list[i].hud = value.hud }
+    if old.audio != value.audio { list[i].audio = value.audio }
+    if old.legacyPayload != value.legacyPayload { list[i].legacyPayload = value.legacyPayload }
+    if old.style != value.style { list[i].style = value.style }
+    if old.minimum != value.minimum { list[i].minimum = value.minimum }
+    if old.maximum != value.maximum { list[i].maximum = value.maximum }
+    if old.artwork != value.artwork { list[i].artwork = value.artwork }
+    if old.embeddedImage != value.embeddedImage { list[i].embeddedImage = value.embeddedImage }
     segments = list.sorted { $0.time < $1.time }
   }
 }
@@ -130,7 +167,7 @@ extension RaceProject {
     var result: [InputPlacement] = []
     // A joined stream has one root, followed by its children in input-list order.
     for root in inputs where root.joinedTo == nil {
-      let clips = [root] + inputs.filter { $0.joinedTo == root.legacyIndex }
+      let clips = (root.isJoinRoot == true ? [] : [root]) + inputs.filter { $0.joinedTo == root.legacyIndex }
       var cursor = 0.0
       for (position, input) in clips.enumerated() {
         let timing = input.timing ?? InputTiming()
@@ -138,11 +175,42 @@ extension RaceProject {
         let trim = max(0, timing.trimStart)
         let sourceStart = trim + max(0, input.offset)
         let sourceEnd = min(input.duration, timing.trimEnd ?? input.duration)
-        let start = (position == 0 ? max(0, timing.projectStart) : cursor) + max(0, -input.offset / rate)
+        let start = (position == 0 ? (root.isJoinRoot == true ? 0 : max(0, timing.projectStart)) : cursor) + max(0, -input.offset / rate)
         let end = start + max(0, sourceEnd - sourceStart) / rate
-        result.append(InputPlacement(input: input, rootIndex: root.legacyIndex,
-          start: start, end: end, sourceStart: sourceStart, rate: rate))
+        if root.isJoinRoot == true {
+          let t = root.timing ?? InputTiming(), rootRate = t.safeRate
+          let cutStart = max(0, t.trimStart + root.offset), cutEnd = t.trimEnd ?? root.duration
+          let a = max(start, cutStart), b = min(end, cutEnd)
+          if b > a {
+            result.append(InputPlacement(input: input, rootIndex: root.legacyIndex,
+              start: max(0, t.projectStart) + max(0, -root.offset / rootRate) + (a - cutStart) / rootRate,
+              end: max(0, t.projectStart) + max(0, -root.offset / rootRate) + (b - cutStart) / rootRate,
+              sourceStart: sourceStart + (a - start) * rate, rate: rate * rootRate))
+          }
+        } else {
+          result.append(InputPlacement(input: input, rootIndex: root.legacyIndex,
+            start: start, end: end, sourceStart: sourceStart, rate: rate))
+        }
         cursor = end
+      }
+    }
+    let bound = lengthInputIndex.flatMap { index in result.filter { $0.rootIndex == index }.map(\.end).max() }
+    let requested = explicitDuration ?? bound ?? result.map(\.end).max() ?? 0
+    let limit = requested.isFinite ? max(0, requested) : 0
+    let firstPass = result
+    for root in inputs where root.joinedTo == nil && root.timing?.loop == true {
+      let clips = firstPass.filter { $0.rootIndex == root.legacyIndex }
+      guard let start = clips.map(\.start).min(), let end = clips.map(\.end).max(), end > start else { continue }
+      let length = end - start
+      let repeats = Int(min(10000, max(0, ceil((limit - end) / length))))
+      if repeats > 0 {
+        for repeatIndex in 1...repeats {
+          let shift = Double(repeatIndex) * length
+          for clip in clips where clip.start + shift < limit {
+            result.append(InputPlacement(input: clip.input, rootIndex: clip.rootIndex,
+              start: clip.start + shift, end: min(limit, clip.end + shift), sourceStart: clip.sourceStart, rate: clip.rate))
+          }
+        }
       }
     }
     return result

@@ -39,6 +39,7 @@ public enum LegacyReader {
       segmentSize < 65536
     else { throw RaceError.invalid("Unsupported RRP3 record sizes or counts.") }
     var cursor = Int(b.u32(12))
+    LegacyProjectSettings.header(b, project: &p, sourceStart: cursor)
     // RRP3's fixed project header stores the green/red output flags as seconds.
     // Native Control-click reset writes zero; there are no separate enable bits.
     if cursor >= 2152, b.count >= 2152 {
@@ -47,7 +48,7 @@ public enum LegacyReader {
       if end.isFinite, end > 0 { p.rangeEnd = end }
     }
     for i in 0..<sourceCount {
-      guard cursor >= 56, cursor + sourceSize + segmentSize <= b.count else {
+      guard cursor >= 56, cursor + sourceSize <= b.count else {
         throw RaceError.invalid("Truncated RRP3 input record.")
       }
       let name = b.utf16(cursor, 128)
@@ -59,6 +60,10 @@ public enum LegacyReader {
       input.duration = b.f32(cursor + 2184)
       input.offset = b.f32(cursor + 2192)
       input.legacyOffset = cursor
+      let dataSize = Int(b.u32(24))
+      let settingsSize = [5,6].contains(type) ? 0 : type == 4 && dataSize >= 2660 && dataSize <= 65536 ? dataSize : segmentSize
+      guard cursor + sourceSize + settingsSize <= b.count else { throw RaceError.invalid("Truncated RRP3 source settings.") }
+      let sourceSettings = Data(b[cursor + sourceSize..<cursor + sourceSize + settingsSize])
       // RRP3 stores input picture controls in the following settings record.
       // Percentages are bytes; leave unknown fields and non-video settings opaque.
       if kind == "video", segmentSize >= 28 {
@@ -76,8 +81,36 @@ public enum LegacyReader {
       }
       if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
       if !input.offset.isFinite { input.offset = 0 }
+      LegacyProjectSettings.input(b, at: cursor, settings: sourceSettings, input: &input, warnings: &p.warnings)
+      input.dataSettings?.speedUnit = p.speedUnit
       p.inputs.append(input)
-      cursor += sourceSize + segmentSize
+      cursor += sourceSize + settingsSize
+    }
+    for index in p.inputs.indices {
+      if let parent = p.inputs[index].joinedTo,
+        !p.inputs.contains(where: { $0.legacyIndex == parent && $0.isJoinRoot == true }) || parent == p.inputs[index].legacyIndex {
+        p.inputs[index].joinedTo = nil
+      }
+    }
+    // Modern RRP3 uses one contiguous object table, followed by an array of
+    // per-object segment counts and variable-size segment records.
+    if b.u32(36) == 344, b.u32(44) == 208, b.u32(12) >= 2152 {
+      for index in 0..<objectCount {
+        guard cursor + 348 <= b.count, validCommon(b, at: cursor) else { throw RaceError.invalid("Invalid RRP3 display record \(index).") }
+        var object = decodeCommon(b, at: cursor, legacyIndex: index)
+        object.legacyOffset = cursor
+        let length = Int(b.u32(cursor + 344)); cursor += 348
+        guard length <= 4 * 1024 * 1024, cursor + length <= b.count else { throw RaceError.invalid("Truncated RRP3 display parameters.") }
+        object.legacyPayload = Data(b[cursor..<cursor + length]); cursor += length
+        object.embeddedImage = try LegacyProjectSettings.image(b, cursor: &cursor)
+        object.artwork = object.embeddedImage.flatMap { LegacyArtwork.png($0) }
+        inferDetails(&object)
+        p.objects.append(object)
+      }
+      try LegacyProjectSettings.timelines(b, cursor: &cursor, recordSize: 208, project: &p)
+      p.warnings.append("RRP import: \(p.inputs.count) inputs, \(p.inputs.filter { $0.isJoinRoot == true }.count) joined streams, \(p.objects.reduce(0) { $0 + ($1.segments?.count ?? 0) }) timeline segments. Source timing, project length, notes, units and recognized data/picture/audio settings were imported.")
+      addWarnings(&p)
+      return p
     }
     // Scan structurally rather than assuming optional data-channel/timeline block lengths.
     var i = max(56, cursor - segmentSize)
@@ -139,18 +172,28 @@ public enum LegacyReader {
     o.inputIndex = Int(b[p + 282])
     o.legacyActivation = Int(b[p + 284])
     o.visible = b[p + 284] <= 1
-    o.opacity = min(1, Double(b[p + 293]) / 100)
+    o.opacity = max(0, 1 - Double(b[p + 294]) / 100)
     o.legacyType = type
     o.legacyIndex = legacyIndex
     o.legacyCommon = Data(b[p..<min(p + 344, b.count)])
     if [.video,.image].contains(o.kind) {
-      var picture = PictureSettings();picture.maintainAspect = b[p + 285] != 0;o.picture = picture
+      var picture = PictureSettings(); picture.maintainAspect = b[p + 285] != 0
+      picture.flipX = b[p + 286] == 1 || b[p + 286] == 3; picture.flipY = b[p + 286] == 2 || b[p + 286] == 3
+      o.picture = picture
+    }
+    let start = b.f32(p + 276)
+    if start.isFinite, start > 0 { o.start = start }
+    if [.video, .audio].contains(o.kind) {
+      var audio = AudioSettings(); audio.volume = Double(b[p + 292]) / 100; audio.balance = Double(b[p + 293]) / 100 - 1
+      if audio != AudioSettings() { o.audio = audio }
     }
     o.maximum = o.kind == .rpm || o.kind == .lights ? 8000 : (o.kind == .speed ? 160 : 100)
     return o
   }
 
   static func kind(_ type: Int, name: String) -> ObjectKind {
+    if type == 10 { return .video }; if type == 11 { return .audio }
+    if type == 12 { return .shape }; if type == 13 { return .text }
     let s = name.lowercased()
     if s.contains("delta") { return .delta }
     if s.contains("best") && s.contains("time") { return .bestTime }
@@ -166,8 +209,8 @@ public enum LegacyReader {
     switch type {
     case 10: return .video
     case 11: return .audio
-    case 12: return .image
-    case 30: return .speed
+    case 12: return .shape
+    case 30: return .gauge
     case 31: return .bar
     case 35: return .graph
     case 32: return .enhanced
@@ -177,15 +220,15 @@ public enum LegacyReader {
     case 76: return .lap
     case 77: return .timer
     case 0: return .group
-    case 20: return .text
-    case 21: return .shape
+    case 13, 20: return .text
+    case 14, 21: return .shape
     default: return .enhanced
     }
   }
 
   static func inferDetails(_ o: inout DisplayObject) {
     guard let d = o.legacyPayload else { return }
-    if o.legacyType == 30, [.speed, .rpm].contains(o.kind), d.count >= 344 {
+    if o.legacyType == 30, [.speed, .rpm, .gauge].contains(o.kind), d.count >= 344 {
       // Common gauge payload: two UTF-16 labels, four doubles, then packed angles.
       let minimum = d.f64(256), maximum = d.f64(264)
       if minimum.isFinite, maximum.isFinite, maximum > minimum, abs(minimum) < 1e10, maximum < 1e10 {
@@ -208,8 +251,13 @@ public enum LegacyReader {
       let rotation = Int(Int16(bitPattern: UInt16(d[298]) | UInt16(d[299]) << 8))
       if (1...360).contains(sweep) { g.sweep = Double(sweep) }
       if abs(rotation) <= 360 { g.rotation = Double(rotation) }
+      if d.count >= 620 { g.counterClockwise = d[619] & 1 != 0 }
       o.color = String(format: "#%06X", d.u32(308) & 0x00ff_ffff)
       o.gauge = g
+      if d.count >= 696, (o.legacyCommon?[283] == 2 || o.legacyCommon?[283] == 3 || d[619] & 16 != 0) {
+        let design = o.editableGaugeDesign
+        o.gauge?.design = design
+      }
     }
     if [31,35,50].contains(o.legacyType ?? -1),
       d.count >= 128
@@ -219,7 +267,29 @@ public enum LegacyReader {
     }
     if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
     // Retain all bytes, but never execute arbitrary imported code.
-    if o.kind == .text, d.count >= 256 { o.text = d.utf16(0, 256) }
+    if o.legacyType == 13, d.count >= 656 {
+      o.text = d.utf16(4, 512)
+      o.color = String(format: "#%06X", d.u32(0) & 0xffffff)
+      var t = TextSettings()
+      t.font = d.utf16(516, 128); t.size = d.f32(644); t.referenceHeight = 480
+      t.bold = d[648] & 1 != 0; t.italic = d[648] & 2 != 0
+      t.underline = d[648] & 4 != 0; t.strikethrough = d[648] & 8 != 0
+      t.alignment = d[649] == 1 ? .center : d[649] == 2 ? .right : .left
+      t.fitToBox = d[650] != 0; t.outline = d[651] != 0
+      t.outlineColor = String(format: "#%06X", d.u32(652) & 0xffffff)
+      o.typography = t
+    } else if o.kind == .text, d.count >= 256 { o.text = d.utf16(0, 256) }
+    if o.legacyType == 12, d.count >= 20 {
+      var shape = ShapeSettings()
+      shape.kind = d[8] == 3 ? .ellipse : d[8] == 1 ? .roundedRectangle : d[8] == 2 ? .rounderRectangle : .rectangle
+      shape.fill = d.u32(4) >> 24 != 255; shape.stroke = d.u32(0) >> 24 != 255
+      shape.strokeColor = String(format: "#%06X", d.u32(0) & 0xffffff)
+      o.color = String(format: "#%06X", d.u32(4) & 0xffffff)
+      shape.gradient = d.u32(12) >> 24 != 255
+      shape.gradientColor = String(format: "#%06X", d.u32(12) & 0xffffff)
+      shape.strokeWidth = Double(d[9]); shape.referenceHeight = 480
+      o.shape = shape
+    }
   }
 
   /// Recover the known early-generator error in native copies of 67,168-byte
@@ -252,7 +322,7 @@ public enum LegacyReader {
       )
     }
     p.warnings.append(
-      "Imported layouts use saved style settings, drawing scripts, output start/end flags, video brightness/contrast/saturation/hue/sharpness and decoded artwork where supported. Font metrics, sharpness response and unsupported effects may differ. Legacy timeline variants, joins, other picture/audio adjustments and export profiles are not decoded."
+      "Imported visuals retain saved style settings, supported drawing scripts, typography and decoded artwork. Font metrics, sharpness response and unsupported specialized effects may differ; specific import limitations are listed separately. RaceRender's application-wide preview/export preferences are not stored in an RRP project."
     )
     if p.inputs.contains(where: { !$0.path.isEmpty && !$0.exists }) {
       p.warnings.append("Some input files are missing. Use Relink in the input inspector.")

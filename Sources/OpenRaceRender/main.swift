@@ -130,7 +130,7 @@ enum CLI {
       }
       var telemetry: [Int: Telemetry] = [:]
       for input in p.inputs where input.kind == "data" && input.exists {
-        let data = try Telemetry(url: URL(fileURLWithPath: input.path))
+        let data = try Telemetry(url: URL(fileURLWithPath: input.path), settings: input.dataSettings)
         if let settings = input.dataSettings { data.configure(settings) }
         telemetry[input.legacyIndex] = data
         if let i = p.inputs.firstIndex(where: { $0.id == input.id }) { p.inputs[i].duration = data.duration }

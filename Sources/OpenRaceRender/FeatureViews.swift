@@ -88,6 +88,9 @@ struct InputTimingControls: View {
       value("Trim end in source (s)", Binding(get: { timing.wrappedValue.trimEnd ?? input.duration }, set: { timing.wrappedValue.trimEnd = $0 }))
       value("Start within project (s)", timing.projectStart)
       value("Playback rate (1 = normal)", timing.rate)
+      if input.joinedTo == nil {
+        Toggle("Loop within project length", isOn: Binding(get: { timing.wrappedValue.loop ?? false }, set: { timing.wrappedValue.loop = $0 }))
+      }
       if input.kind == "data" {
         Button("Synchronize to a data event…") { model.showSync = true }
         DataControls(input: $input, model: model)

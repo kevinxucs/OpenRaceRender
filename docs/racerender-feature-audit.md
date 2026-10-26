@@ -43,7 +43,7 @@ These observations informed behavior. They do not establish that every reference
 | Joined sequential media | Implemented | Join after previous source; unjoin; children ordered by the input list |
 | Sync offset and manual event alignment | Implemented | Synchronization sheet, frame adjustment and source event time |
 | Data event discovery | Implemented subset | Starts/stops, recorded lap starts, first shifts; aircraft event detection absent |
-| Per-display inherited timeline segments | Implemented subset | Source, visible, geometry, opacity, text, color and channel; discrete changes |
+| Per-display inherited timeline segments | Implemented subset | Source, visibility, geometry, opacity, text, color, channel, picture, gauge, typography, shape, artwork and audio; discrete changes |
 | Timeline tracks and markers | Implemented subset | Select, scrub, create/remove, reset inheritance; no zoom/shift tool yet |
 | Timed titles/captions and camera switching | Implemented | Segments and active start/end span |
 | Explicit project length and export marks | Implemented | RRP3 output-flag import, visible In/Out controls, keyboard shortcuts, timeline boundaries and saved export defaults |
@@ -52,12 +52,12 @@ These observations informed behavior. They do not establish that every reference
 | Hue and sharpness | Implemented | RRP3 import and native roundtrip; HSV hue rotation, blur/sharpen controls; sharpness edge response can differ from RaceRender |
 | Colorize, chroma key | Not implemented | Additional input picture operations |
 | Audio mixing and source volume | Implemented subset | Audio follows active display source/visibility; preview mute |
-| Audio balance, channel swap/mono routing and object-specific gain | Not implemented | Stereo processing and per-object controls |
-| Input looping | Not implemented | Repeated composition time ranges |
+| Audio balance, channel swap/mono routing and object-specific gain | Implemented | Source stereo/swap/left/right/mono routing and display gain/pan, including timed changes |
+| Input looping | Implemented | Repeated placements to project length; shared video track and separate timed audio |
 | Gauges, bars, graphs, G-force, gear, lights, temperatures | Imported styles plus native fallbacks | Saved fonts/colors, procedural scripts and decoded artwork are used where supported |
 | Gauge designer | Implemented subset | Range, sweep, orientation, reverse direction, labels, divisions, numbering scale, decimals, redline and background |
-| Gauge dual needle, every needle/mark/gradient parameter | Not implemented | Expanded gauge schema and UI |
-| Custom images/logos and shapes | Implemented subset | Image/rectangle displays; reusable image styles embed image bytes |
+| Expanded gauge design | Implemented | Dual/filled modes, nonlinear split, geometry, marks/pins, independent captions and threshold colors/gradients; see validation limits |
+| Text, custom images/logos and shapes | Implemented | Text typography/outline, seven shapes, gradient fill and outline; reusable styles embed image bytes |
 | Object grouping | Not implemented | Parent/group transforms and multi-selection |
 | Auxiliary channels and source channel assignments | Implemented | Data inspector and object channel picker |
 | Calculated data fields | Implemented subset | Affine `source × multiplier + offset`; other arithmetic operators absent |
@@ -76,9 +76,9 @@ These observations informed behavior. They do not establish that every reference
 | VBO | Implemented subset | Common whitespace sections; no claim of every device-specific variation |
 | FIT | Implemented subset | Activity records, standard GPS/sensors, byte order, compressed time, integrity checks; unknown/developer fields skipped |
 | H.264/HEVC camera media and common audio/images | Host decoder support | AVFoundation/AppKit determine actual codec availability |
-| `.rrp` input and display import | Partial | Common records, paths/offsets, and traditional gauge range, label, sweep, orientation, interval and needle color |
+| `.rrp` input and display import | Expanded subset | Structured RRP3 timing, joins, timeline, notes/length, supported data/picture/audio and display settings; specialized effects remain partial |
 | Legacy picture import | Partial | Camera brightness/contrast/saturation/hue/sharpness and decoder color compatibility imported; colorize, chroma key and other operations remain opaque |
-| Legacy timeline/join/export-setting import | Not implemented | Preserved opaque source bytes; native settings must be configured |
+| Legacy timeline and join import | Implemented subset | Source/geometry/visibility/opacity/style payload/artwork/audio; unknown flags reported. Export profiles are application preferences outside the RRP |
 | `.rrt` and `.rro` import | Styles and artwork supported | Embedded BGRA artwork, compressed containers, traditional styling and Enhanced scripts; font metrics and unsupported effects can differ |
 | Template/style browsing and input remapping | Implemented | Installed legacy library plus native `.orrt` |
 | Original Apex templates | Implemented | Track/road layouts with 30 native vector instruments, tyre data, steering/yaw, cached route/extrema and editable instrument settings; see [Apex templates](apex-template.md) |
@@ -95,7 +95,7 @@ These observations informed behavior. They do not establish that every reference
 
 ## Verification
 
-All 121 tests pass with the local-library checks and graphics services available (CI skips optional local-library checks). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, RCZ clocks/units/calibration/resumed fragments/integrity, Finder input dispatch and project reopen, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion, canvas-edge text, markers, signed picture controls, preview surface layout, validated relinks and export dependencies. Channel-selection regressions cover decoder skip positions, recovery of affected saved channel names, Automatic overriding imported payloads, explicit/segment overrides and unavailable fields; see [channel selection](channel-selection.md). Preview regressions also cover hosted video contents, canvas/wizard handoff, teardown and frame-based telemetry offset adjustments; see [preview lifecycle](preview-lifecycle.md).
+All 134 tests pass with the local-library checks and graphics services available (CI skips optional local-library checks). The test suite covers parser bounds, legacy codec/patch behavior, native round trips, timeline inheritance, trim/rate/delay mapping, joined-clip cut boundaries, lap export range conversion, GPS finish-line crossings, calculated fields, GPX/TCX/NMEA/VBO import, FIT endian/scaling/compressed timestamps/checksums, RCZ clocks/units/calibration/resumed fragments/integrity, Finder input dispatch and project reopen, picture transforms, widget aspect fitting, gauge direction and layer visibility, automatic bar ranges, Enhanced label layers/RGB blends, sRGB samples, chronological best laps, speed-derived acceleration, interpolated lap delta, Auto activation migration, persistent seek/rewind behavior, state isolation, unit conversion, canvas-edge text, markers, signed picture controls, preview surface layout, validated relinks and export dependencies. Channel-selection regressions cover decoder skip positions, recovery of affected saved channel names, Automatic overriding imported payloads, explicit/segment overrides and unavailable fields; see [channel selection](channel-selection.md). Preview regressions also cover hosted video contents, canvas/wizard handoff, teardown and frame-based telemetry offset adjustments; see [preview lifecycle](preview-lifecycle.md).
 
 The media acceptance script generates disposable camera clips, renders native H.264/AAC, and checks actual output pixels and audio. It covers trim/rate/join, exact visibility changes, audio gating, source switching, layers and equivalent RCZ/CSV overlays. Generated media and external samples live under ignored `build/validation`.
 
@@ -132,3 +132,7 @@ Reference-app inspection confirmed Auto and Persistent Script Variables for thes
 ## Session and template usability audit
 
 The [workflow audit](workflow-audit.md) records the session-to-export and blank-template stories, the gaps found through actual editor use, related recovery workflows, and their verification. It supersedes the earlier manual-sheet description of data synchronization above.
+
+## Guide-selected import and designer update
+
+F01, F05 and F07 received structured import and native design controls, verified against disposable projects saved with RaceRender 3.7.3. See [validation and remaining limits](import-designer-validation.md). Synthetic video/audio acceptance verifies timeline mute, stereo routing, repeat placements and nonzero-start export; the 134-test suite includes malformed records, inheritance, migration, typography/shape pixels and gauge modes.

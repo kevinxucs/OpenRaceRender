@@ -76,6 +76,7 @@ extension RaceProject {
     p.legacyData = nil; p.sourcePath = nil; p.warnings = []
     p.explicitDuration = nil; p.rangeStart = nil; p.rangeEnd = nil
     p.exportSettings = nil; p.lastExport = nil
+    p.notes = nil; p.lengthInputIndex = nil; p.legacyImportVersion = nil
     if let selected { p.objects = p.objects.filter { $0.id == selected } }
     guard !p.objects.isEmpty else { throw RaceError.invalid("Add a display before saving a template.") }
     let used = Set(p.objects.flatMap { [$0.inputIndex] + ($0.segments ?? []).compactMap(\.inputIndex) })
@@ -84,6 +85,7 @@ extension RaceProject {
       p.inputs[i].path = ""; p.inputs[i].duration = 0; p.inputs[i].offset = 0
       p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
       p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1
+      p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].legacyTrackIndex = nil
     }
     for i in p.objects.indices {
       p.objects[i].legacyOffset = nil
@@ -94,6 +96,16 @@ extension RaceProject {
       if let path = p.objects[i].gauge?.backgroundPath {
         p.objects[i].gauge?.backgroundImage = try Data(contentsOf: URL(fileURLWithPath: path))
         p.objects[i].gauge?.backgroundPath = nil
+      }
+      for j in (p.objects[i].segments ?? []).indices {
+        if let path = p.objects[i].segments?[j].gauge?.backgroundPath {
+          p.objects[i].segments?[j].gauge?.backgroundImage = try Data(contentsOf: URL(fileURLWithPath: path))
+          p.objects[i].segments?[j].gauge?.backgroundPath = nil
+        }
+        if p.objects[i].kind == .image, let path = p.objects[i].segments?[j].text, !path.isEmpty {
+          p.objects[i].segments?[j].embeddedImage = try Data(contentsOf: URL(fileURLWithPath: path))
+          p.objects[i].segments?[j].text = ""
+        }
       }
     }
     return p

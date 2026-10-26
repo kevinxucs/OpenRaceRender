@@ -6,6 +6,10 @@ Initial open-source development version, identified as `0.1.0` by the app bundle
 
 ### Added
 
+- Structured RRP3 source/project/timeline import with joined streams, trim/rate/delay/loops, notes/length binding, crop/rotation/flip, audio gain/balance/routing and supported data assignments/calculations. Unknown settings remain in the original bytes and limitations appear in the import report.
+- Expanded vector gauge designer: needle/dual/filled modes, automatic range, smoothing, nonlinear scale, needle geometry, separate marks/pins, caption typography/positions and independent color thresholds/gradients.
+- Text font/size/style/alignment/outline and fit controls, plus seven shape types with gradient fills and outlines; native saves, styles and inherited segments retain the settings and artwork.
+
 - Apex GT track/road layouts: circular speed/RPM dials, session trip odometer, graphical pedal travel and a top-down car with temperature-colored tyres and individual pressure/temperature readings. GT presentation is optional, preserving earlier digital Apex layouts and metric unit preferences.
 - Original Apex Telemetry and Apex Road templates with 30 editable vector instruments, tyre pressure/temperature display, steering/yaw, completed peak/minimum speeds and turn G, plus native instrument settings and CLI template generation. Cached routes and extrema keep seeking and chunk exports deterministic.
 - Searchable draggable library styles and individual widgets from saved templates, a compatible style chooser in the inspector, sample telemetry for template design, proportional resizing, canvas alignment and pixel nudges.

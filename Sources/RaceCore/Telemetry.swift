@@ -18,7 +18,8 @@ public final class Telemetry: @unchecked Sendable {
   var renderRevision = 0
   var discreteColumns = Set<Int>()
   public internal(set) var headers: [String]
-  public let times: [Double]
+  public internal(set) var times: [Double]
+  var interpolationEnabled = true
   public internal(set) var columns: [[Double]]
   public let title: String
   public internal(set) var laps: [TelemetryLap]
@@ -30,7 +31,7 @@ public final class Telemetry: @unchecked Sendable {
     laps.filter(\.complete).filter { $0.duration > 5 }.min { $0.duration < $1.duration }
   }
 
-  public convenience init(url: URL) throws {
+  public convenience init(url: URL, settings: DataSettings? = nil) throws {
     let d = try Data(contentsOf: url)
     guard d.count <= 512 * 1024 * 1024 else {
       throw RaceError.invalid("Telemetry file is larger than 512 MB.")
@@ -48,7 +49,7 @@ public final class Telemetry: @unchecked Sendable {
         ?? String(data: d, encoding: .isoLatin1)
     else { throw RaceError.invalid("Could not decode telemetry text.") }
     let normalized = try TelemetryFormats.csv(from: d, text: text, extension: url.pathExtension.lowercased())
-    try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent)
+    try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent, timeColumn: settings?.assignments["time"])
   }
   private init(rcz table: RCZReader.Table) {
     headers = table.headers; times = table.times; columns = table.columns
@@ -63,7 +64,7 @@ public final class Telemetry: @unchecked Sendable {
       }
     } else { mapPoints = [] }
   }
-  public init(text: String, title initialTitle: String = "Telemetry") throws {
+  public init(text: String, title initialTitle: String = "Telemetry", timeColumn override: String? = nil) throws {
     var header: [String] = []
     var cols: [[Double]] = []
     var ts: [Double] = []
@@ -81,7 +82,8 @@ public final class Telemetry: @unchecked Sendable {
           line.contains("\t") ? "\t" : (line.contains(";") && !line.contains(",") ? ";" : ",")
         let cells = Self.parseRow(line, delimiter: sep)
         if cells.first?.lowercased() == "session title", cells.count > 1 { fileTitle = cells[1] }
-        if let t = cells.firstIndex(where: { Self.isTimeHeader($0) }), cells.count >= 2 {
+        let preferred = override.flatMap { name in cells.firstIndex { $0.caseInsensitiveCompare(name) == .orderedSame } }
+        if let t = preferred ?? cells.firstIndex(where: { Self.isTimeHeader($0) }), cells.count >= 2 {
           delimiter = sep
           header = cells
           timeColumn = t
@@ -269,7 +271,7 @@ public final class Telemetry: @unchecked Sendable {
     let i = index(at: t)
     let v = columns[c][i]
     guard v.isFinite else { return nil }
-    if interpolate && !discreteColumns.contains(c) && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
+    if interpolate && interpolationEnabled && !discreteColumns.contains(c) && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
       return v + (columns[c][i + 1] - v)
         * max(0, min(1, (t - times[i]) / (times[i + 1] - times[i])))
     }

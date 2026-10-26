@@ -58,12 +58,20 @@ final class WorkflowTests: XCTestCase {
     var logo = DisplayObject(name: "Logo", kind: .image); logo.text = image.path; logo.inputIndex = -1
     var speed = DisplayObject(name: "Speed", kind: .speed); speed.inputIndex = 9
     speed.gauge = GaugeSettings(); speed.gauge?.backgroundPath = image.path
+    var imageSegment = ObjectSegment(time: 5); imageSegment.text = image.path
+    logo.segments = [imageSegment]
+    var gaugeSegment = ObjectSegment(time: 5); gaugeSegment.gauge = speed.gauge
+    speed.segments = [gaugeSegment]
     p.objects = [logo, speed]
     let layout = try p.reusableLayout()
     XCTAssertEqual(layout.objects[0].embeddedImage, Data([1, 2, 3]))
     XCTAssertEqual(layout.objects[0].text, "")
     XCTAssertEqual(layout.objects[1].gauge?.backgroundImage, Data([1, 2, 3]))
     XCTAssertNil(layout.objects[1].gauge?.backgroundPath)
+    XCTAssertEqual(layout.objects[0].segments?[0].embeddedImage, Data([1, 2, 3]))
+    XCTAssertEqual(layout.objects[0].segments?[0].text, "")
+    XCTAssertEqual(layout.objects[1].segments?[0].gauge?.backgroundImage, Data([1, 2, 3]))
+    XCTAssertNil(layout.objects[1].segments?[0].gauge?.backgroundPath)
     XCTAssertEqual(layout.inputs.count, 1)
     XCTAssertEqual(layout.inputs[0].path, "")
     XCTAssertEqual(layout.inputs[0].offset, 0)
@@ -92,6 +100,10 @@ final class WorkflowTests: XCTestCase {
     p.inputs[0].path = asset.path
     var logo = DisplayObject(name: "Logo", kind: .image); logo.text = asset.path
     var gauge = DisplayObject(name: "Gauge", kind: .speed); gauge.gauge = GaugeSettings(); gauge.gauge?.backgroundPath = asset.path
+    var imageSegment = ObjectSegment(time: 5); imageSegment.text = asset.path
+    logo.segments = [imageSegment]
+    var gaugeSegment = ObjectSegment(time: 5); gaugeSegment.gauge = gauge.gauge
+    gauge.segments = [gaugeSegment]
     p.objects = [logo, gauge]
     try p.save(original.appendingPathComponent("session.orrp"))
     try FileManager.default.moveItem(at: original, to: moved)
@@ -100,6 +112,8 @@ final class WorkflowTests: XCTestCase {
     XCTAssertEqual(URL(fileURLWithPath: decoded.inputs[0].path).resolvingSymlinksInPath().path, expected)
     XCTAssertEqual(URL(fileURLWithPath: decoded.objects[0].text).resolvingSymlinksInPath().path, expected)
     XCTAssertEqual(URL(fileURLWithPath: decoded.objects[1].gauge!.backgroundPath!).resolvingSymlinksInPath().path, expected)
+    XCTAssertEqual(URL(fileURLWithPath: decoded.objects[0].segments![0].text!).resolvingSymlinksInPath().path, expected)
+    XCTAssertEqual(URL(fileURLWithPath: decoded.objects[1].segments![0].gauge!.backgroundPath!).resolvingSymlinksInPath().path, expected)
     XCTAssertEqual(RaceProject.resolvePath("/missing/example.mp4", base: moved), "/missing/example.mp4")
   }
   func testLayoutMappingCannotBindTelemetryToVideoOrIgnoreNone() {

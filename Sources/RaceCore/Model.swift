@@ -9,7 +9,7 @@ public enum RaceError: LocalizedError {
 }
 
 public enum ObjectKind: String, Codable, CaseIterable, Sendable {
-  case video, audio, image, speed, rpm, gforce, gear, throttle, brake, lap, timer, delta, bestLap,
+  case video, audio, image, speed, rpm, gauge, gforce, gear, throttle, brake, lap, timer, delta, bestLap,
     bestTime, map, lights, temperature, text, bar, graph, shape, enhanced, group
   public var title: String {
     switch self {
@@ -26,7 +26,7 @@ public enum ObjectKind: String, Codable, CaseIterable, Sendable {
     case .audio: return "speaker.wave.2"
     case .image: return "photo"
     case .map: return "point.topleft.down.to.point.bottomright.curvepath"
-    case .speed, .rpm: return "gauge.with.dots.needle.67percent"
+    case .speed, .rpm, .gauge: return "gauge.with.dots.needle.67percent"
     case .timer, .bestTime, .delta: return "stopwatch"
     case .graph: return "waveform.path"
     case .text: return "textformat"
@@ -50,6 +50,9 @@ public struct MediaInput: Identifiable, Codable, Equatable, Sendable {
   public var picture: PictureSettings?
   public var joinedTo: Int?
   public var dataSettings: DataSettings?
+  public var audio: AudioSettings?
+  public var isJoinRoot: Bool?
+  public var legacyTrackIndex: Int?
   public init(name: String, path: String, kind: String, legacyIndex: Int = 0) {
     self.name = name
     self.path = path
@@ -96,6 +99,9 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
   public var hud: HUDSettings?
+  public var typography: TextSettings?
+  public var shape: ShapeSettings?
+  public var audio: AudioSettings?
   public init(name: String, kind: ObjectKind) {
     self.name = name
     self.kind = kind
@@ -137,9 +143,13 @@ public struct RaceProject: Codable, Equatable, Sendable {
   public var rangeEnd: Double?
   public var exportSettings: ExportSettings?
   public var lastExport: ExportDestination?
+  public var notes: String?
+  public var lengthInputIndex: Int?
+  public var legacyImportVersion: Int?
   public init() {}
   public var duration: Double {
     if let value = explicitDuration, value.isFinite, value > 0 { return value }
+    if let index = lengthInputIndex, let end = placements.filter({ $0.rootIndex == index }).map(\.end).max(), end > 0 { return end }
     if inputs.allSatisfy({ $0.path.isEmpty && $0.duration <= 0 }) { return 60 }
     return max(1, placements.map(\.end).max() ?? 60)
   }
@@ -155,10 +165,46 @@ public struct RaceProject: Codable, Equatable, Sendable {
     for i in p.objects.indices {
       if p.objects[i].kind == .image, !p.objects[i].text.isEmpty { p.objects[i].text = resolvePath(p.objects[i].text, base: base) }
       if let path = p.objects[i].gauge?.backgroundPath { p.objects[i].gauge?.backgroundPath = resolvePath(path, base: base) }
+      for j in (p.objects[i].segments ?? []).indices {
+        if let path = p.objects[i].segments?[j].gauge?.backgroundPath {
+          p.objects[i].segments?[j].gauge?.backgroundPath = resolvePath(path, base: base)
+        }
+        if p.objects[i].kind == .image, let path = p.objects[i].segments?[j].text, !path.isEmpty {
+          p.objects[i].segments?[j].text = resolvePath(path, base: base)
+        }
+      }
       LegacyReader.repairOldChannelDecode(&p.objects[i])
     }
     // Earlier native imports omitted the original camera's picture adjustments.
     if let legacy = p.legacyData,let original = try? LegacyReader.project(legacy,base:base) {
+      if p.legacyImportVersion == nil {
+        for i in p.inputs.indices {
+          guard let old = original.inputs.first(where: { $0.legacyOffset == p.inputs[i].legacyOffset }) else { continue }
+          if p.inputs[i].timing == nil { p.inputs[i].timing = old.timing }
+          if p.inputs[i].joinedTo == nil { p.inputs[i].joinedTo = old.joinedTo }
+          if p.inputs[i].isJoinRoot == nil { p.inputs[i].isJoinRoot = old.isJoinRoot }
+          if p.inputs[i].audio == nil { p.inputs[i].audio = old.audio }
+          if p.inputs[i].dataSettings == nil { p.inputs[i].dataSettings = old.dataSettings }
+          if old.isJoinRoot == true { p.inputs[i].path = ""; p.inputs[i].kind = old.kind }
+        }
+        for i in p.objects.indices {
+          guard let old = original.objects.first(where: { $0.legacyOffset == p.objects[i].legacyOffset }) else { continue }
+          if p.objects[i].segments == nil { p.objects[i].segments = old.segments }
+          if p.objects[i].typography == nil, old.typography != nil {
+            p.objects[i].typography = old.typography
+            if p.objects[i].kind != .text { p.objects[i].kind = .text; p.objects[i].text = old.text; p.objects[i].color = old.color }
+          }
+          if p.objects[i].shape == nil, old.shape != nil { p.objects[i].shape = old.shape; p.objects[i].kind = .shape; p.objects[i].color = old.color }
+          if p.objects[i].audio == nil { p.objects[i].audio = old.audio }
+          if let common = p.objects[i].legacyCommon, common.count > 294,
+            p.objects[i].opacity == min(1, Double(common[293]) / 100) { p.objects[i].opacity = old.opacity }
+        }
+        if p.explicitDuration == nil { p.explicitDuration = original.explicitDuration }
+        if p.notes == nil { p.notes = original.notes }
+        if p.lengthInputIndex == nil { p.lengthInputIndex = original.lengthInputIndex }
+        p.legacyImportVersion = 2
+        p.warnings.removeAll { $0.contains("Legacy timeline variants, joins") }
+      }
       for i in p.inputs.indices where p.inputs[i].picture == nil && p.inputs[i].kind == "video" {
         guard let offset = p.inputs[i].legacyOffset else { continue }
         p.inputs[i].picture = original.inputs.first { $0.legacyOffset == offset && $0.kind == "video" }?.picture
@@ -192,6 +238,14 @@ public struct RaceProject: Codable, Equatable, Sendable {
     for i in p.objects.indices {
       if p.objects[i].kind == .image, p.objects[i].text.hasPrefix(base) { p.objects[i].text = String(p.objects[i].text.dropFirst(base.count)) }
       if let path = p.objects[i].gauge?.backgroundPath, path.hasPrefix(base) { p.objects[i].gauge?.backgroundPath = String(path.dropFirst(base.count)) }
+      for j in (p.objects[i].segments ?? []).indices {
+        if let path = p.objects[i].segments?[j].gauge?.backgroundPath, path.hasPrefix(base) {
+          p.objects[i].segments?[j].gauge?.backgroundPath = String(path.dropFirst(base.count))
+        }
+        if p.objects[i].kind == .image, let path = p.objects[i].segments?[j].text, path.hasPrefix(base) {
+          p.objects[i].segments?[j].text = String(path.dropFirst(base.count))
+        }
+      }
     }
     let e = JSONEncoder()
     e.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -222,13 +276,18 @@ public struct RaceProject: Codable, Equatable, Sendable {
     guard inputs.count == Int(b.u32(16)), inputs.allSatisfy({ $0.legacyOffset != nil }) else {
       throw RaceError.invalid("Input changes require .orrp format.")
     }
-    guard explicitDuration == nil, exportSettings == nil,
-      inputs.allSatisfy({ $0.timing == nil && $0.joinedTo == nil && $0.dataSettings == nil }),
-      objects.allSatisfy({ ($0.segments ?? []).isEmpty }) else {
-      throw RaceError.invalid("Timeline, trim, joining and picture edits require .orrp format.")
-    }
     let original = try LegacyReader.project(
       b, base: URL(fileURLWithPath: sourcePath ?? "/").deletingLastPathComponent())
+    func sameSegments(_ a: [ObjectSegment], _ b: [ObjectSegment]) -> Bool {
+      guard a.count == b.count else { return false }
+      return zip(a,b).allSatisfy { left, right in var left = left; left.id = right.id; return left == right }
+    }
+    guard explicitDuration == original.explicitDuration, exportSettings == original.exportSettings,
+      notes == original.notes, lengthInputIndex == original.lengthInputIndex,
+      zip(inputs,original.inputs).allSatisfy({ $0.timing == $1.timing && $0.joinedTo == $1.joinedTo && $0.dataSettings == $1.dataSettings && $0.audio == $1.audio && $0.isJoinRoot == $1.isJoinRoot }),
+      zip(objects,original.objects).allSatisfy({ sameSegments($0.segments ?? [], $1.segments ?? []) }) else {
+      throw RaceError.invalid("Changed timeline, trim, joins, data, audio and project settings require .orrp format.")
+    }
     guard rangeStart == original.rangeStart, rangeEnd == original.rangeEnd else {
       throw RaceError.invalid("Changed output markers require .orrp format. Unchanged imported markers are preserved in RRP copies.")
     }
@@ -241,7 +300,8 @@ public struct RaceProject: Codable, Equatable, Sendable {
       }
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
-        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture
+        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture,
+        o.typography == old.typography, o.shape == old.shape, o.audio == old.audio
       else {
         throw RaceError.invalid(
           "RRP copy export supports labels, visibility, opacity, geometry and synchronization. Save other edits in .orrp format."
@@ -263,13 +323,13 @@ public struct RaceProject: Codable, Equatable, Sendable {
       if o.visible != old.visible {
         b[p + 284] = 1
       }
-      b[p + 293] = UInt8(max(0, min(100, o.opacity * 100)))
+      if o.opacity != old.opacity { b[p + 294] = UInt8(max(0, min(100, ((1 - o.opacity) * 100).rounded()))) }
       b[p + 282] = o.inputIndex < 0 ? 255 : UInt8(clamping: o.inputIndex)
     }
     for input in inputs {
       let p = input.legacyOffset!
       b.putUTF16(input.name, p, 128)
-      b.putUTF16(input.path, p + 128, 2048)
+      if input.path != original.inputs.first(where: { $0.legacyOffset == input.legacyOffset })?.path { b.putUTF16(input.path, p + 128, 2048) }
       b.putFloat(input.offset, p + 2192)
     }
     return b

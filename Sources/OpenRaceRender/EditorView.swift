@@ -337,6 +337,7 @@ struct EditorView: View {
     VStack(alignment: .leading, spacing: 18) {
       Text("Session settings").font(.system(size: 16, weight: .semibold))
       TextField("Session name", text: model.projectBinding(\.name))
+      TextField("Project notes", text: Binding(get: { model.project.notes ?? "" }, set: { model.checkpoint(); model.project.notes = $0 }), axis: .vertical).lineLimit(2...6)
       HStack {
         TextField("Width", value: model.projectBinding(\.width), format: .number)
         Text("×").foregroundStyle(muted)
@@ -350,6 +351,12 @@ struct EditorView: View {
       }))
       if model.project.explicitDuration != nil {
         TextField("Project seconds", value: Binding(get: { model.project.explicitDuration ?? 60 }, set: { model.checkpoint(); model.project.explicitDuration = max(0.1, $0) }), format: .number)
+      }
+      Picker("Match length to input", selection: Binding(get: { model.project.lengthInputIndex ?? -1 }, set: { value in
+        model.checkpoint(); model.project.lengthInputIndex = value < 0 ? nil : value; model.project.explicitDuration = nil
+      })) {
+        Text("Longest input").tag(-1)
+        ForEach(model.project.inputs.filter { $0.joinedTo == nil }) { Text($0.name).tag($0.legacyIndex) }
       }
       Divider()
       Text(
@@ -545,7 +552,7 @@ struct ObjectInspector: View {
         Text("None").tag(-1)
         ForEach(model.project.inputs.filter { $0.joinedTo == nil && $0.kind == (object.kind == .video ? "video" : object.kind == .audio ? "audio" : object.kind == .image ? "image" : "data") }) { Text($0.name).tag($0.legacyIndex) }
       }.labelsHidden()
-      if object.kind != .video && object.kind != .audio {
+      if ![.video, .audio, .image, .text, .shape].contains(object.kind) {
         Picker("Channel", selection: $object.channel) {
           Text("Automatic").tag("")
           if !object.channel.isEmpty, !(model.telemetry[object.inputIndex]?.headers.contains(object.channel) ?? false) {
@@ -585,9 +592,19 @@ struct ObjectInspector: View {
       if object.hud != nil {
         HUDControls(settings: Binding(get: { object.hud! }, set: { object.hud = $0 }))
       }
-      if [.speed, .rpm].contains(object.kind) { GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 })) }
+      if [.speed, .rpm, .gauge].contains(object.kind) {
+        GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 }))
+        GaugeDesignControls(object: $object)
+      }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)
+        TypographyControls(settings: Binding(get: { object.typography ?? TextSettings() }, set: { object.typography = $0 }), color: $object.color)
+      }
+      if object.kind == .shape {
+        ShapeControls(settings: Binding(get: { object.shape ?? ShapeSettings() }, set: { object.shape = $0 }), color: $object.color)
+      }
+      if [.video, .audio].contains(object.kind) {
+        AudioControls(settings: Binding(get: { object.audio ?? AudioSettings() }, set: { object.audio = $0 }))
       }
       Divider()
       if [.video, .image].contains(object.kind),
@@ -648,8 +665,12 @@ struct InputInspector: View {
         Label("File unavailable. Relink to restore preview and export.", systemImage: "exclamationmark.triangle")
           .font(.system(size: 11)).foregroundStyle(.orange)
       }
-      Button(input.path.isEmpty ? "Choose source file…" : "Relink file…") { model.relink(input.id) }
-        .disabled(model.busy)
+      if input.isJoinRoot == true {
+        Text("Joined stream · source files are configured in its child clips.").font(.caption).foregroundStyle(muted)
+      } else {
+        Button(input.path.isEmpty ? "Choose source file…" : "Relink file…") { model.relink(input.id) }
+          .disabled(model.busy)
+      }
       Divider()
       Text("Synchronization").font(.system(size: 13, weight: .semibold))
       Text("Increase the offset to advance this source relative to its trimmed start. Set playback rate and project delay below.").font(
@@ -673,10 +694,11 @@ struct InputInspector: View {
       Text("Source at playhead: " + clockText(model.project.sourceTime(for: input.legacyIndex, at: model.time) ?? -1)).font(
         .system(size: 10, design: .monospaced)
       ).foregroundStyle(mint)
-      if input.kind != "data" {
+      if input.kind != "data" && input.isJoinRoot != true {
         Divider()
         Text("Audio volume").font(.system(size: 11))
         Slider(value: $input.volume, in: 0...2)
+        AudioControls(settings: Binding(get: { input.audio ?? AudioSettings() }, set: { input.audio = $0 }), source: true)
       }
       InputTimingControls(input: $input, model: model)
       if let d = model.telemetry[input.legacyIndex] {

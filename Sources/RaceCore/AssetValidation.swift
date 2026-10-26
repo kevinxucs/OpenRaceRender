@@ -26,10 +26,12 @@ extension RaceProject {
         } else if ![.shape, .text].contains(display.kind) {
           let sources = inputs.filter { $0.legacyIndex == display.inputIndex || $0.joinedTo == display.inputIndex }
           for input in sources {
+            if input.isJoinRoot == true { continue }
             // Media can be deliberately inactive outside its trim/delay/join span.
-            if ["video", "audio"].contains(input.kind), input.duration > 0,
-              let placement = placements.first(where: { $0.input.id == input.id }),
-              placement.end <= lo || placement.start >= hi { continue }
+            if ["video", "audio"].contains(input.kind), input.duration > 0 {
+              let ranges = placements.filter { $0.input.id == input.id }
+              if !ranges.isEmpty && !ranges.contains(where: { $0.end > lo && $0.start < hi }) { continue }
+            }
             require(input.path, label: input.name)
           }
         }

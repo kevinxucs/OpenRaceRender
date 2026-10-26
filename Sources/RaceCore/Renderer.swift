@@ -62,6 +62,17 @@ public enum OverlayRenderer {
         c.translateBy(x: -r.midX, y: -r.midY)
       }
       if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
+      if o.kind == .text, o.typography != nil {
+        DrawingRenderer.text(c, object: o, rect: r, height: size.height)
+        c.restoreGState(); continue
+      }
+      if o.kind == .shape, o.shape != nil {
+        DrawingRenderer.shape(c, object: o, rect: r, height: size.height)
+        c.restoreGState(); continue
+      }
+      if [.speed, .rpm, .gauge].contains(o.kind), GaugeDesignerRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
+        c.restoreGState(); continue
+      }
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }
@@ -135,8 +146,8 @@ public enum OverlayRenderer {
       data?.value(o.channel.isEmpty ? name : o.resolvedChannel, at: time, interpolate: interp)
     }
     switch o.kind {
-    case .speed, .rpm:
-      let v = o.kind == .speed ? data?.speed(at: time, unit: unit, channel:o.resolvedChannel) : value("rpm")
+    case .speed, .rpm, .gauge:
+      let v = o.kind == .speed ? data?.speed(at: time, unit: unit, channel:o.resolvedChannel) : value(o.kind == .rpm ? "rpm" : o.resolvedChannel)
       gauge(
         c, r: r, value: v, minimum: o.minimum, maximum: o.maximum, settings: o.gauge ?? GaugeSettings(), label: o.kind == .speed ? unit.uppercased() : "RPM",
         accent: accent)

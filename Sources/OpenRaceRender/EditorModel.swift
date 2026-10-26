@@ -243,12 +243,6 @@ import UniformTypeIdentifiers
       project.objects[index].editSegment(at: time, from: old, to: value)
       // These controls configure the whole object, independent of segment overrides.
       project.objects[index].name = value.name
-      project.objects[index].minimum = value.minimum
-      project.objects[index].maximum = value.maximum
-      project.objects[index].picture = value.picture
-      project.objects[index].gauge = value.gauge
-      project.objects[index].legacyPayload = value.legacyPayload
-      project.objects[index].hud = value.hud
     } else { project.objects[index] = value }
   }
   func addSegment() {
@@ -410,7 +404,7 @@ import UniformTypeIdentifiers
     try await Task.detached {
       var result: [Int: Telemetry] = [:]
       for input in p.inputs where input.kind == "data" && input.exists {
-        let data = try Telemetry(url: URL(fileURLWithPath: input.path))
+        let data = try Telemetry(url: URL(fileURLWithPath: input.path), settings: input.dataSettings)
         if let settings = input.dataSettings { data.configure(settings) }
         result[input.legacyIndex] = data
       }
@@ -576,7 +570,7 @@ import UniformTypeIdentifiers
       var data: Telemetry?
       switch original.kind {
       case "data":
-        data = try await Task.detached { try Telemetry(url: url) }.value
+        data = try await Task.detached { try Telemetry(url: url, settings: original.dataSettings) }.value
         if let settings = original.dataSettings { data?.configure(settings) }
         replacement.duration = data!.duration
       case "video", "audio":
@@ -622,7 +616,7 @@ import UniformTypeIdentifiers
       project.inputs.first { $0.kind == (kind == .video ? "video" : "data") }?.legacyIndex ?? -1
     if kind == .rpm || kind == .lights { o.maximum = 8000 }
     if kind == .speed { o.maximum = 160 }
-    if [.map, .gforce, .speed, .rpm].contains(kind) {
+    if [.map, .gforce, .speed, .rpm, .gauge].contains(kind) {
       o.width = 18
       o.height = 32
     }
@@ -630,7 +624,9 @@ import UniformTypeIdentifiers
       o.width = 20
       o.height = 8
     }
-    if kind == .text { o.text = "Your text" }
+    if kind == .text { o.text = "Your text"; o.typography = TextSettings() }
+    if kind == .shape { o.shape = ShapeSettings() }
+    if kind == .gauge { var g = GaugeSettings(); g.design = GaugeDesign(); o.gauge = g }
     if let point { o = o.placed(at: point) }
     project.objects.append(o)
     selected = o.id

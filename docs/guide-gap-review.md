@@ -2,7 +2,7 @@
 
 Reviewed 2026-10-25 against OpenRaceRender `c0aa846` (Apex GT update).
 
-This is a decision list, not an implementation plan. All 36 items below are **pending your selection**. No application behavior was changed for this review.
+This records the original review at `c0aa846`. The user subsequently selected F01/F05/F07, then authorized all remaining IDs one at a time. See [implementation progress](feature-progress.md) for current status; the tables below retain the original gap descriptions.
 
 ## Method and scope
 
@@ -16,7 +16,7 @@ The mirror includes older, Windows-specific material. Windows-only WMV/AVI outpu
 
 ## Suggested first choices
 
-For your existing-RRP and custom-template workflows, the strongest starting set is **F01, F03, F04, F05, F07, F11, F25, and F36**. F10 is useful when you start making timed layout/camera changes. F17 matters when another logger needs manual field mapping. These are recommendations only; none is approved for implementation yet.
+For your existing-RRP and custom-template workflows, the strongest starting set is **F01, F03, F04, F05, F07, F11, F25, and F36**. F10 is useful when you start making timed layout/camera changes. F17 matters when another logger needs manual field mapping. These were the initial recommendations; implementation is now authorized for all IDs.
 
 ## Compatibility and dashboard design
 
@@ -90,7 +90,7 @@ For your existing-RRP and custom-template workflows, the strongest starting set 
 
 ## Decision format
 
-Select IDs to **implement**, IDs to **defer**, and IDs to **ignore**. Individual subfeatures can be selected, for example “F05: needle geometry and dual needles only” or “F31: MegaSquirt only.” No selection has been inferred from a recommendation in this document.
+Select IDs to **implement**, IDs to **defer**, and IDs to **ignore**. Individual subfeatures can be selected, for example “F05: needle geometry and dual needles only” or “F31: MegaSquirt only.” Current authorization and progress are recorded separately in the implementation log.
 
 ## Source references
 

@@ -113,13 +113,14 @@ def utf16(offset, length, text):
 utf16(2152,128,"Red camera"); utf16(2152+128,2048,out/"red.mp4")
 struct.pack_into("<f",legacy,2152+2184,4)
 settings = 2152+2216
+legacy[settings] = 100; legacy[settings+1] = 100
 legacy[settings+25:settings+28] = bytes([100,100,100])
 struct.pack_into("<h",legacy,settings+28,120)
 legacy[settings+30] = 150
 obj = settings+56
 utf16(obj,128,"Camera"); struct.pack_into("<i",legacy,obj+256,-1)
 struct.pack_into("<ffff",legacy,obj+260,0,0,100,100)
-legacy[obj+280:obj+286] = bytes([10,2,0,0,1,0]); legacy[obj+293] = 100
+legacy[obj+280:obj+286] = bytes([10,2,0,0,1,0]); legacy[obj+292:obj+294] = bytes([100,100])
 legacy_path = out/"marked-hue.rrp"; legacy_path.write_bytes(legacy)
 converted = out/"marked-hue.orrp"
 run(exe,"convert",legacy_path,"--out",converted)

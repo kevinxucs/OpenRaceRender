@@ -200,7 +200,7 @@ public final class VideoExporter: @unchecked Sendable {
       let inserted = CMTimeRange(start: destination, duration: range.duration)
       let scaled = CMTime(seconds: sourceLength / placement.rate, preferredTimescale: 60000)
       if input.kind == "video", let source = try await asset.loadTracks(withMediaType: .video).first,
-        let track = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
+        let track = tracks[input.legacyIndex].flatMap({ composition.track(withTrackID: $0) }) ?? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
         try track.insertTimeRange(range, of: source, at: destination)
         track.scaleTimeRange(inserted, toDuration: scaled)
         tracks[input.legacyIndex] = track.trackID
@@ -211,6 +211,7 @@ public final class VideoExporter: @unchecked Sendable {
         try track.insertTimeRange(range, of: source, at: destination)
         track.scaleTimeRange(inserted, toDuration: scaled)
         let parameter = AVMutableAudioMixInputParameters(track: track)
+        let requiresRouting = input.audio != nil || p.objects.contains { $0.audio != nil || ($0.segments ?? []).contains { $0.audio != nil } }
         // Audio follows display visibility, its time span and camera/input selection.
         let related = p.objects.filter { [.video, .audio].contains($0.kind) }
         var boundaries: [Double] = [0,placement.start,placement.end]
@@ -223,8 +224,9 @@ public final class VideoExporter: @unchecked Sendable {
         let times = uniqueBoundaries.filter { $0 >= 0 && $0 <= p.duration }.sorted()
         for t in times {
           let audible = related.map { $0.resolved(at: t) }.contains { $0.visible && t >= $0.start && t < $0.end && $0.inputIndex == placement.rootIndex }
-          parameter.setVolume(Float(audible ? input.volume : 0), at: CMTime(seconds: t, preferredTimescale: 60000))
+          parameter.setVolume(Float(requiresRouting ? 1 : (audible ? input.volume : 0)), at: CMTime(seconds: t, preferredTimescale: 60000))
         }
+        if requiresRouting { parameter.audioTapProcessor = try AudioProcessing.tap(project: p, placement: placement) }
         audioParameters.append(parameter)
       }
     }
