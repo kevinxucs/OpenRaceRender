@@ -91,6 +91,12 @@ final class LegacyWriterTests: XCTestCase {
     XCTAssertEqual(template.objects[0].kind,.image); XCTAssertNotNil(template.objects[0].artwork)
     let style = try LegacyReader.style(LegacyWriter.data(p,format:.rro,seed:42))
     XCTAssertEqual(style.objects[0].kind,.image); XCTAssertNotNil(style.objects[0].artwork)
+    var gauge = DisplayObject(name:"Image-backed gauge",kind:.gauge); gauge.inputIndex = -1
+    gauge.gauge = GaugeSettings(); gauge.gauge?.backgroundImage = try pixel(); p.objects = [gauge]
+    let background = try LegacyReader.template(LegacyWriter.data(p,format:.rrt,seed:42))
+    XCTAssertNotNil(background.objects[0].artwork,"Authored gauge backgrounds must be embedded in legacy templates")
+    p.objects[0].artwork = try pixel()
+    XCTAssertThrowsError(try LegacyWriter.data(p,format:.rrt),"Multiple native background layers must not be silently discarded")
   }
   func testIntegrityAlgorithmMatchesKeyVectorAndDistinctPayloads() {
     XCTAssertEqual(Array(LegacyWriter.integrity(Data("WP RaceRender LLC".utf8),seed:0xbe87390a,count:32)),LegacyCodec.templateKey(0xbe87390a))

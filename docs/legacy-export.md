@@ -14,7 +14,7 @@ Use **Export RaceRender project…** for a separate `.rrp` copy. Adding/removing
 
 - Project notes, units, explicit/input-bound duration, 16:9/4:3 workspace, output marks and source remapping.
 - Video/audio/data inputs; trim, delay, speed, looping, picture controls/crop/rotation/flip, audio gain/balance/routing, recognized data assignments and up to four single-operation calculations.
-- Native video, audio, embedded images, text, rectangle/rounded/ellipse shapes and representable circular gauges. Imported specialized display payloads and unchanged opaque source settings are retained; supported direct payload edits remain exportable.
+- Native video, audio, embedded images, text, rectangle/rounded/ellipse shapes and representable circular gauges, including an authored gauge background image. Imported specialized display payloads and unchanged opaque source settings are retained; supported direct payload edits remain exportable.
 - Display order, names, parent references, geometry, activation, transparency, input selection and recognized picture/audio settings.
 - RRP timeline records for source/position/size/visibility/aspect/flip/transparency/style, audio gain/balance, specialized settings and artwork changes. Display end bounds become visibility events.
 - Native first-clip joins become RaceRender virtual streams, preserving the source role, first-clip trim/rate/delay and the joined clock. Existing virtual streams are retained.
@@ -22,7 +22,7 @@ Use **Export RaceRender project…** for a separate `.rrp` copy. Adding/removing
 
 ## Explicit limits
 
-The writer refuses settings for which a verified equivalent does not exist. This includes native Apex/GT HUD instruments, native-only widget types without legacy payloads, triangle/diamond/line shapes, rotated shape gradients, adjustable text outline widths, arbitrary gauge smoothing/mark shapes/independent alert schemes, custom native GPS finish-line changes, combined calculated-field operations, more than four calculations, unsupported timeline flags/record variants and RCZ project inputs. Use CSV for RaceRender data inputs. Original unchanged data records can retain their saved finish-line/settings bytes.
+The writer refuses settings for which a verified equivalent does not exist. This includes native Apex/GT HUD instruments, native-only widget types without legacy payloads, triangle/diamond/line shapes, rotated shape gradients, adjustable text outline widths, arbitrary gauge smoothing/mark shapes/independent alert schemes, multiple native background layers on one display, custom native GPS finish-line changes, combined calculated-field operations, more than four calculations, unsupported timeline flags/record variants and RCZ project inputs. Use CSV for RaceRender data inputs. Original unchanged data records can retain their saved finish-line/settings bytes.
 
 RRT/RRO cannot store OpenRaceRender timeline events or display time bounds; export RRP or native ORRT instead. They are refused rather than silently flattened. RRO styles cannot carry a parent group. Other canvas ratios are refused until their workspace encodings are verified. RaceRender cannot represent an end flag at zero. RaceRender's application-wide video export preferences and OpenRaceRender's remembered destination are not RRP records.
 

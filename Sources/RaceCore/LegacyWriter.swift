@@ -195,8 +195,13 @@ public enum LegacyWriter {
     common[294] = try byte((1-o.opacity)*100,"Transparency")
     if o.legacyCommon == nil { common[288] = 7 }
     guard payload.count <= 4*1024*1024 else { throw unsupported("Oversized display settings.") }
+    let background = try o.gauge?.backgroundImage ?? o.gauge?.backgroundPath.map { try Data(contentsOf:URL(fileURLWithPath:$0)) }
+    if background != nil, o.artwork != nil || o.embeddedImage != nil {
+      throw unsupported("Two background images cannot be stored in a single RaceRender display; remove one before export.")
+    }
     let image: Data
-    if let data = o.artwork { image = try bitmap(data) }
+    if let background { image = try bitmap(background) }
+    else if let data = o.artwork { image = try bitmap(data) }
     else if let data = o.embeddedImage {
       image = LegacyArtwork.png(data) != nil ? data : try bitmap(data)
     } else if type == 14, !o.text.isEmpty { image = try bitmap(Data(contentsOf:URL(fileURLWithPath:o.text))) }
