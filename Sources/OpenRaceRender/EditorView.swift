@@ -365,8 +365,7 @@ struct EditorView: View {
       Button("Start blank layout", action: model.blankLayout)
       Button("Show widget palette") { model.showWidgets = true }
       Button("Save layout as template…", action: model.saveTemplate)
-      Button("Export compatible RRP copy…", action: model.exportRRP).disabled(
-        model.project.legacyData == nil)
+      Button("Export RaceRender project…", action: model.exportRRP)
     }.textFieldStyle(.roundedBorder).padding(16)
   }
   var timeline: some View {

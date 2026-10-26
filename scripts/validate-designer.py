@@ -23,7 +23,7 @@ def source(name,path,typ):
  b=bytearray(2216);text(b,0,128,name);text(b,128,2048,path);b[2176]=typ;b[2178]=255;u32(b,2180,640|(360<<16));f32(b,2184,3);f32(b,2196,356400);f32(b,2204,1)
  s=bytearray(11312 if typ==4 else 56)
  if typ==4:f32(s,128,1);f32(s,904,1);s[1595]=7
- else:s[0]=100;s[1]=100;s[25:28]=bytes([100]*3);s[30]=100
+ else:s[0]=100;s[1]=100;s[25:28]=bytes([100]*3);s[30]=100;s[43]=255;f32(s,44,45)
  return b+s
 def obj(name,typ,source,payload,x,y,w,h,mode=0):
  b=bytearray(348);text(b,0,128,name);u32(b,256,0xffffffff)
@@ -37,14 +37,14 @@ struct.pack_into('<Hh',g,296,270,45)
 for p,v in [(300,0x121820),(304,0xffffff),(308,0xffffff),(312,0xffffff),(320,0xffffff),(328,0xff4444),(332,0xffffff),(336,0xffffff),(344,0xffffffff),(348,0xffffffff),(680,0xff8844),(684,0xaaaaaa),(692,0xffffff)]:u32(g,p,v)
 text(g,352,128,'Helvetica');text(g,480,128,'Helvetica')
 for p,v in [(608,20),(612,40),(664,22)]:f32(g,p,v)
-for p,v in [(616,1),(617,1),(618,2),(619,128),(622,2),(623,4),(624,140),(625,246),(626,18),(628,6),(629,2),(630,1),(633,15),(635,1),(669,3),(670,80),(671,251),(688,15),(689,8)]:g[p]=v
+for p,v in [(616,1),(617,1),(618,2),(619,144),(622,2),(623,4),(624,140),(625,246),(626,18),(627,191),(628,6),(629,2),(630,1),(633,15),(635,1),(669,3),(670,80),(671,251),(688,15),(689,8)]:g[p]=v
 t=bytearray(808);u32(t,0,0xffffff);text(t,4,512,'GAUGE DESIGN / TYPOGRAPHY / SHAPES');text(t,516,128,'Helvetica');f32(t,644,28);t[648]=1
 b=bytearray(2152);b[:4]=b'RRP3'
 u32(b,4,20191031);u32(b,8,20161216)
 for p,v in [(12,2152),(16,2),(20,2216),(24,11312),(28,56),(32,3),(36,344),(40,24),(44,208)]:u32(b,p,v)
 b[2120]=1;b[2121]=255;b[2126]=2
 b+=source('Stereo video',out/'stereo.mp4',1)+source('Data',out/'design-data.csv',4)
-b+=obj('Video',10,0,b'',0,0,100,100)+obj('RPM dial',30,1,g,5,5,25,44.444444,2)+obj('Title',13,255,t,4,85,92,10)+bytes(12)
+b+=obj('Video',10,0,b'',0,0,100,100)+obj('RPM dial',30,1,g,5,5,25,44.444444)+obj('Title',13,255,t,4,85,92,10)+bytes(12)
 (out/'acceptance.rrp').write_bytes(b)
 run(exe,'convert',out/'acceptance.rrp','--out',out/'acceptance.orrp')
 p=json.loads((out/'acceptance.orrp').read_text());p.pop('legacyData',None);p.pop('sourcePath',None);p['width']=1280;p['height']=720

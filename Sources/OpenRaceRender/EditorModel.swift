@@ -36,6 +36,7 @@ import UniformTypeIdentifiers
   @Published var showSaveTemplate = false
   @Published var templateSelectedOnly = false
   @Published var templateIncludesVideo = false
+  @Published var templateLegacyFormat = false
   @Published var templateName = ""
   @Published var exportProgress: Float?
   @Published var exportStart: Double = 0
@@ -430,12 +431,12 @@ import UniformTypeIdentifiers
     } catch { self.error = error.localizedDescription }
   }
   func saveTemplate() {
-    templateSelectedOnly = false; templateIncludesVideo = false
+    templateSelectedOnly = false; templateIncludesVideo = false; templateLegacyFormat = false
     templateName = project.name + " Layout"; showSaveTemplate = true
   }
   func saveSelectedStyle() {
     guard let object = project.objects.first(where: { $0.id == selected }) else { return }
-    templateSelectedOnly = true; templateIncludesVideo = true
+    templateSelectedOnly = true; templateIncludesVideo = true; templateLegacyFormat = false
     templateName = object.name; showSaveTemplate = true
   }
   func saveLayout() {
@@ -445,31 +446,41 @@ import UniformTypeIdentifiers
       var layout = try source.reusableLayout(selected: templateSelectedOnly ? selected : nil)
       layout.name = templateName.trimmingCharacters(in: .whitespacesAndNewlines)
       if layout.name.isEmpty { layout.name = "Custom Layout" }
+      let legacyFormat: LegacyWriter.Format = templateSelectedOnly ? .rro : .rrt
+      let legacyBytes = templateLegacyFormat ? try LegacyWriter.data(layout,format:legacyFormat) : nil
       let panel = NSSavePanel()
-      panel.allowedContentTypes = [UTType(exportedAs: "org.openracerender.template", conformingTo: .json)]
-      panel.nameFieldStringValue = layout.name
+      panel.allowedContentTypes = templateLegacyFormat
+        ? [UTType(filenameExtension:legacyFormat.rawValue) ?? .data]
+        : [UTType(exportedAs: "org.openracerender.template", conformingTo: .json)]
+      panel.nameFieldStringValue = layout.name + (templateLegacyFormat ? "."+legacyFormat.rawValue : ".orrt")
       panel.isExtensionHidden = false
       let category = templateSelectedOnly ? "Styles" : "Templates"
       let folder = LayoutLibrary.userRoot().appendingPathComponent(category)
       try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
       panel.directoryURL = folder
       guard panel.runModal() == .OK, let url = panel.url else { return }
-      try layout.save(url)
+      if let legacyBytes { try legacyBytes.write(to:url,options:.atomic) }
+      else { try layout.save(url) }
       widgetLibraryRevision += 1
       showSaveTemplate = false
       status = "Saved reusable " + (templateSelectedOnly ? "style" : "template") + " · " + url.lastPathComponent
     } catch { self.error = error.localizedDescription }
   }
   func exportRRP() {
+    let bytes: Data
+    do { bytes = try LegacyWriter.data(project,format:.rrp) }
+    catch { self.error = error.localizedDescription; return }
     let panel = NSSavePanel()
+    panel.allowedContentTypes = [UTType(filenameExtension:"rrp") ?? .data]
     panel.nameFieldStringValue = project.name + "-edited.rrp"
     guard panel.runModal() == .OK, let url = panel.url else { return }
     do {
-      guard url.path != project.sourcePath else {
+      guard url.standardizedFileURL != fileURL?.standardizedFileURL,
+        url.standardizedFileURL.path != project.sourcePath.map({ URL(fileURLWithPath:$0).standardizedFileURL.path }) else {
         throw RaceError.invalid("Choose a new filename to preserve your original project.")
       }
-      try project.patchLegacy().write(to: url, options: .atomic)
-      status = "Saved compatible RRP copy"
+      try bytes.write(to: url, options: .atomic)
+      status = "Saved RaceRender project copy · " + url.lastPathComponent
     } catch { self.error = error.localizedDescription }
   }
   func chooseInputs() {

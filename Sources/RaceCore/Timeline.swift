@@ -175,7 +175,9 @@ extension RaceProject {
         let trim = max(0, timing.trimStart)
         let sourceStart = trim + max(0, input.offset)
         let sourceEnd = min(input.duration, timing.trimEnd ?? input.duration)
-        let start = (position == 0 ? (root.isJoinRoot == true ? 0 : max(0, timing.projectStart)) : cursor) + max(0, -input.offset / rate)
+        let base = position == 0 ? 0 : cursor
+        let delay = root.isJoinRoot == true || position == 0 ? max(0,timing.projectStart) : 0
+        let start = base + delay + max(0, -input.offset / rate)
         let end = start + max(0, sourceEnd - sourceStart) / rate
         if root.isJoinRoot == true {
           let t = root.timing ?? InputTiming(), rootRate = t.safeRate

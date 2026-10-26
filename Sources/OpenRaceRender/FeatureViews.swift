@@ -211,10 +211,17 @@ struct SaveTemplateSheet: View {
     VStack(alignment: .leading, spacing: 18) {
       Text(model.templateSelectedOnly ? "Save reusable style" : "Save reusable template").font(.title2)
       TextField("Template name", text: $model.templateName).textFieldStyle(.roundedBorder)
+      Picker("File format",selection:$model.templateLegacyFormat) {
+        Text("OpenRaceRender (.orrt)").tag(false)
+        Text(model.templateSelectedOnly ? "RaceRender style (.rro)" : "RaceRender template (.rrt)").tag(true)
+      }
       if !model.templateSelectedOnly { Toggle("Include video and audio display positions", isOn: $model.templateIncludesVideo) }
       Text("\(count) displays. Media files, synchronization, export marks and session settings are removed. Images and gauge backgrounds are embedded.")
         .font(.callout).foregroundStyle(muted)
       Text("Save in the suggested folder to find it in the layout library next time.").font(.caption).foregroundStyle(muted)
+      if model.templateLegacyFormat {
+        Text("RaceRender formats support a smaller set of settings. Incompatible widgets or timeline events are reported before choosing a file.").font(.caption).foregroundStyle(muted)
+      }
       HStack {
         Button("Cancel") { dismiss() }
         Spacer()

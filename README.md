@@ -5,7 +5,7 @@
 [![CI](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An MIT-licensed, native macOS telemetry video editor, with independent readers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. Public builds contain no vendor executable, SDK, artwork, or template library. Local builds can package your installed template library.
+An MIT-licensed, native macOS telemetry video editor, with independent readers and writers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. Public builds contain no vendor executable, SDK, artwork, or template library. Local builds can package your installed template library.
 
 This is an evolving implementation. It does **not** have full RaceRender feature or rendering parity. The [feature audit](docs/racerender-feature-audit.md) distinguishes working features from remaining gaps, including limitations of legacy imports.
 
@@ -83,9 +83,9 @@ The widget palette offers **Basic widgets**, **Library styles**, and individual 
 | --- | --- |
 | `.orrp` | Native JSON project, read/write, including segments, source timing, picture and data settings |
 | `.orrt` | Native reusable layout or display style, read/write with input remapping |
-| `.rrp` / RRP3 | Structured import: timing, joins, segments, picture/audio/data settings and recognized displays; conservative copy export |
-| `.rrt` / rrt1, rrt2 | Layout import, thumbnails, saved widget styling and supported embedded artwork |
-| `.rro` / rro1, rro2, rro3 | Style import, original drawing scripts/artwork, and compressed previews |
+| `.rrp` / RRP3 | Structured import and rebuilt export, including added/removed displays, sources, marks and supported timeline/settings records |
+| `.rrt` / rrt1, rrt2 | Layout import; RRT2 export with input roles, preview, integrity records and embedded artwork |
+| `.rro` / rro1, rro2, rro3 | Style/script/artwork import; RRO2 export for one compatible display |
 | CSV / TSV / text | Time column required; RaceChrono preamble, sparse values, quoted cells, interpolation and channel aliases |
 | RaceChrono RCZ | Native recorded-session import: independent GPS/CAN/sensor clocks, channel units, recorded laps and resumed fragments; see [RCZ support and validation](docs/rcz-import.md) |
 | GPX / TCX | Timestamped track points, GPS and common sensor extensions |
@@ -95,6 +95,8 @@ The widget palette offers **Basic widgets**, **Library styles**, and individual 
 | Video/audio/images | Formats supported by the host's AVFoundation and AppKit decoders; H.264/HEVC MP4/MOV, common audio and images |
 
 Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absent. Recorded lap numbers, best lap, lap timers, and distance-based delta are supported. Custom finish lines can replace recorded lap boundaries.
+
+Use **Export RaceRender project…** for `.rrp`, or choose a RaceRender format when saving a reusable template/style. Export refuses settings without a verified legacy equivalent; `.orrp`/`.orrt` preserves the full native model. See [legacy export support and validation](docs/legacy-export.md).
 
 ## Command line
 

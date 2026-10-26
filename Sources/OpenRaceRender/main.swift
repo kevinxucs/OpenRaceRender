@@ -19,7 +19,7 @@ enum CLI {
       OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
-      OpenRaceRender convert PROJECT --out converted.orrp
+      OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
     Telemetry: RaceChrono RCZ/CSV, CSV/TSV, GPX, TCX, NMEA, VBO and FIT. GUI: add via Add input.
@@ -173,8 +173,11 @@ enum CLI {
             data: try JSONSerialization.data(
               withJSONObject: out, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
       case "convert":
-        try p.save(output())
-        print("Saved native project.")
+        let dest = try output()
+        if ["rrp","rrt","rro"].contains(dest.pathExtension.lowercased()) {
+          try LegacyWriter.write(p,to:dest)
+          print("Saved RaceRender \(dest.pathExtension) file.")
+        } else { try p.save(dest); print("Saved native project.") }
       case "snapshot":
         let dest = try output()
         try VideoExporter.snapshot(
@@ -290,7 +293,7 @@ struct RaceRenderApp: App {
           Button("Save As…", action: { model.save(as: true) }).keyboardShortcut(
             "s", modifiers: [.command, .shift])
           Button("Save layout as template…", action: model.saveTemplate)
-          Button("Export RaceRender copy…", action: model.exportRRP)
+          Button("Export RaceRender project…", action: model.exportRRP)
           Divider()
           Button("Export video…", action: model.prepareExport).keyboardShortcut("e")
           Button("Save snapshot…", action: model.snapshot)

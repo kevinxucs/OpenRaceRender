@@ -117,6 +117,8 @@ struct.pack_into("<f",legacy,2152+2184,4)
 settings = 2152+2216
 legacy[settings] = 100; legacy[settings+1] = 100
 legacy[settings+25:settings+28] = bytes([100,100,100])
+legacy[settings+43] = 255
+struct.pack_into("<f",legacy,settings+44,45)
 struct.pack_into("<h",legacy,settings+28,120)
 legacy[settings+30] = 150
 obj = settings+56

@@ -193,7 +193,7 @@ public enum LegacyReader {
 
   static func kind(_ type: Int, name: String) -> ObjectKind {
     if type == 10 { return .video }; if type == 11 { return .audio }
-    if type == 12 { return .shape }; if type == 13 { return .text }
+    if type == 12 { return .shape }; if type == 13 { return .text }; if type == 14 { return .image }
     let s = name.lowercased()
     if s.contains("delta") { return .delta }
     if s.contains("best") && s.contains("time") { return .bestTime }
@@ -221,7 +221,7 @@ public enum LegacyReader {
     case 77: return .timer
     case 0: return .group
     case 13, 20: return .text
-    case 14, 21: return .shape
+    case 21: return .shape
     default: return .enhanced
     }
   }
@@ -240,7 +240,10 @@ public enum LegacyReader {
       g.label = d.utf16(128,128)
       let interval = d.f64(272)
       if interval.isFinite, interval > 0, interval <= o.maximum-o.minimum { g.tickInterval = interval }
-      if o.kind == .rpm { g.numberingScale = 1000 }
+      if d.count >= 634 {
+        g.numberingScale = d[633] & 24 == 8 ? 1000 : d[633] & 24 == 16 ? 100 : d[633] & 24 == 24 ? 10 : 1
+        g.decimals = d[619] & 4 != 0 ? 2 : 0
+      }
       if d.count >= 624 {
         // Legacy color records use an all-ones transparency byte to disable a layer.
         g.showNumber = d.u32(336) >> 24 != 255
@@ -254,7 +257,8 @@ public enum LegacyReader {
       if d.count >= 620 { g.counterClockwise = d[619] & 1 != 0 }
       o.color = String(format: "#%06X", d.u32(308) & 0x00ff_ffff)
       o.gauge = g
-      if d.count >= 696, (o.legacyCommon?[283] == 2 || o.legacyCommon?[283] == 3 || d[619] & 16 != 0) {
+      if d.count >= 696, ([UInt8(0x10),0x30].contains(d[619] & 0x70) ||
+        (d.f64(648) > o.minimum && d.f64(648) < o.maximum && (d[656] != 0 || d[657] != 0))) {
         let design = o.editableGaugeDesign
         o.gauge?.design = design
       }
@@ -264,6 +268,10 @@ public enum LegacyReader {
     {
       let channel = d.utf16(0,128)
       o.channel = channel.hasPrefix("(") && channel.hasSuffix(")") ? String(channel.dropFirst().dropLast()) : channel
+      if o.hasStyleRange {
+        if let minimum = o.styleMinimum { o.minimum = minimum }
+        if let maximum = o.styleMaximum { o.maximum = maximum }
+      }
     }
     if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
     // Retain all bytes, but never execute arbitrary imported code.
@@ -353,7 +361,7 @@ public enum LegacyReader {
       let type = d[1]
       p.inputs.append(
         MediaInput(
-          name: d.utf16(8, 128), path: "", kind: type == 4 ? "data" : "video",
+          name: d.utf16(8, 128), path: "", kind: type == 4 ? "data" : type == 2 ? "audio" : "video",
           legacyIndex: Int(d[0])))
       cursor += inputSize
     }
@@ -399,6 +407,13 @@ public enum LegacyReader {
         let marker = b.u32(cursor)
         cursor += 4
         if marker != 0 {
+          // Current containers carry their exact encoded size. Prefer this over
+          // scanning for the next name (which fails for Unicode display names).
+          var imageCursor = cursor - 4
+          if let image = try? LegacyProjectSettings.image(b,cursor:&imageCursor) {
+            o.embeddedImage = image; o.artwork = LegacyArtwork.png(image)
+            cursor = imageCursor; p.objects.append(o); continue
+          }
           // Embedded bitmap containers vary by version. Recover the next bounded record.
           let imageStart = cursor - 4
           let nameMask = LegacyCodec.transform(Data(repeating: 0, count: 128), key: key)

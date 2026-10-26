@@ -1,5 +1,11 @@
 # Changelog
 
+## F02 — RaceRender file writing
+
+- Independent RRP3/RRT2/RRO2 serialization, including native authoring without original project bytes, source-role remapping, marks, supported source/display settings, timeline payload/audio/artwork changes and virtual joins.
+- Legacy template/style format picker and project export command; CLI conversion selects the output format by extension. Unsupported representations fail before writing a destination.
+- Native RaceRender checks resolved template/style integrity records and caught black tint defaults, gauge mode/precision/numbering/interval/gradient fields, embedded-image type and source-rotation import errors. Added synthetic media acceptance and writer regression coverage. See [scope and validation](docs/legacy-export.md).
+
 ## Unreleased
 
 Initial open-source development version, identified as `0.1.0` by the app bundle.

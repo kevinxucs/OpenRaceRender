@@ -52,14 +52,14 @@ enum LegacyProjectSettings {
       picture.right = Double(settings.u32(12)) / width; picture.bottom = Double(settings.u32(16)) / height
     }
     let rotation = settings.f32(20)
-    if settings.count > 40, settings[40] & 16 != 0, rotation.isFinite { picture.rotation = rotation }
+    if rotation.isFinite { picture.rotation = rotation }
     picture.flipX = settings[24] == 1 || settings[24] == 3
     picture.flipY = settings[24] == 2 || settings[24] == 3
     picture.brightness = Double(settings[25]) / 100; picture.contrast = Double(settings[26]) / 100
     picture.saturation = Double(settings[27]) / 100; picture.sharpness = Double(settings[30]) / 100
     picture.hue = Double(Int16(bitPattern: UInt16(settings[28]) | UInt16(settings[29]) << 8))
     input.picture = picture
-    if settings.count > 40, settings[40] & ~UInt8(63) != 0 {
+    if settings.count > 43, settings[31] != 0 || settings.u32(40) >> 24 != 255 {
       warnings.append("Input ‘\(input.name)’ has additional picture effects retained in the original RRP data. Check colorize, chroma key, and sphere settings before rendering.")
     }
   }

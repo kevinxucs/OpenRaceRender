@@ -125,16 +125,18 @@ extension DisplayObject {
     func percent(_ v: Double) -> Double { v / radius * 100 }
     g.automaticMinimum = abs(d.f64(256)) >= 9e7
     g.automaticMaximum = abs(d.f64(264)) >= 9e7
-    g.faceColor = hex(300); g.trimColor = hex(304); g.trim = d.u32(304) >> 24 != 255
+    g.faceColor = hex(300); g.faceSecondColor = hex(304); g.faceGradient = d.u32(304) >> 24 != 255
+    g.trimColor = hex(316); g.trim = d.u32(316) >> 24 != 255
     g.needleColor = hex(308); g.centerColor = hex(312); g.marksColor = hex(320)
     g.needleWidth = percent(Double(d[623]) * 2); g.tip = percent(Double(d[624]))
     g.tail = percent(Double(Int8(bitPattern: d[625]))); g.centerSize = percent(Double(d[626]))
     g.trimWidth = percent(Double(d[622])); g.taper = Double(d[635])
     g.majorWidth = percent(Double(d[629]) / 2); g.minorWidth = percent(Double(d[630]) / 2)
     g.everyOtherNumber = d[633] & 2 != 0
-    g.numberExtremes = d[633] & 4 != 0; g.limitClutter = d[633] & 8 != 0
+    g.numberExtremes = d[633] & 4 != 0
+    g.limitClutter = d[619] & 8 != 0
     g.smoothing = d[619] & 2 != 0 ? 0.2 : 0
-    if d[619] & 16 != 0, d.count >= 658 {
+    if d.count >= 658, d.f64(648).isFinite, d.f64(648) > minimum, d.f64(648) < maximum, d[656] != 0 || d[657] != 0 {
       g.splitValue = d.f64(648); g.splitAngle = Double(d[656]) + Double(d[657]) * 256
     }
     let minor = d.f64(280); g.minorInterval = minor.isFinite && minor > 0 && minor < 9e7 ? minor : nil
@@ -159,8 +161,9 @@ extension DisplayObject {
       g.dualTail = percent(Double(Int8(bitPattern: d[671])))
       g.dualInterval = d.f64(672) > 0 ? d.f64(672) : gauge?.tickInterval ?? 1000
     }
-    if legacyCommon?[283] == 2 { g.mode = .dualNeedle }
-    if legacyCommon?[283] == 3 { g.mode = .filled }
+    if d[619] & 0x70 == 0x10 { g.mode = .dualNeedle }
+    if d[619] & 0x70 == 0x30 { g.mode = .filled }
+    g.pins = d.u32(340) >> 24 != 255; g.pinColor = hex(340); g.pinSize = percent(Double(d[628]))
     for (key, bit) in [(\GaugeDesign.markingChange, UInt8(1)), (\GaugeDesign.needleChange, 4), (\GaugeDesign.faceChange, 16)] {
       g[keyPath: key].enabled = d[634] & bit != 0
       g[keyPath: key].gradient = d[634] & (bit << 1) != 0
