@@ -2,6 +2,8 @@
 
 Research date: 2026-10-22. Reference application: installed RaceRender 3.7.3 Ultimate for macOS. This audit covers the public guide and hands-on inspection. Status describes the current source, not intended future behavior.
 
+The [2026-10-25 full local-guide review](guide-gap-review.md) provides 36 scoped implementation choices, source evidence, and corrections to assumptions about which features the guide actually documents. All choices in that review await user selection; it does not authorize implementation.
+
 ## What the public guide establishes
 
 RaceRender is organized around concurrent input streams and display objects. Sequential editing uses joined inputs. A display can change source, visibility, geometry or other properties at a timeline segment; untouched properties inherit from earlier segments. Input trimming, synchronization, rate and project delay operate separately from these display changes. These distinctions now exist in OpenRaceRender's model and compositor. Sources: [Basics](https://racerender.com/RR3/docs/Basics.html), [Main screen](https://racerender.com/RR3/docs/Main.html), [Timeline segment editor](https://racerender.com/RR3/docs/TimelineEdit.html).
