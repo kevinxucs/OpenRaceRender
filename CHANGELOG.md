@@ -1,5 +1,10 @@
 # Changelog
 
+## F15 — Shared heading and G-force estimates
+
+- Recorded-first automatic roles, Calculate/Recorded only modes, GPS/metric-XY heading and speed, speed-derived longitudinal G, course-derived lateral G and visible provenance. Heading adjustment/reversal and circular CSV/RCZ interpolation are supported.
+- Idempotent source configuration, consistent map coordinates, stricter position aliases and shared imported/native G channel behavior. See [calculations, validation and limits](docs/derived-motion.md).
+
 ## F14 — Sequence editing and time fillers
 
 - Private clip ordering/trim/rate drafts, explicit middle/trailing time fillers, source-list move commands, generated-source labels and one-step undo.

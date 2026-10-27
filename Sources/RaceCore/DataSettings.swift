@@ -1,5 +1,11 @@
 import Foundation
 
+public enum DataDerivationMode:String,Codable,CaseIterable,Sendable {
+  case automatic, calculate, recordedOnly
+  public var title:String {
+    switch self { case .automatic:return "Automatic"; case .calculate:return "Calculate"; case .recordedOnly:return "Recorded only" }
+  }
+}
 public struct FinishLine: Codable, Equatable, Sendable {
   public var latitude: Double
   public var longitude: Double
@@ -29,6 +35,9 @@ public struct DataSettings: Codable, Equatable, Sendable {
   public var speedUnit: String?
   public var headingAdjustment: Double?
   public var reverseHeading: Bool?
+  public var headingDerivation:DataDerivationMode?
+  public var longitudinalDerivation:DataDerivationMode?
+  public var lateralDerivation:DataDerivationMode?
   public var gearAdjustment: Double?
   public var ignoreLapTriggers: Int?
   public var interpolate: Bool?
@@ -38,7 +47,7 @@ public struct DataSettings: Codable, Equatable, Sendable {
 extension Telemetry {
   /// Call before publishing the telemetry instance to the renderer.
   public func configure(_ settings: DataSettings) {
-    renderRevision += 1
+    restoreRecordedData()
     interpolationEnabled = settings.interpolate ?? true
     for (alias, header) in settings.assignments where !header.isEmpty {
       if let i = headers.firstIndex(of: header) { aliases[alias] = i }
@@ -53,6 +62,8 @@ extension Telemetry {
     func transformed(_ alias: String, name: String, operation: (Double) -> Double) {
       guard let index = channelIndex(alias) else { return }
       headers.append(name); columns.append(columns[index].map(operation)); aliases[alias] = headers.count - 1
+      provenance[headers.count-1] = provenance[index]
+      if circularColumns.contains(index) { circularColumns.insert(headers.count-1) }
       if discreteColumns.contains(index) { discreteColumns.insert(headers.count - 1) }
     }
     if let multiplier = settings.speedMultiplier, multiplier.isFinite, settings.assignments["speed"] != nil {
@@ -60,9 +71,11 @@ extension Telemetry {
       let toMPS = unit == "mph" ? 1 / 2.2369362921 : unit == "km/h" ? 1 / 3.6 : unit == "knots" ? 0.514444 : 1
       transformed("speed", name: "Configured speed (m/s)") { $0 * multiplier * toMPS }
     }
-    if settings.reverseHeading == true || (settings.headingAdjustment ?? 0) != 0 {
+    deriveMotion(settings)
+    let headingAdjustment = settings.headingAdjustment.flatMap { $0.isFinite ? $0 : nil } ?? 0
+    if settings.reverseHeading == true || headingAdjustment != 0 {
       transformed("heading", name: "Configured heading") { value in
-        let adjusted = value * (settings.reverseHeading == true ? -1 : 1) + (settings.headingAdjustment ?? 0)
+        let adjusted = value * (settings.reverseHeading == true ? -1 : 1) + headingAdjustment
         return (adjusted.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
       }
     }
@@ -72,15 +85,12 @@ extension Telemetry {
     for field in settings.fields where !field.name.isEmpty {
       guard let i = channelIndex(field.source), field.multiply.isFinite, field.add.isFinite else { continue }
       headers.append(field.name); columns.append(columns[i].map { (field.absolute == true ? abs($0) : $0)*field.multiply+field.add })
+      provenance[headers.count-1] = ChannelProvenance(kind:.calculated,details:"Calculated from \(field.source)")
       if discreteColumns.contains(i) { discreteColumns.insert(headers.count - 1) }
     }
-    if let latitude = aliases["lat"], let longitude = aliases["lon"] {
-      let lat = columns[latitude], lon = columns[longitude]
-      let factor = cos((lat.first(where: \.isFinite) ?? 0) * .pi / 180)
-      mapPoints = stride(from: 0, to: count, by: max(1,count/4000)).compactMap {
-        lat[$0].isFinite && lon[$0].isFinite ? (lon[$0]*factor, lat[$0]) : nil
-      }
-      if let line = settings.finishLine { laps = detectLaps(line: line, lat: lat, lon: lon, ignore: settings.ignoreLapTriggers ?? 0) }
+    rebuildMapPoints()
+    if let latitude = aliases["lat"], let longitude = aliases["lon"], let line = settings.finishLine {
+      laps = detectLaps(line:line,lat:columns[latitude],lon:columns[longitude],ignore:settings.ignoreLapTriggers ?? 0)
     }
   }
   public func finishLine(at time: Double) -> FinishLine? {

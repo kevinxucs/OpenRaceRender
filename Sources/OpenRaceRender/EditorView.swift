@@ -554,6 +554,9 @@ struct ObjectInspector: View {
         if !object.resolvedChannel.isEmpty, let data = model.telemetry[object.inputIndex] {
           if let index = data.channelIndex(object.resolvedChannel) {
             Text("Using \(data.headers[index])").font(.system(size: 10)).foregroundStyle(muted)
+            if let provenance = data.provenance(for:object.resolvedChannel), provenance.kind != .recorded {
+              Text(provenance.details).font(.system(size:10)).foregroundStyle(mint)
+            }
           } else {
             Text("Channel unavailable in this input").font(.system(size: 10)).foregroundStyle(.orange)
           }

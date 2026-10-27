@@ -467,12 +467,13 @@ struct DataControls: View {
   var body: some View {
     DisclosureGroup("Data channels & lap timing") {
       VStack(alignment: .leading, spacing: 12) {
-        ForEach(["speed", "rpm", "gear", "throttle", "brake", "lat", "lon", "distance", "gx", "gy"], id: \.self) { alias in
+        ForEach(["speed", "rpm", "gear", "throttle", "brake", "lat", "lon", "distance", "heading", "gx", "gy"], id: \.self) { alias in
           Picker(alias.uppercased(), selection: Binding(get: { settings.wrappedValue.assignments[alias] ?? "" }, set: { settings.wrappedValue.assignments[alias] = $0 })) {
             Text("Automatic").tag("")
-            ForEach(data?.headers ?? [], id: \.self) { Text($0).tag($0) }
+            ForEach(data?.recordedHeaders ?? [], id: \.self) { Text($0).tag($0) }
           }
         }
+        DerivedMotionControls(settings:settings,data:data)
         Divider()
         Text("Calculated fields: source × multiplier + offset").foregroundStyle(muted)
         ForEach(settings.fields) { $field in

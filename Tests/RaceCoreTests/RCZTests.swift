@@ -68,13 +68,14 @@ final class RCZTests: XCTestCase {
     XCTAssertEqual(d.value("gear", at: 1.2499), 1)
     XCTAssertEqual(d.value("gy", at: 0), 1)
     XCTAssertEqual(d.value("gy", at: 2), -1)
-    XCTAssertNil(d.aliases["gx"]) // Raw phone X does not imply vehicle longitudinal G.
+    XCTAssertNil(d.recordedState?.aliases["gx"]) // Raw phone X does not imply vehicle longitudinal G.
+    XCTAssertEqual(d.provenance(for:"gx")?.kind,.speed)
     XCTAssertNil(d.value("X acceleration", at: 0.5))
     XCTAssertEqual(d.value("distance", at: 2), 250)
     XCTAssertEqual(d.value("lat", at: 0), 37)
     XCTAssertEqual(d.value("lon", at: 0), -122)
-    XCTAssertEqual(d.value("Heading", at: 0.5), 359)
-    XCTAssertEqual(d.value("Heading", at: 0.9999), 359)
+    XCTAssertEqual(d.value("Heading", at: 0.5)!,0,accuracy:1e-6)
+    XCTAssertEqual(d.value("Heading", at: 0.9999)!,0.9998,accuracy:1e-4)
     XCTAssertEqual(d.value("X rotation rate", at: 0)!, 2.773, accuracy: 0.000001)
     XCTAssertEqual(d.value("Z rotation rate", at: 0)!, -2.746, accuracy: 0.000001)
     XCTAssertFalse(d.mapPoints.isEmpty); XCTAssertTrue(d.warnings.isEmpty)

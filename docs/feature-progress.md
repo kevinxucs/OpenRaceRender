@@ -18,16 +18,28 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F12: guided setup, selected-data template mapping, dynamic length policies, notes and saved new-session preferences implemented; see [project setup](project-setup.md).
 - F13: independent camera players, source event alignment, target rate/offset edits and composition verification implemented; see [camera synchronization](source-synchronization.md).
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
-- Validation: 235 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
+- Validation: 246 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F15 — GPS-derived heading and complete derived G-force**, after committing/pushing F14. F13 is pushed as `38611c6`; CI40485629398 succeeded.
+Next feature: **F16 — gear estimation**, after committing/pushing F15. F14 is pushed as `499d215`; CI40487851615 succeeded.
 
 ## Remaining queue
 
-F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F15 handoff — implementation validated, live UI limited
+
+- `DerivedMotion.swift` generates shared named heading/speed/G channels with source provenance. Automatic prefers recorded role aliases; Calculate forces estimates; Recorded only suppresses fallback. GPS north-clockwise heading and metric XY motion, speed derivative longitudinal G and course-rate lateral G (positive right) are shared across consumers. Heading display adjustment/reversal leaves physical GPS/XY G unchanged. Recorded heading/speed can supply lateral G without position. Large/nonfinite gaps break derivatives; endpoints have limited neighbors. Smoothing remains F18.
+- Parsed telemetry snapshots restore raw headers/columns/aliases/times/laps/map/discrete state before each configure. Repeated conversions/fields no longer accumulate; bounds caches and revision invalidate. Default initialization makes estimates available even without explicit source settings. Channel provenance appears in source/widget inspectors; assignment pickers list raw headers. Modes and adjustments persist in native sessions and drop from templates.
+- CSV and RCZ heading interpolation wrap through north. RCZ channel6 now has heading role and circular resampling before clock merging, replacing stepped heading. Existing discrete gear behavior retained. Updated RCZ regression confirms raw phone X is not a vehicle GX assignment while default shared speed estimation can supply GX.
+- Analytic media comparison caught lat/lon prefix matching Lateral/Longitudinal acceleration. Short position aliases now respect boundaries and raw X/Y acceleration are not position roles. Map trace/marker use the same XY-or-GPS columns and cached longitude projection factor. Basic native G honors custom lateral channel; imported type74 resolves native special G identifiers through shared roles and no longer privately estimates GX when source mode disables it.
+- Heading Calculate legacy marker follows the mirrored guide and survives automated roundtrip. Explicit G mode overrides / recorded-only heading rewritten RRP export are conservatively refused. Unchanged opaque imported settings can survive. Native reopen of the new marker is unverified because UI is still inaccessible.
+- 246 tests pass (202 core/44 editor): nine core/two editor tests cover analytic straight/circular motion, cardinal directions, recorded priority/modes, wrap/stationary/gaps, config reset, map aliases/basis, explicit native/imported G behavior, source save/reload/undo and template isolation. `validate-derived-motion.py` passes analytic recorded-reference snapshots, encoded frames and disabled modes. Established `validate-media.py` passes including RCZ/CSV overlay equality. Logs under `build/validation/derived-motion`.
+- Read-only user RCZ import baseline uses the authorized Share path; three-run medians F14 0.155s and F15 0.161s (small local check, not general rendering benchmark). Prior F14 CLI extracted from its local-library zip into ignored validation dir. No private data/resources committed. Local release carries authorized library only. InputFileEdit / HowTo-Datalogger guides read; live updated/native UI unavailable (cgWindowNotFound).
+- F14 CI40487851615 succeeded on499d215. Commit/push F15 and verify CI before F16; continue sequentially without compaction waits.
 
 ## F14 handoff — implementation validated, live UI limited
 

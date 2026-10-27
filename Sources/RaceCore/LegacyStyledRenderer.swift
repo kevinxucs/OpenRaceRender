@@ -134,10 +134,10 @@ enum LegacyStyledRenderer {
       for factor in [1.0/3,2.0/3,1.0] { c.strokeEllipse(in:CGRect(x:r.midX-radius*factor,y:r.midY-radius*factor,width:radius*factor*2,height:radius*factor*2)) }
       c.move(to:CGPoint(x:r.midX-radius,y:r.midY));c.addLine(to:CGPoint(x:r.midX+radius,y:r.midY));c.move(to:CGPoint(x:r.midX,y:r.midY-radius));c.addLine(to:CGPoint(x:r.midX,y:r.midY+radius));c.strokePath()
       let lateralField = d.utf16(0,128),longitudinalField = d.utf16(128,128)
-      let gy = data?.value(lateralField.isEmpty ? "gy" : lateralField,at:time) ?? 0
-      let gx = longitudinalField.isEmpty
-        ? data?.value("gx",at:time) ?? data?.speedAcceleration(at:time) ?? 0
-        : data?.value(longitudinalField,at:time) ?? 0
+      let lateral = o.channel.isEmpty ? LegacyEnhancedRenderer.resolveChannel(lateralField,fallback:"gy") : o.resolvedChannel
+      let longitudinal = LegacyEnhancedRenderer.resolveChannel(longitudinalField,fallback:"gx")
+      let gy = data?.value(lateral,at:time) ?? 0
+      let gx = data?.value(longitudinal,at:time) ?? 0
       let x = r.midX+max(-1,min(1,gy/max(0.1,d.f32(260))))*radius
       let y = r.midY-max(-1,min(1,gx/max(0.1,d.f32(256))))*radius
       let ball = max(1,Double(d[277])*objectScale)

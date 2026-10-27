@@ -217,7 +217,7 @@ public enum OverlayRenderer {
       c.move(to: CGPoint(x: cx, y: cy - radius))
       c.addLine(to: CGPoint(x: cx, y: cy + radius))
       c.strokePath()
-      if let gx = data?.value("gx", at: time), let gy = data?.value("gy", at: time) {
+      if let gx = data?.value("gx", at: time), let gy = data?.value(o.resolvedChannel, at: time) {
         let x = cx + max(-1, min(1, gy / 2)) * radius
         let y = cy + max(-1, min(1, gx / 2)) * radius
         c.setFillColor(color(accent))

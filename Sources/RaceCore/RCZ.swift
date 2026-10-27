@@ -48,7 +48,9 @@ enum RCZReader {
         guard value.isFinite else { continue }
         if !discrete, i + 1 < run.times.count, run.values[i + 1].isFinite, time > run.times[i] {
           let fraction = Double(time - run.times[i]) / Double(run.times[i + 1] - run.times[i])
-          output[row] = value + (run.values[i + 1] - value) * fraction
+          if alias == "heading" {
+            output[row] = Telemetry.normalHeading(value+Telemetry.headingDelta(from:value,to:run.values[i+1])*fraction)
+          } else { output[row] = value + (run.values[i + 1] - value) * fraction }
         } else { output[row] = value }
       }
       return output
@@ -286,7 +288,7 @@ enum RCZReader {
     let definitions: [Int: Field] = [
       2: Field(label: "Distance", unit: "m", alias: "distance"),
       4: Field(label: "Speed", unit: "m/s", alias: "speed"),
-      5: Field(label: "Altitude", unit: "m"), 6: Field(label: "Heading", unit: "deg", discrete: true),
+      5: Field(label: "Altitude", unit: "m"), 6: Field(label: "Heading", unit: "deg", alias:"heading"),
       7: Field(label: "Lateral acceleration", unit: "g", alias: "gy", scale: 1 / 9.80665),
       8: Field(label: "Longitudinal acceleration", unit: "g", alias: "gx", scale: 1 / 9.80665),
       9: Field(label: "X acceleration", unit: "g", scale: 1 / 9.80665),

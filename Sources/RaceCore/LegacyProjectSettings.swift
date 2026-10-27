@@ -71,6 +71,11 @@ enum LegacyProjectSettings {
     for (alias, offset) in fields {
       let value = b.utf16(offset, 128)
       if !value.isEmpty, !value.hasPrefix("(") { s.assignments[alias] = value }
+      if value == "(Calculate)" {
+        if alias == "heading" { s.headingDerivation = .calculate }
+        if alias == "gx" { s.longitudinalDerivation = .calculate }
+        if alias == "gy" { s.lateralDerivation = .calculate }
+      }
     }
     let timeScale = b.f32(128), conversion = b.f32(904)
     if timeScale.isFinite, timeScale > 0 { s.timeUnitsPerSecond = timeScale }

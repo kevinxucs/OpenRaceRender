@@ -21,11 +21,15 @@ public final class Telemetry: @unchecked Sendable {
   public internal(set) var headers: [String]
   public internal(set) var times: [Double]
   var interpolationEnabled = true
+  var recordedState:TelemetryRecordedState?
+  var provenance:[Int:ChannelProvenance] = [:]
+  var circularColumns = Set<Int>()
   public internal(set) var columns: [[Double]]
   public let title: String
   public internal(set) var laps: [TelemetryLap]
   public internal(set) var aliases: [String: Int]
   public internal(set) var mapPoints: [(Double, Double)]
+  var mapLongitudeFactor:Double = 1
   public var duration: Double { times.last ?? 0 }
   public var count: Int { times.count }
   public var bestLap: TelemetryLap? {
@@ -64,6 +68,7 @@ public final class Telemetry: @unchecked Sendable {
         return x.isFinite && y.isFinite ? (x, y) : nil
       }
     } else { mapPoints = [] }
+    configure(DataSettings())
   }
   public init(text: String, title initialTitle: String = "Telemetry", timeColumn override: String? = nil) throws {
     var header: [String] = []
@@ -138,7 +143,17 @@ public final class Telemetry: @unchecked Sendable {
         }
       }
       for pattern in patterns {
-        if let i = header.firstIndex(where: { $0.lowercased().hasPrefix(pattern) }) {
+        if let i = header.firstIndex(where: {
+          let name = $0.lowercased()
+          guard name.hasPrefix(pattern) else { return false }
+          let suffix = String(name.dropFirst(pattern.count))
+          if ["lat","lon"].contains(pattern), let first = suffix.first, first.isLetter { return false }
+          if ["x","y"].contains(pattern) {
+            let rest = suffix.trimmingCharacters(in:.whitespaces)
+            return rest.isEmpty || rest.hasPrefix("(m)") || rest.contains("position")
+          }
+          return true
+        }) {
           a[key] = i
           return
         }
@@ -167,6 +182,7 @@ public final class Telemetry: @unchecked Sendable {
     choose("y", ["y-position (m)", "y-position", "y"])
     choose("distance", ["distance (m)", "distance"])
     choose("lap", ["lap #", "lap", "lap number"])
+    choose("heading", ["heading (deg)", "heading", "bearing", "course", "gps heading"])
     choose("coolant", ["coolant temperature (.c) *obd", "coolant temperature", "coolant"])
     choose("intake", ["intake temperature (.c) *obd", "intake temperature", "intake"])
     choose("oil", ["engine oil temperature", "oil temperature", "oil"])
@@ -193,6 +209,11 @@ public final class Telemetry: @unchecked Sendable {
       }
     }
     mapPoints = points
+    configure(DataSettings())
+  }
+  func invalidateValueCaches() {
+    renderRevision += 1
+    boundsLock.lock(); cachedBounds.removeAll(); boundsLock.unlock()
   }
 
   public static func isTimeHeader(_ s: String) -> Bool {
@@ -273,17 +294,21 @@ public final class Telemetry: @unchecked Sendable {
     let v = columns[c][i]
     guard v.isFinite else { return nil }
     if interpolate && interpolationEnabled && !discreteColumns.contains(c) && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
-      return v + (columns[c][i + 1] - v)
-        * max(0, min(1, (t - times[i]) / (times[i + 1] - times[i])))
+      let fraction = max(0,min(1,(t-times[i])/(times[i+1]-times[i])))
+      if circularColumns.contains(c) {
+        let delta = Self.headingDelta(from:v,to:columns[c][i+1])
+        return Self.normalHeading(v+delta*fraction)
+      }
+      return v + (columns[c][i + 1] - v)*fraction
     }
-    return v
+    return circularColumns.contains(c) ? Self.normalHeading(v) : v
   }
   public func speed(at t: Double, unit: String, channel: String = "speed") -> Double? {
     let mps: Double
     if let v = value(channel, at: t), let c = channelIndex(channel) {
       let h = headers[c].lowercased()
       mps = h.contains("mph") ? v / 2.2369362921 : (h.contains("knot") ? v * 0.514444 : (h.contains("km") || h == "kph" ? v / 3.6 : v))
-    } else if channel == "speed", let lat = aliases["lat"], let lon = aliases["lon"], times.count > 1 {
+    } else if channel == "speed", channelIndex(channel) == nil, let lat = aliases["lat"], let lon = aliases["lon"], times.count > 1 {
       let i = min(index(at: t), times.count - 2)
       let dt = times[i + 1] - times[i]
       guard t >= 0, t <= duration, dt > 0 else { return nil }
@@ -299,10 +324,8 @@ public final class Telemetry: @unchecked Sendable {
     return (b-a)/(after-before)/9.80665
   }
   public func trackPosition(at t: Double) -> (Double,Double)? {
-    let xKey = aliases["x"] != nil ? "x" : "lon",yKey = aliases["y"] != nil ? "y" : "lat"
-    guard let x = value(xKey,at:t),let y = value(yKey,at:t) else { return nil }
-    let factor = xKey == "lon" ? cos((value("lat",at:0) ?? y) * .pi/180) : 1
-    return (x*factor,y)
+    guard let (xi,yi,_) = mapColumns, let x = value(headers[xi],at:t), let y = value(headers[yi],at:t) else { return nil }
+    return (x*mapLongitudeFactor,y)
   }
   public func trackPoints(from start: Double,to end: Double) -> [(Double,Double)] {
     guard start.isFinite,end.isFinite,start <= end else { return [] }
