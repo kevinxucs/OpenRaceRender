@@ -12,16 +12,26 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F04: arbitrary subset template export, editable object/input-role names, required group ancestors, source-switch/history roles, draft isolation and text-selection shortcut routing implemented; see [template export](template-export.md).
 - F06: configurable graph axes, seven time modes, ranges, style controls, persistence/migration, cached sampling and legacy graph writing implemented; see [graph controls and limits](graphs.md).
 - F08: data-controlled embedded images, deterministic flashing, source-role/artwork handling and native image record repair implemented; see [scope and validation limits](image-controls.md).
-- Validation: 188 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F09: shared background editor, transform/key baking, external file draft workflow, whole-widget preview and explicit background clear implemented; see [validation limits](background-editor.md).
+- Validation: 193 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F09 — background editor**. F06 is pushed as `a47e75a` (CI 40453569024 succeeded). F08 is validated and ready to commit/push before F09.
+Next feature: **F10 — full timeline editing**. F08 is pushed as `a030913` (CI 40475702925 succeeded). F09 is validated and ready to commit/push before F10.
 
 ## Remaining queue
 
-F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F09 handoff — implementation validated, live UI limited
+
+- `WidgetBackground.swift` adds a private `BackgroundDraft` with embedded image, zoom/pan/rotation/aspect and chroma key. It bakes an sRGB PNG, bounds output geometry and provides consistent artwork lookup/replacement. Gauges use the existing artwork layer, disable faces and move imported gauges to their existing editable vector design; graphs disable their solid background. Existing gauge background fields are cleared to avoid duplicate layers.
+- `BackgroundEditor.swift` adds a shared inspector sheet for non-media/non-group widgets. Import/drop, clear, output PNG, external associated-app editing/reload, checkerboard and entire-widget preview are available. It pauses via `model.pause()`, uses local draft state, and Apply writes a complete object once. Existing basic gauge-only buttons now point users to this shared tool. Returning from an unchanged external file does not reset new transforms; Import/Clear ends that association. Apply bakes edits; transform values are not retained afterward. Temporary external PNGs are not project dependencies and may remain in system temp.
+- Clearing uses empty artwork data as an explicit native event; nil still means inherit. Legacy writer accepts base clear but refuses a nonempty-to-empty timeline image transition instead of silently retaining the earlier image. Other formats remain unchanged.
+- Guide background and map workflows read locally. Native RR3 background dialog and updated editor/external application have not been live-tested because the current CUA connection returns `cgWindowNotFound` for both apps. Pending async request from F08 remains unanswered. No other UI automation used. Preserve this limit; actual native authored-image reopen from F08 also remains pending.
+- 193 tests pass with local library/graphics access (164 core/29 editor). New pixel tests cover transforms/aspect/key alpha and malformed inputs, source/identity/settings preservation, portable/native persistence, explicit clearing and legacy refusal; editor workflow checks draft isolation and undo/segment behavior. `scripts/validate-backgrounds.py` passes original map/gauge checkerboard snapshots and encoded video, including clear/resume. Logs: `build/validation/background/{tests,build,acceptance}.log`.
+- F08 CI 40475702925 passed on `a030913`; F06 CI passed previously. Commit/push F09 before starting F10. Latest authorization says continue without waiting for compaction. No user originals edited.
 
 ## F08 handoff — implementation validated, live UI limited
 

@@ -513,11 +513,8 @@ struct GaugeControls: View {
         field("Divide numbering by", $settings.numberingScale)
         Toggle("Use redline color", isOn: Binding(get: { settings.redline != nil }, set: { settings.redline = $0 ? 6000 : nil }))
         if settings.redline != nil { field("Redline threshold", Binding(get: { settings.redline ?? 6000 }, set: { settings.redline = $0 })) }
-        Button("Set gauge background…") {
-          let panel = NSOpenPanel(); panel.allowedContentTypes = [.image]
-          if panel.runModal() == .OK { settings.backgroundImage = panel.url.flatMap { try? Data(contentsOf: $0) }; settings.backgroundPath = nil; settings.showFace = false }
-        }
-        if settings.backgroundPath != nil || settings.backgroundImage != nil { Button("Remove background") { settings.backgroundPath = nil; settings.backgroundImage = nil } }
+        Text("Use ‘Edit widget background…’ in the inspector to import, align, key or export artwork.")
+          .font(.caption2).foregroundStyle(muted)
       }.padding(.top, 10)
     }.font(.system(size: 11))
   }

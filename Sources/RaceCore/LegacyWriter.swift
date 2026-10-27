@@ -304,7 +304,7 @@ public enum LegacyWriter {
     }
     let image: Data
     if let background { image = try bitmap(background) }
-    else if let data = o.artwork { image = try bitmap(data) }
+    else if let data = o.artwork { image = data.isEmpty ? word(0) : try bitmap(data) }
     else if let data = o.embeddedImage {
       image = LegacyArtwork.png(data) != nil ? data : try bitmap(data)
     } else if type == 14, !o.text.isEmpty { image = try bitmap(Data(contentsOf:URL(fileURLWithPath:o.text))) }
@@ -456,6 +456,9 @@ public enum LegacyWriter {
       guard segment.time.isFinite, segment.time >= 0 else { throw RaceError.invalid("Invalid timeline time.") }
       var value = previous; segment.apply(to:&value)
       let old = try record(previous,sources:sources,parents:parents), new = try record(value,sources:sources,parents:parents)
+      if old.image != new.image, new.image == word(0), old.image != word(0) {
+        throw RaceError.invalid("Clearing background artwork in a timeline segment requires .orrp format.")
+      }
       var b = Data(repeating:0,count:208), flags: UInt32 = 0
       b.putFloat(segment.time,0)
       if old.common[282] != new.common[282] { flags |= 1 }

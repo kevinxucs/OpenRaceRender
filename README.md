@@ -145,3 +145,5 @@ OpenRaceRender's source is available under the [MIT license](LICENSE). Imported 
 RaceRender is a product of HP Tuners/RaceRender LLC. OpenRaceRender is an independent project with no affiliation or endorsement.
 
 Graph axes, time windows and saved styles: [2D graph controls](docs/graphs.md). Data-driven artwork: [image controls](docs/image-controls.md).
+
+Widget artwork tools: [background editor](docs/background-editor.md).

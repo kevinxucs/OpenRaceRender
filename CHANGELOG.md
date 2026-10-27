@@ -1,5 +1,10 @@
 # Changelog
 
+## F09 — Shared widget background editor
+
+- Private import/drop/clear drafts with zoom, pan, rotation, aspect, chroma key, PNG export, external edit/reload and whole-widget preview. Apply embeds the result in one undoable base/segment edit.
+- Explicit native timeline background clearing and conservative legacy refusal for an unverified clear event. See [workflow and validation limits](docs/background-editor.md).
+
 ## F08 — Data-controlled images
 
 - Embedded artwork chooser, proportional and inclusive threshold mappings to visibility/opacity/rotation/brightness/hue, and deterministic flashing. Source selection and settings support undo, segments and portable templates.

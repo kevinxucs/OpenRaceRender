@@ -47,3 +47,5 @@ These checks found and corrected defaults that self-roundtrips missed: zeroed in
 F06 adds authored/imported type-35 graph writing for verified axes, modes, ranges, palette, widths, gradients, numbers and labels. Lap selection and opposite-side numbers remain native-only and are refused explicitly; see [graphs](graphs.md).
 
 F08 adds E Image control payloads, mapped data roles and length-prefixed artwork. Pulse intervals must be representable in tenths of a second; Visibility uses opacity endpoints for legacy export. Native-saved image import is verified, but corrected authored native reopening remains unverified because the UI window is inaccessible; see [image validation](image-controls.md).
+
+F09 allows a cleared base background. Artwork-clear timeline events require native format and are explicitly refused for RRP output; see [background editor](background-editor.md).

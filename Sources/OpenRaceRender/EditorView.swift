@@ -597,6 +597,7 @@ struct ObjectInspector: View {
           }
         }
       }
+      if ![.video,.audio,.image,.group].contains(object.kind) { BackgroundControls(model:model,object:$object) }
       if object.kind == .image { ImageControlControls(object: $object, inputs: model.project.inputs) }
       if object.hasScriptStyleSettings { ScriptStyleControls(object: $object) }
       if object.hud != nil {
