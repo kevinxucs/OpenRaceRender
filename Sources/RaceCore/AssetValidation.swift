@@ -5,6 +5,11 @@ extension RaceProject {
   /// and joined clips. Preview can still show available sources while a project is repaired.
   public func validateExportAssets(start: Double, duration: Double, telemetry:[Int:Telemetry]? = nil) throws {
     guard start.isFinite, duration.isFinite, duration > 0 else { return }
+    for input in inputs where input.cameraVideoID != nil {
+      guard input.kind == "data",let camera = inputs.first(where:{$0.id == input.cameraVideoID && $0.kind == "video"}),camera.path == input.path else {
+        throw RaceError.invalid("Embedded camera data has a missing or mismatched camera. Remove and add that data input again.")
+      }
+    }
     let end = start + duration
     var missing = Set<String>()
     func require(_ path: String, label: String) {

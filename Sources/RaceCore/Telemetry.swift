@@ -62,6 +62,11 @@ public final class Telemetry: @unchecked Sendable {
   }
 
   public convenience init(url: URL, settings: DataSettings? = nil) throws {
+    if CameraTelemetry.extensions.contains(url.pathExtension.lowercased()) {
+      try self.init(camera: CameraTelemetry.read(url), title: url.deletingPathExtension().lastPathComponent)
+      if let settings { try configureValidated(settings) }
+      return
+    }
     let d = try Data(contentsOf: url)
     guard d.count <= 512 * 1024 * 1024 else {
       throw RaceError.invalid("Telemetry file is larger than 512 MB.")
@@ -83,6 +88,18 @@ public final class Telemetry: @unchecked Sendable {
     let normalized = try TelemetryFormats.csv(from: d, text: text, extension: url.pathExtension.lowercased())
     try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent, timeColumn: settings?.assignments["time"])
     if let settings { try configureValidated(settings) }
+  }
+  private init(camera table:CameraTelemetry.Table,title:String) {
+    self.title = title;headers = table.headers;times = table.times;columns = table.columns
+    aliases = table.aliases;firstSampleUnixTime = table.epoch;warnings = table.warnings;laps = [];mapPoints = []
+    if let lat = aliases["lat"],let lon = aliases["lon"] {
+      let factor = cos((columns[lat].first(where:\.isFinite) ?? 0) * .pi/180)
+      mapPoints = stride(from:0,to:times.count,by:max(1,times.count/4000)).compactMap {
+        let x = columns[lon][$0]*factor,y = columns[lat][$0];return x.isFinite && y.isFinite ? (x,y) : nil
+      }
+    } else {mapPoints = []}
+    maximumInterpolationGap = 2
+    configure(DataSettings())
   }
   private init(rcz table: RCZReader.Table) {
     headers = table.headers; times = table.times; columns = table.columns

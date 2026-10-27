@@ -98,6 +98,7 @@ import UniformTypeIdentifiers
   private var pendingInputs: [URL] = []
   private var importingInputs = false
   private(set) var documentRevision = UUID()
+  @Published var cameraDataCandidates:Set<UUID> = []
   @Published var dataSetupRequest:DataSetupRequest?
   @Published var finishLineInput:MediaInput?
   var dataSetupQueue:[DataSetupRequest] = []
@@ -211,7 +212,8 @@ import UniformTypeIdentifiers
     let binding = inputBinding(id)
     var input = binding.wrappedValue
     // Offsets are source seconds; one project frame spans rate/fps seconds.
-    input.offset += Double(frames) * (input.timing?.safeRate ?? 1) / project.fps
+    let rate = input.cameraVideoID == nil ? (input.timing?.safeRate ?? 1) : (project.placements.first(where:{$0.input.id == input.id && $0.contains(time)})?.rate ?? project.placements.first(where:{$0.input.id == input.id})?.rate ?? 1)
+    input.offset += Double(frames) * rate / project.fps
     binding.wrappedValue = input
   }
   func tick() {
@@ -328,6 +330,11 @@ import UniformTypeIdentifiers
   }
   func removeInput(_ id: UUID) {
     guard let input = project.inputs.first(where: { $0.id == id }) else { return }
+    let removing = Set(project.inputs.filter {$0.id == id || $0.joinedTo == input.legacyIndex}.map(\.id))
+    if project.inputs.contains(where:{$0.cameraVideoID.map{removing.contains($0)} ?? false}) {
+      error = "Remove linked camera data inputs before removing their video or joined sequence."
+      return
+    }
     checkpoint()
     let ids = Set(project.inputs.filter { $0.id == id || $0.joinedTo == input.legacyIndex }.map(\.legacyIndex))
     project.inputs.removeAll { ids.contains($0.legacyIndex) }
@@ -377,7 +384,7 @@ import UniformTypeIdentifiers
     guard confirmDiscard() else { return }
     documentRevision = UUID()
     scriptEditorRequest = nil
-    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
+    cameraDataCandidates = []; dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
     project = RaceProject()
@@ -412,7 +419,7 @@ import UniformTypeIdentifiers
     let revision = UUID()
     documentRevision = revision
     scriptEditorRequest = nil
-    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
+    cameraDataCandidates = []; dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel()
     openingURL = url.standardizedFileURL
     pause()
@@ -577,7 +584,11 @@ import UniformTypeIdentifiers
             input.duration = try await AVURLAsset(url: url).load(.duration).seconds
           }
           guard documentRevision == revision else { return }
-          installInput(input,data:loadedData)
+          let installed = installInput(input,data:loadedData)
+          if kind == "video",CameraTelemetry.extensions.contains(ext) {
+            let found = (try? await Task.detached {try CameraTelemetry.isAvailable(in:url)}.value) ?? false
+            if documentRevision == revision,found {cameraDataCandidates.insert(installed.id)}
+          }
         } catch {
           guard documentRevision == revision else { return }
           if kind == "data",["csv","tsv","txt"].contains(ext),let columns = try? TelemetryColumnPreview.read(url) {
@@ -589,7 +600,7 @@ import UniformTypeIdentifiers
       status = dataSetupRequest == nil ? "Inputs added" : "Choose the data file’s session clock"
     }
   }
-  func installInput(_ source:MediaInput,data:Telemetry?) {
+  @discardableResult func installInput(_ source:MediaInput,data:Telemetry?) -> MediaInput {
     checkpoint()
     var input = source; let kind = input.kind
     let url = URL(fileURLWithPath:input.path)
@@ -622,6 +633,7 @@ import UniformTypeIdentifiers
       project.objects.append(o)
     }
     selectedInput = input.id
+    return input
   }
   func relink(_ id: UUID) {
     guard let input = project.inputs.first(where: { $0.id == id }) else { return }
@@ -639,6 +651,10 @@ import UniformTypeIdentifiers
   /// Validate first, then commit one undoable change. A failed or stale request never edits the document.
   @discardableResult func relink(_ id: UUID, to url: URL) async -> Bool {
     guard !busy, let original = project.inputs.first(where: { $0.id == id }) else { return false }
+    if original.cameraVideoID != nil || project.inputs.contains(where:{$0.cameraVideoID == id}) {
+      error = "Remove the linked camera data input before relinking this source, then add camera data again from the replacement movie."
+      return false
+    }
     let revision = documentRevision
     busy = true
     defer { busy = false }

@@ -25,7 +25,7 @@ enum CLI {
       OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
-    Telemetry: RaceChrono RCZ/CSV, CSV/TSV, GPX, TCX, NMEA, VBO and FIT. GUI: add via Add input.
+    Telemetry: RaceChrono RCZ/CSV, CSV/TSV, GPX, TCX, NMEA, VBO and FIT. GoPro MP4/MOV via inspect-data or the video inspector’s Add embedded camera data. GUI: add via Add input.
     """
   static func run(_ a: [String]) async -> Int32 {
     do {

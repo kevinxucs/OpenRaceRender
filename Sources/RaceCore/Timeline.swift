@@ -210,7 +210,7 @@ extension RaceProject {
   public var placements: [InputPlacement] {
     var result: [InputPlacement] = []
     // A joined stream has one root, followed by its children in input-list order.
-    for root in inputs where root.joinedTo == nil {
+    for root in inputs where root.joinedTo == nil && root.cameraVideoID == nil {
       let clips = (root.isJoinRoot == true ? [] : [root]) + inputs.filter { $0.joinedTo == root.legacyIndex }
       var cursor = 0.0
       for (position, input) in clips.enumerated() {
@@ -240,7 +240,21 @@ extension RaceProject {
         cursor = end
       }
     }
-    let bound = lengthInputIndex.flatMap { index in result.filter { $0.rootIndex == index }.map(\.end).max() }
+    func cameraPlacements(_ video:[InputPlacement]) -> [InputPlacement] {
+      var data:[InputPlacement] = []
+      for input in inputs where input.kind == "data" && input.cameraVideoID != nil {
+        for clip in video where clip.input.id == input.cameraVideoID && clip.input.kind == "video" {
+          let source = clip.sourceStart+input.offset
+          let start = max(clip.start,clip.start-source/clip.rate)
+          let end = min(clip.end,clip.start+(input.duration-source)/clip.rate)
+          if end > start {data.append(InputPlacement(input:input,rootIndex:input.legacyIndex,start:start,end:end,
+            sourceStart:clip.sourceTime(at:start)+input.offset,rate:clip.rate))}
+        }
+      }
+      return data
+    }
+    let lengthPlacements = result+cameraPlacements(result)
+    let bound = lengthInputIndex.flatMap { index in lengthPlacements.filter { $0.rootIndex == index }.map(\.end).max() }
     let requested = explicitDuration ?? bound ?? result.map(\.end).max() ?? 0
     let limit = requested.isFinite ? max(0, requested) : 0
     let firstPass = result
@@ -259,7 +273,7 @@ extension RaceProject {
         }
       }
     }
-    return result
+    return result+cameraPlacements(result)
   }
   public func media(for index: Int, at time: Double) -> InputPlacement? {
     placements.first { $0.rootIndex == index && $0.contains(time) }

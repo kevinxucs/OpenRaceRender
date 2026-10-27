@@ -14,6 +14,7 @@ struct EditorView: View {
   var body: some View {
     VStack(spacing: 0) {
       topBar
+      CameraDataOffer(model:model)
       if !model.missingInputs.isEmpty {
         HStack {
           Label("\(model.missingInputs.count) missing input\(model.missingInputs.count == 1 ? "" : "s") · Choose replacement files to restore this session.", systemImage: "exclamationmark.triangle")

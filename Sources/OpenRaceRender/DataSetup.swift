@@ -34,7 +34,7 @@ extension EditorModel {
   func configureData(_ input:MediaInput) {
     guard input.kind == "data",input.exists else { error = "Relink this data source first."; return }
     let url = URL(fileURLWithPath:input.path)
-    let columns = try? TelemetryColumnPreview.read(url)
+    let columns = ["csv","tsv","txt"].contains(url.pathExtension.lowercased()) ? try? TelemetryColumnPreview.read(url) : nil
     let headers = telemetry[input.legacyIndex]?.recordedHeaders ?? columns?.headers ?? []
     enqueueDataSetup(DataSetupRequest(url:url,headers:headers,rows:columns?.rows ?? [],revision:documentRevision,original:input))
   }

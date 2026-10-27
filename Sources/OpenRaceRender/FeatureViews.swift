@@ -83,7 +83,8 @@ struct InputTimingControls: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Trim & playback").font(.system(size: 13, weight: .semibold))
-      if input.isJoinRoot != true { SourceMediaTools(model:model,input:$input) }
+      if input.isJoinRoot != true && input.cameraVideoID == nil { SourceMediaTools(model:model,input:$input) }
+      if input.cameraVideoID == nil {
       value("Trim start in source (s)", timing.trimStart)
       value("Trim end in source (s)", Binding(get: { timing.wrappedValue.trimEnd ?? input.duration }, set: { timing.wrappedValue.trimEnd = $0 }))
       value("Start within project (s)", timing.projectStart)
@@ -91,11 +92,17 @@ struct InputTimingControls: View {
       if input.joinedTo == nil {
         Toggle("Loop within project length", isOn: Binding(get: { timing.wrappedValue.loop ?? false }, set: { timing.wrappedValue.loop = $0 }))
       }
+      } else {
+        Text("Embedded data follows its physical camera’s trims, delay, rate, joined position and loops. Offset adjusts residual synchronization.").font(.system(size:10)).foregroundStyle(muted)
+      }
       if input.kind == "data" {
         Button("Synchronize to a data event…") { model.showSync = true }
         DataControls(input: $input, model: model)
       }
       if input.kind == "video" {
+        if CameraTelemetry.extensions.contains(URL(fileURLWithPath:input.path).pathExtension.lowercased()),!model.project.inputs.contains(where:{$0.cameraVideoID == input.id}) {
+          Button("Add embedded camera data…") {Task {await model.addCameraData(input.id)}}.disabled(model.busy)
+        }
         Button("Synchronize cameras side by side…") { model.selectedInput = input.id; model.beginSourceSync() }
       }
       if ["video", "audio"].contains(input.kind) {

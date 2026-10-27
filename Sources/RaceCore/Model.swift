@@ -53,6 +53,8 @@ public struct MediaInput: Identifiable, Codable, Equatable, Sendable {
   public var audio: AudioSettings?
   public var isJoinRoot: Bool?
   public var isTimeFiller: Bool?
+  /// Embedded camera data follows this physical movie’s placements; offset is residual synchronization.
+  public var cameraVideoID: UUID?
   public var legacyTrackIndex: Int?
   public init(name: String, path: String, kind: String, legacyIndex: Int = 0) {
     self.name = name

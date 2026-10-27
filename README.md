@@ -5,11 +5,13 @@
 [![CI](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml/badge.svg)](https://github.com/kevinxucs/OpenRaceRender/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-An MIT-licensed, native macOS telemetry video editor, with independent readers and writers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. Public builds contain no vendor executable, SDK, artwork, or template library. Local builds can package your installed template library.
+An MIT-licensed, native macOS telemetry video editor, with independent readers and writers for RaceRender 3 projects, layouts, and styles. Built with SwiftUI, AVFoundation, CoreGraphics, and CoreImage. Public builds contain no proprietary RaceRender executable, SDK, artwork, or template library. Local builds can package your installed template library.
 
 This is an evolving implementation. It does **not** have full RaceRender feature or rendering parity. The [feature audit](docs/racerender-feature-audit.md) distinguishes working features from remaining gaps, including limitations of legacy imports.
 
 [Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
+
+[Embedded GoPro data](docs/camera-telemetry.md) can be added from MP4/MOV recordings alongside external logger data, with camera-linked timing and manual synchronization.
 
 ## Build and run
 
@@ -22,7 +24,7 @@ cd OpenRaceRender
 ./scripts/run.sh
 ```
 
-The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no third-party package dependencies and does not require a RaceRender installation to run.
+The build produces `build/OpenRaceRender.app`, signed locally with an ad hoc signature. You can launch that bundle directly. The application has no network-resolved package dependencies and does not require a RaceRender installation to run. Its vendored GoPro telemetry decoder is covered by [third-party notices](THIRD_PARTY_NOTICES.md).
 
 In Finder, use **Open With → OpenRaceRender** for an `.rrp` or `.orrp`. File-open requests work at startup and while the app is running, using the same editor and unsaved-change checks as **Open project…**. Imported `.rrp` edits save to a new native `.orrp` unless you explicitly export a compatible RaceRender copy. Opening a telemetry file such as `.rcz` adds it as a data input.
 

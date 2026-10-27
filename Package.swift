@@ -8,7 +8,8 @@ let package = Package(
     .library(name: "RaceCore", targets: ["RaceCore"]),
   ],
   targets: [
-    .target(name: "RaceCore"),
+    .target(name: "GoProGPMF", exclude: ["LICENSE.txt", "LICENSE-MIT", "LICENSE-APACHE", "UPSTREAM.md"], publicHeadersPath: "include"),
+    .target(name: "RaceCore", dependencies: ["GoProGPMF"]),
     .executableTarget(name: "OpenRaceRender", dependencies: ["RaceCore"]),
     .testTarget(name: "RaceCoreTests", dependencies: ["RaceCore"]),
     .testTarget(name: "EditorTests", dependencies: ["OpenRaceRender"]),

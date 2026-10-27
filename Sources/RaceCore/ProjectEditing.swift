@@ -37,6 +37,13 @@ extension RaceProject {
       sourceTime.isFinite, projectTime.isFinite, projectTime >= 0 else {
       throw RaceError.invalid("Select an independent input and a valid event time.")
     }
+    if let cameraID = inputs[i].cameraVideoID {
+      guard let placement = placements.first(where:{$0.input.id == cameraID && $0.contains(projectTime)}),sourceTime >= 0,sourceTime <= inputs[i].duration else {
+        throw RaceError.invalid("Choose an event within this camera clip and the camera data range.")
+      }
+      inputs[i].offset = sourceTime-placement.sourceTime(at:projectTime)
+      return
+    }
     let timing = inputs[i].timing ?? InputTiming()
     guard sourceTime >= timing.trimStart, sourceTime <= min(inputs[i].duration, timing.trimEnd ?? inputs[i].duration),
       projectTime >= timing.projectStart else {
@@ -108,7 +115,7 @@ extension RaceProject {
       if let name = inputNames[p.inputs[i].legacyIndex]?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { p.inputs[i].name = name }
       p.inputs[i].path = ""; p.inputs[i].duration = 0; p.inputs[i].offset = 0
       p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
-      p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1
+      p.inputs[i].cameraVideoID = nil; p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1
       p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].isTimeFiller = nil; p.inputs[i].legacyTrackIndex = nil
     }
     let kinds = Dictionary(p.objects.map { ($0.id,$0.kind) }, uniquingKeysWith: { first, _ in first })

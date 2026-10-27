@@ -332,6 +332,9 @@ public enum LegacyWriter {
 
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {
     let s = source, root = s.isJoinRoot == true
+    if s.cameraVideoID != nil || (s.kind == "data" && CameraTelemetry.extensions.contains(URL(fileURLWithPath:s.path).pathExtension.lowercased())) {
+      throw RaceError.invalid("Embedded camera data requires .orrp; native camera-data encoding is unverified.")
+    }
     guard s.picture?.chromaKey == nil,s.picture?.colorize == nil else { throw RaceError.invalid("Source chroma key/colorize edits require .orrp; native encoding is unverified.") }
     guard ["video","audio","data"].contains(s.kind) else { throw RaceError.invalid("‘\(s.name)’: unsupported RaceRender input type \(s.kind).") }
     // RCZ has no verified native RR3 reader. A future CSV sidecar exporter can represent it.

@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 343 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 349 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -41,13 +41,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F29: DrawTime precision/compact modes, bounded Print diagnostics, location/source names, distinct overall/current/previous records and documented type restrictions implemented; see [script semantics](script-semantics.md).
 
-Next feature: **F30 — embedded GoPro telemetry extraction**, after committing/pushing F29. F28 `e3d82a7` passed CI40571284178.
+- F30: bounded GoPro GPS5/GPS9/ACCL/GYRO extraction, optional import offers, camera-linked timing/sequence identities, saved sources and manual sync implemented; see [camera telemetry](camera-telemetry.md).
+
+Next feature: **F31 — additional logger formats and multi-session selection**, after committing/pushing F30. F29 `cc39cf8` passed CI40574555783.
 
 ## Remaining queue
 
-F30, F31, F32, F33, F34, F35, F36.
+F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F30 handoff — extraction and media validated, native UI limited
+
+- Own bounded ISO movie reader skips video payloads, handles gpmd sample/chunk clocks, 32/64-bit offsets, composition offsets and leading-empty/simple rate-one edits with active bounds. Limits/cancellation/failure diagnostics avoid loading whole movies. Pinned official GoPro GPMF decoder at9a7150632892c7356c91145c889016f07b0ed48d vendored unmodified under MIT option; all original licenses/notices preserved and copied to app Resources. No proprietary RaceRender source/assets added.
+- GPS5/GPS9 scaled/fix/DOP/UTC, ACCL/GYRO union table, movie-zero and missing-GPS rows supported. Packet spacing approximation and camera-axis/vehicle-G distinction explicit. No automatic GPS-accuracy-from-DOP or vehicle-G-from-camera-axis mapping. Movies remain video by normal Add/Finder dispatch; inspect-data can read directly and saved data inputs reference movie paths.
+- Nonmodal optional camera offer and existing-video inspector action; worker extraction commits one Undo with revision/source checks. External data mappings retained. Optional cameraVideoID tracks physical clip trims/rate/delay/joins/loops; residual offset/manualsync/frame nudges work through placements. SequenceDraft root conversion remaps the association to its new physical child. Linked data trim/rate editing disabled; remove linked data before source removal/relink to prevent stale references. Multiple physical files keep separate data inputs; no fabricated cross-file concatenation. Templates strip associations; native writer refuses unverified encoding.
+- 349 tests pass (279core/70editor) with authorized library/graphics, no skips. Four core/two editor additions cover sample scaling, fix/UTC/zero, 64-bit chunks, malformed inputs, linked trim/rate/loop/sequence identity/persistence/templates, optional imports, external mapping, atomic failure/Undo. validate-camera-telemetry constructs original video+GPMF and an independent CSV with residual-shifted values; exact snapshots match across rate/trim/loops. Marked full/chunk encode comparisons pass. Visual snapshot inspected. Logs build/validation/camera-telemetry; private real session/oracle ignored.
+- Real GX012821.MP4 read:109102rows,538.78825s,ACCL/GYRO present,GPS absent. Independent upstream demo MP4 reader verifies packet90timestamp90.09/scaled axes within4e-12. No private telemetry printed/committed. Native UI retried via CUA:cgWindowNotFound, no live/native parity claim. Mirrored data acquisition/multiple-input guides and official GoPro primary docs read. F29CI40574555783 success. Commit/push F30 before F31; no compaction wait required.
 
 ## F29 handoff — explicit semantics/media validated, native edge cases limited
 

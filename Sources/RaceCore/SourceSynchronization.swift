@@ -27,6 +27,7 @@ extension RaceProject {
       target.sourceTime < (inputs[index].timing?.trimEnd ?? inputs[index].duration) else {
       throw RaceError.invalid("Choose a different independent target input and a frame before its end. Joined targets must be synchronized through their stream timing.")
     }
+    if inputs[index].cameraVideoID != nil,rate != nil {throw RaceError.invalid("Embedded data follows its camera’s playback rate. Adjust the camera rate or synchronize with an offset only.")}
     if let rate, !rate.isFinite || rate < 0.01 || rate > 100 { throw RaceError.invalid("Playback rate must be between 0.01 and 100.") }
     let time = try projectTime(for:reference)
     guard !placements.contains(where:{$0.input.id == reference.inputID && $0.rootIndex == inputs[index].legacyIndex}) else {

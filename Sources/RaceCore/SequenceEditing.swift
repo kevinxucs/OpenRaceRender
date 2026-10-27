@@ -22,6 +22,9 @@ public struct SequenceDraft: Equatable, Sendable {
       child.joinedTo = rootIndex; child.timing?.projectStart = 0; child.timing?.loop = nil
       originalIDs[child.id] = source.id
       self.project.inputs.replaceSubrange(index...index,with:[root,child])
+      for i in self.project.inputs.indices where self.project.inputs[i].cameraVideoID == source.id {
+        self.project.inputs[i].cameraVideoID = child.id
+      }
     }
     self.project.refreshSequenceDurations()
   }
