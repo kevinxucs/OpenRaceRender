@@ -469,6 +469,7 @@ struct DataControls: View {
       VStack(alignment: .leading, spacing: 12) {
         Button("Configure columns / data profiles…") { model.configureData(input) }
         Text("Map session time, location, lap numbers and telemetry; set units; import or export a reusable profile.").font(.caption).foregroundStyle(muted)
+        DataSmoothingControls(settings:settings)
         DerivedMotionControls(settings:settings,data:data)
         GearEstimationControls(settings:settings,data:data,model:model,inputIndex:input.legacyIndex)
         Divider()

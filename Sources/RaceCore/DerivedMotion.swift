@@ -26,6 +26,7 @@ extension Telemetry {
     guard let (xi,yi,gps) = mapColumns else { mapPoints = []; mapLongitudeFactor = 1; return }
     let x = columns[xi], y = columns[yi]
     mapLongitudeFactor = gps ? cos((y.first(where:\.isFinite) ?? 0) * .pi/180) : 1
+    if !positionSlopes.isEmpty { mapPoints = trackPoints(from:0,to:duration); return }
     mapPoints = stride(from:0,to:count,by:max(1,count/4000)).compactMap { i in
       x[i].isFinite && y[i].isFinite ? (x[i]*mapLongitudeFactor,y[i]) : nil
     }

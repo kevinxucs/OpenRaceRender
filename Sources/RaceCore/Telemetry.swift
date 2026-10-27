@@ -21,6 +21,9 @@ public final class Telemetry: @unchecked Sendable {
   public internal(set) var headers: [String]
   public internal(set) var times: [Double]
   var interpolationEnabled = true
+  var maximumInterpolationGap = Double.infinity
+  var positionSlopes:[Int:[Double]] = [:]
+  let averageCache:NSCache<NSString,TelemetryAverageSeries> = { let cache = NSCache<NSString,TelemetryAverageSeries>(); cache.countLimit = 8; cache.totalCostLimit = 128*1024*1024; return cache }()
   var recordedState:TelemetryRecordedState?
   var provenance:[Int:ChannelProvenance] = [:]
   var circularColumns = Set<Int>()
@@ -224,6 +227,7 @@ public final class Telemetry: @unchecked Sendable {
   }
   func invalidateValueCaches() {
     renderRevision += 1
+    averageCache.removeAllObjects(); positionSlopes.removeAll()
     boundsLock.lock(); cachedBounds.removeAll(); boundsLock.unlock()
   }
 
@@ -303,9 +307,11 @@ public final class Telemetry: @unchecked Sendable {
     guard t >= 0, t <= duration + 0.1, let c = channelIndex(channel) else { return nil }
     let i = index(at: t)
     let v = columns[c][i]
+    if i+1 < count,t > times[i],times[i+1]-times[i] > maximumInterpolationGap { return nil }
     guard v.isFinite else { return nil }
     if interpolate && interpolationEnabled && !discreteColumns.contains(c) && i + 1 < times.count, times[i + 1] > times[i], columns[c][i + 1].isFinite {
       let fraction = max(0,min(1,(t-times[i])/(times[i+1]-times[i])))
+      if let curved = curvedPosition(c,index:i,fraction:fraction) { return curved }
       if circularColumns.contains(c) {
         let delta = Self.headingDelta(from:v,to:columns[c][i+1])
         return Self.normalHeading(v+delta*fraction)
@@ -314,9 +320,9 @@ public final class Telemetry: @unchecked Sendable {
     }
     return circularColumns.contains(c) ? Self.normalHeading(v) : v
   }
-  public func speed(at t: Double, unit: String, channel: String = "speed") -> Double? {
+  public func speed(at t: Double, unit: String, channel: String = "speed", smoothing:Double = 0) -> Double? {
     let mps: Double
-    if let v = value(channel, at: t), let c = channelIndex(channel) {
+    if let v = (smoothing > 0 ? averagedValue(channel,at:t,window:smoothing) : value(channel,at:t)), let c = channelIndex(channel) {
       let h = headers[c].lowercased()
       mps = h.contains("mph") ? v / 2.2369362921 : (h.contains("knot") ? v * 0.514444 : (h.contains("km") || h == "kph" ? v / 3.6 : v))
     } else if channel == "speed", channelIndex(channel) == nil, let lat = aliases["lat"], let lon = aliases["lon"], times.count > 1 {
@@ -342,6 +348,12 @@ public final class Telemetry: @unchecked Sendable {
     guard start.isFinite,end.isFinite,start <= end else { return [] }
     let first = index(at:max(0,start)),last = index(at:min(duration,end))
     guard first <= last else { return [] }
+    if !positionSlopes.isEmpty {
+      let a = max(0,start),b = min(duration,end)
+      guard b >= a else { return [] }
+      let samples = min(4000,max(1,(last-first)*8))
+      return (0...samples).compactMap { trackPosition(at:a+(b-a)*Double($0)/Double(samples)) }
+    }
     let step = max(1,(last-first)/4000)
     return stride(from:first,through:last,by:step).compactMap { trackPosition(at:times[$0]) }
   }

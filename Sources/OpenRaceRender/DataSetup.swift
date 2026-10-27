@@ -112,7 +112,10 @@ struct DataSetupSheet:View {
       Text(request.url.lastPathComponent).foregroundStyle(.secondary)
       HStack(alignment:.top,spacing:20) {
         ScrollView {
-          Form { DataAssignmentControls(settings:$settings,headers:request.headers) }.padding(8)
+          Form {
+            DataSmoothingControls(settings:$settings)
+            DataAssignmentControls(settings:$settings,headers:request.headers)
+          }.padding(8)
         }.frame(width:380)
         ScrollView { VStack(alignment:.leading,spacing:12) {
           Text("Map recorded columns, then preview to check the session clock and values. Nothing is applied until you choose Apply.").font(.callout)

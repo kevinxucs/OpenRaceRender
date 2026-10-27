@@ -190,11 +190,8 @@ public enum OverlayRenderer {
         if i == 0 { c.move(to: q) } else { c.addLine(to: q) }
       }
       c.strokePath()
-      let x = d.value(d.aliases["x"] != nil ? "x" : "lon", at: time)
-      let y = d.value(d.aliases["y"] != nil ? "y" : "lat", at: time)
-      if let x = x, let y = y {
-        let factor = d.aliases["x"] == nil ? cos((d.value("lat", at: 0) ?? y) * Double.pi / 180) : 1
-        let q = point(x * factor, y)
+      if let position = d.trackPosition(at:time) {
+        let q = point(position.0,position.1)
         let radius = max(3, s * 0.028)
         c.setFillColor(color(accent))
         c.fillEllipse(

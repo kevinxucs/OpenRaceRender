@@ -178,7 +178,8 @@ enum LegacyStyledRenderer {
   static func gauge(_ c: CGContext,object o: DisplayObject,data: Telemetry?,time: Double,unit: String,rect r: CGRect,scale: Double,payload d: Data) {
     let g = o.gauge ?? GaugeSettings(),radius = min(r.width,r.height)*0.48
     let range = max(0.00001,o.maximum-o.minimum)
-    let value = o.kind == .speed ? data?.speed(at:time,unit:unit,channel:o.resolvedChannel) : data?.value(o.resolvedChannel,at:time)
+    let smoothing = d[619] & 2 != 0 ? 0.2 : 0.0
+    let value = o.kind == .speed ? data?.speed(at:time,unit:unit,channel:o.resolvedChannel,smoothing:smoothing) : data?.averagedValue(o.resolvedChannel,at:time,window:smoothing)
     func point(_ factor: Double,_ distance: Double) -> CGPoint {
       let angle = gaugeAngle(g,factor:factor)
       return CGPoint(x:r.midX+cos(angle)*distance,y:r.midY+sin(angle)*distance)

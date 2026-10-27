@@ -20,17 +20,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 263 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 270 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
-- F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
+- F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
+- F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F18 — configurable telemetry and gauge smoothing**, after committing/pushing F17. F16 is pushed as `3631137`; CI40517708455 succeeded.
+Next feature: **F19 — richer GPS start/finish and track selection**, after committing/pushing F18. F17 is pushed as `1d4d49b`; CI40523658268 succeeded.
 
 ## Remaining queue
 
-F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F18 handoff — implementation validated, live UI limited
+
+- Data smoothness controls expose existing interpolation as virtual sample-rate boosting, opt-in held GPS reconstruction and smooth map curves in source inspector and data-profile sheet. Profiles/projects persist settings; templates omit source settings. Defaults preserve existing interpolation and disable reconstruction/curves. Known native Boost flag roundtrips; unverified GPS/curve flag rewrites refused.
+- TelemetrySmoothing reconstructs repeated coordinate pairs and non-OBD speed only with observed slower cadence (>=3 updates, <half samples changed), skipping nonfinite values, gaps and prolonged holds. Source times unchanged, raw snapshot restores on reconfigure; motion estimates follow reconstructed samples. Position-only bounded monotone Hermite slopes supply both trace/marker; resampled paths capped near4000. Visual curves do not alter lap boundaries; traces still connect available points across gaps (marker absent during pause).
+- Adaptive >max(2s,5median intervals) gaps no longer interpolate readings. Automatic lap aliases explicitly discrete. Native map marker now uses same mapColumns/projection/curve path as trace, including partial-XY fallback.
+- Gauge averaging replaces nine uniform samples with cached exact time-weighted integrals (piecewise linear/held), circular heading means, discrete bypass, end clipping and missing-window fallback. NSCache limit8/128MB, O(n) prep/O(log n) queries, source reconfigure clears cache. Existing expanded smoothing UI clamped0..10; traditional imported needle flag uses shared0.2sec average. No exact native algorithm parity claim.
+- 270 tests (220 core/50 editor) pass; six new core/one editor tests cover irregular/edge/circular/discrete/gap/order/cache resets, held GPS/stops/OBD/clock preservation, curve bounds/trace-marker, profiles/native refusal and source undo/templates. validate-smoothing passes analytical snapshots, encoded frames and nonzero-start full-vs-chunk comparison. validate-data-profiles and validate-derived-motion regressions pass. Synthetic local1s640x360 encode0.379s, not general performance/native benchmark. Artifacts under build/validation/smoothing; app/ZIP signed/verified with authorized local library.
+- Mirrored InputFileEdit and DispObjGaugeDesign guides reviewed; F17 CI40523658268 succeeded. Commit/push F18, verify CI, then continue F19 sequentially. Native/editor GUI still cgWindowNotFound; no new live UI claim.
 
 ## F17 handoff — implementation validated, live UI limited
 

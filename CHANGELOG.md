@@ -1,5 +1,10 @@
 # Changelog
 
+## F18 — Telemetry and gauge smoothing
+
+- Source boosting controls, opt-in held GPS reconstruction, bounded map curves shared by trace/marker, discrete lap preservation and interpolation gap protection.
+- Cached time-weighted gauge averages support irregular clocks, heading wrap and independent chunk/seek results; imported traditional smoothing flags use the shared calculation. See [workflow and limits](docs/smoothing.md).
+
 ## F17 — Data configuration and reusable profiles
 
 - Complete recorded-role mappings, custom session clocks, time units, explicit speed units/multipliers and GPS accuracy conversion in a private preview/apply sheet. Unknown CSV clock imports can be recovered without editing source files.

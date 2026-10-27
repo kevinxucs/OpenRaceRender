@@ -21,7 +21,8 @@ struct GaugeDesignControls: View {
         }
         Toggle("Automatic minimum", isOn: settings.automaticMinimum)
         Toggle("Automatic maximum", isOn: settings.automaticMaximum)
-        NumberSetting("Smooth over seconds", value: settings.smoothing)
+        NumberSetting("Average over seconds (0–10)", value: Binding(get:{settings.wrappedValue.smoothing},set:{settings.wrappedValue.smoothing = $0.isFinite ? min(10,max(0,$0)) : 0}))
+        Text("Centered time-weighted average; 0 disables it. It preserves heading wrap, gear steps and missing-data gaps.").font(.caption2).foregroundStyle(muted)
         Toggle("Nonlinear scale", isOn: Binding(get: { settings.wrappedValue.splitValue != nil }, set: {
           settings.wrappedValue.splitValue = $0 ? (object.minimum + object.maximum) / 2 : nil
         }))

@@ -25,15 +25,9 @@ enum GaugeDesignerRenderer {
     let measured = o.kind == .speed ? LegacyEnhancedRenderer.channelBounds(channel, data: data, unit: unit) : data?.bounds(channel)
     let minimum = d.automaticMinimum ? measured?.0 ?? o.minimum : o.minimum
     let maximum = max(minimum + 0.00001, d.automaticMaximum ? measured?.1 ?? o.maximum : o.maximum)
-    func sample(_ t: Double) -> Double? {
-      o.kind == .speed ? data?.speed(at: t, unit: unit, channel: channel) : data?.value(channel, at: t)
-    }
-    var value = sample(time)
-    if d.smoothing.isFinite, d.smoothing > 0 {
-      let span = min(10, d.smoothing)
-      let values = (0..<9).compactMap { sample(time + (Double($0) / 8 - 0.5) * span) }
-      if !values.isEmpty { value = values.reduce(0, +) / Double(values.count) }
-    }
+    let value = o.kind == .speed
+      ? data?.speed(at:time,unit:unit,channel:channel,smoothing:d.smoothing)
+      : data?.averagedValue(channel,at:time,window:d.smoothing)
     let radius = min(r.width, r.height) * 0.46
     guard radius > 0 else { return true }
     let sweep = settings.sweep.isFinite ? max(1, min(360, settings.sweep)) : 270

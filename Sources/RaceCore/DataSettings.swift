@@ -44,6 +44,8 @@ public struct DataSettings: Codable, Equatable, Sendable {
   public var gearEstimation:GearEstimationSettings?
   public var gearAdjustment: Double?
   public var ignoreLapTriggers: Int?
+  public var detectGPSUpdates:Bool?
+  public var smoothCurves:Bool?
   public var interpolate: Bool?
   public init() {}
 }
@@ -56,6 +58,7 @@ extension Telemetry {
     for (alias, header) in settings.assignments where !header.isEmpty {
       if let i = headers.firstIndex(where:{$0.caseInsensitiveCompare(header) == .orderedSame}) { aliases[alias] = i }
     }
+    if let lap = aliases["lap"] { discreteColumns.insert(lap) }
     sourceHeaders = Dictionary(uniqueKeysWithValues:aliases.compactMap { role,index in headers.indices.contains(index) ? (role,headers[index]) : nil })
     let units = settings.timeUnitsPerSecond.flatMap{$0.isFinite && $0 > 0 ? $0 : nil} ?? 1
     if let name = settings.assignments["time"],!name.isEmpty,
@@ -85,6 +88,7 @@ extension Telemetry {
     if let multiplier = settings.accuracyMultiplier,multiplier.isFinite,multiplier > 0 {
       transformed("accuracy",name:"Configured GPS accuracy (m)"){$0*multiplier}
     }
+    prepareSmoothing(settings)
     deriveMotion(settings)
     let headingAdjustment = settings.headingAdjustment.flatMap { $0.isFinite ? $0 : nil } ?? 0
     if settings.reverseHeading == true || headingAdjustment != 0 {
