@@ -14,16 +14,26 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F08: data-controlled embedded images, deterministic flashing, source-role/artwork handling and native image record repair implemented; see [scope and validation limits](image-controls.md).
 - F09: shared background editor, transform/key baking, external file draft workflow, whole-widget preview and explicit background clear implemented; see [validation limits](background-editor.md).
 - F10: timeline zoom/navigation, retime/shift, field inheritance, explicit parameter clears and group event restoration implemented; see [timeline controls](timeline-editing.md).
-- Validation: 204 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
-- F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
+- F11: paired source trim previews and graphical pixel crop/zoom, physical joined-clip playhead capture, input image picture rendering and portable adjusted artwork implemented; see [source tools](source-tools.md).
+- Validation: 212 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F11 — visual trim/crop**. F09 is pushed as `20755d7` (CI 40477172992 succeeded). F10 is validated and ready to commit/push before F11.
+Next feature: **F12 — guided project setup and primary-input length binding**, after committing/pushing F11. F10 is pushed as `55456fc`; its CI exposed compiler type-check timeouts. The extent expression was simplified in `3141737`; a second marker-view expression is extracted in F11. Both fixes pass locally; verify the next CI run.
 
 ## Remaining queue
 
-F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F11 handoff — implementation validated, live UI limited
+
+- `SourceEditing.swift` adds source-pixel crop geometry with edge clamps, 5% minimum dimensions, letterbox drag mapping, nudges and centered zoom. Physical trim drafts retain synchronization, delay, rate, loop and export marks; invalid bounds fail transactionally.
+- `SourceMediaTools.swift`/`SourceCropEditor.swift` add inspector sheets, metadata-backed source duration/FPS/dimensions, cancellable first/last/video-frame thumbnails, source-frame steps, data speed/RPM/G/map previews, playhead capture and result preview. Draw/move/corner-resize and pixel fields edit private drafts, then apply one input binding assignment. Virtual roots excluded; physical join members supported. Nominal FPS is not exact VFR stepping.
+- Image-source picture controls previously did not render; file-backed image displays now apply them even when mapped to telemetry. Relinking matches artwork paths, including events. Portable templates bake input picture settings into original artwork, including event/history records, without applying unrelated image-source settings twice.
+- 212 tests pass with local library/graphics (179 core/33 editor). Six core/two editor tests cover trim geometry/timing, validation, draft isolation/undo, physical joined inputs and exact portable-image pixels. Existing relink regression covers mapped image paths/events. The original synthetic `validate-source-tools.py` checks physical trim frames, crop, legacy reopening at matching dimensions, retained In/Out and encoded output. Logs in `build/validation/source-tools`.
+- Mirrored InputFileTrim/InputFileCrop guides read. RaceRender still returns `cgWindowNotFound`; native and updated-sheet live operation remain unverified. No user originals edited. Local release includes the authorized library; no vendor/private resources enter git.
+- F10 CI 40480567942 failed on timelineExtent type-checking, fixed in pushed3141737. CI40483024789 exposed another long marker-button expression; F11 extracts `TimelineEventMarker`. Verify F11 CI before starting F12. Continue feature-by-feature commits/pushes without waiting for manual compaction.
 
 ## F10 handoff — implementation validated, live UI limited
 

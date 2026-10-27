@@ -1,5 +1,11 @@
 # Changelog
 
+## F11 — Visual source trimming and crop
+
+- Private source-bound trim drafts with first/last previews, frame steps, playhead capture and data visualization. Preserve synchronization, playback settings and export marks.
+- Graphical pixel crop, corner resizing, movement, edge fields, nudges, zoom and result preview for video/stills. Image-source picture settings now render and survive portable template export. See [workflow and limits](docs/source-tools.md).
+- Simplified timeline extent calculation to avoid a type-checking timeout on the CI Swift toolchain.
+
 ## F10 — Timeline editing and inheritance
 
 - Shared zoom/window navigation, event selection/details, exact-time/frame moves, following-event shifts and per-field inherit/freeze controls. Undo/redo keeps the retimed event selected.

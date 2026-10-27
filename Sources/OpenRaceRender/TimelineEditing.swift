@@ -1,6 +1,27 @@
 import RaceCore
 import SwiftUI
 
+struct TimelineEventMarker: View {
+  @ObservedObject var model: EditorModel
+  var object: DisplayObject
+  var segment: ObjectSegment
+  var width: CGFloat
+  private var selected: Bool { object.id == model.selected && model.editingSegment == segment.time }
+  private var position: CGFloat {
+    let fraction = (segment.time-model.timelineLower)/model.timelineSpan
+    return max(0,min(width-5,width*fraction))
+  }
+  private var detail: String {
+    let fields = segment.changedFields.map { $0.title }.joined(separator:", ")
+    return clockText(segment.time)+" · "+fields
+  }
+  var body: some View {
+    Button { model.selectSegment(object.id,at:segment.time) } label: {
+      Rectangle().fill(selected ? Color.white : mint).frame(width:5,height:18)
+    }.buttonStyle(.plain).offset(x:position).help(detail)
+  }
+}
+
 extension EditorModel {
   func restoreEditingSegment(_ event: UUID?) {
     guard let editingSegment else { return }

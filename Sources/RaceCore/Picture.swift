@@ -22,7 +22,7 @@ public enum PictureProcessor {
     let primaries = CVBufferCopyAttachment(frame,kCVImageBufferColorPrimariesKey,nil) as? String
     return settings?.legacyColorInterpretation == true && (matrix == kCVImageBufferYCbCrMatrix_ITU_R_709_2 as String || (matrix == nil && primaries == kCVImageBufferColorPrimaries_ITU_R_709_2 as String)) ? legacy601(image) : image
   }
-  static func source(_ cg: CGImage,settings: PictureSettings?) -> CIImage {
+  public static func source(_ cg: CGImage,settings: PictureSettings?) -> CIImage {
     let image = CIImage(cgImage:cg,options:[.colorSpace:NSNull()])
     let name = cg.colorSpace?.name as String? ?? ""
     return settings?.legacyColorInterpretation == true && name.contains("709") ? legacy601(image) : image
@@ -72,6 +72,15 @@ public enum PictureProcessor {
     image = image.transformed(by:CGAffineTransform(translationX:destination.minX,y:destination.minY)).cropped(to:rect)
     if opacity < 1 { image = image.applyingFilter("CIColorMatrix",parameters:["inputAVector":CIVector(x:0,y:0,z:0,w:max(0,opacity))]) }
     return image
+  }
+  /// Bake input picture settings into portable artwork before dropping its source role.
+  public static func png(_ data: Data, settings: PictureSettings) throws -> Data {
+    let bytes = LegacyArtwork.png(data) ?? data
+    guard let cg = NSImage(data:bytes)?.cgImage(forProposedRect:nil,context:nil,hints:nil) else { throw RaceError.invalid("Cannot decode source artwork.") }
+    let result = apply(CIImage(cgImage:cg),settings:settings)
+    guard let image = CIContext().createCGImage(result,from:result.extent,format:.RGBA8,colorSpace:OverlayRenderer.colorSpace),
+      let png = NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else { throw RaceError.invalid("Cannot embed the adjusted source artwork.") }
+    return png
   }
   public static func apply(_ original: CIImage, settings s: PictureSettings) -> CIImage {
     let b = original.extent

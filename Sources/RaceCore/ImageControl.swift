@@ -101,7 +101,7 @@ public enum ImageRenderer {
     images.setObject(ImageBox(cg),forKey:key,cost:cg.bytesPerRow*cg.height); return cg
   }
   @discardableResult public static func draw(_ c: CGContext, object o: DisplayObject, rect: CGRect,
-    data: Telemetry?, sourceTime: Double, projectTime: Double) -> Bool {
+    data: Telemetry?, sourceTime: Double, projectTime: Double, inputPicture: PictureSettings? = nil) -> Bool {
     let available = data.map { sourceTime >= 0 && sourceTime <= $0.duration } ?? false
     let state = ImageControlState.resolve(o.imageControl,value:available ? data?.value(o.resolvedChannel,at:sourceTime) : nil,
       sourceAvailable:available,projectTime:projectTime)
@@ -125,7 +125,7 @@ public enum ImageRenderer {
     picture.hue = hue > 180 ? hue-360 : hue < -180 ? hue+360 : hue
     c.saveGState()
     if state.rotation != 0 { c.translateBy(x:rect.midX,y:rect.midY); c.rotate(by:state.rotation * .pi/180); c.translateBy(x:-rect.midX,y:-rect.midY) }
-    PictureProcessor.draw(c,image:CIImage(cgImage:cg),in:rect,opacity:o.opacity*state.opacity,object:picture,context:context)
+    PictureProcessor.draw(c,image:CIImage(cgImage:cg),in:rect,opacity:o.opacity*state.opacity,input:inputPicture,object:picture,context:context)
     c.restoreGState(); return true
   }
 }

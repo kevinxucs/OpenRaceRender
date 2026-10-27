@@ -111,7 +111,11 @@ extension RaceProject {
       p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].legacyTrackIndex = nil
     }
     let kinds = Dictionary(p.objects.map { ($0.id,$0.kind) }, uniquingKeysWith: { first, _ in first })
-    func portable(_ original: ObjectSegment, kind: ObjectKind) throws -> ObjectSegment {
+    let originals = Dictionary(objects.map { ($0.id,$0) },uniquingKeysWith:{first,_ in first})
+    func imagePicture(index: Int, path: String) -> PictureSettings? {
+      inputs.first { $0.kind == "image" && !path.isEmpty && $0.path == path }?.picture
+    }
+    func portable(_ original: ObjectSegment, kind: ObjectKind, id: UUID) throws -> ObjectSegment {
       var segment = original
       if let path = segment.gauge?.backgroundPath {
         segment.gauge?.backgroundImage = try Data(contentsOf:URL(fileURLWithPath:path)); segment.gauge?.backgroundPath = nil
@@ -119,10 +123,21 @@ extension RaceProject {
       if kind == .image, let path = segment.text, !path.isEmpty {
         segment.embeddedImage = try Data(contentsOf:URL(fileURLWithPath:path)); segment.text = ""
       }
+      if kind == .image, let base = originals[id],
+        original.artwork != nil || original.embeddedImage != nil || original.text != nil || original.inputIndex != nil,
+        let picture = imagePicture(index:original.inputIndex ?? base.inputIndex,path:original.text ?? base.text) {
+        var bytes = segment.artwork ?? segment.embeddedImage ?? base.artwork ?? base.embeddedImage
+        if bytes == nil, !(original.text ?? base.text).isEmpty {
+          bytes = try Data(contentsOf:URL(fileURLWithPath:original.text ?? base.text))
+        }
+        if let bytes, !bytes.isEmpty {
+          segment.artwork = try PictureProcessor.png(bytes,settings:picture); segment.embeddedImage = nil
+        }
+      }
       if let snapshots = segment.groupChildrenBefore {
         segment.groupChildrenBefore = try Dictionary(uniqueKeysWithValues:snapshots.compactMap { id, records in
           guard let memberKind = kinds[id] else { return nil }
-          return (id,try records.map { try portable($0,kind:memberKind) })
+          return (id,try records.map { try portable($0,kind:memberKind,id:id) })
         })
       }
       return segment
@@ -132,13 +147,19 @@ extension RaceProject {
       if p.objects[i].kind == .image, p.objects[i].embeddedImage == nil, p.objects[i].artwork == nil, !p.objects[i].text.isEmpty {
         p.objects[i].embeddedImage = try Data(contentsOf: URL(fileURLWithPath: p.objects[i].text))
       }
-      if p.objects[i].kind == .image { p.objects[i].text = "" }
+      if p.objects[i].kind == .image {
+        if let base = originals[p.objects[i].id], let picture = imagePicture(index:base.inputIndex,path:base.text),
+          let bytes = p.objects[i].artwork ?? p.objects[i].embeddedImage, !bytes.isEmpty {
+          p.objects[i].artwork = try PictureProcessor.png(bytes,settings:picture); p.objects[i].embeddedImage = nil
+        }
+        p.objects[i].text = ""
+      }
       if let path = p.objects[i].gauge?.backgroundPath {
         p.objects[i].gauge?.backgroundImage = try Data(contentsOf: URL(fileURLWithPath: path))
         p.objects[i].gauge?.backgroundPath = nil
       }
       let kind = p.objects[i].kind
-      p.objects[i].segments = try p.objects[i].segments?.map { try portable($0,kind:kind) }
+      p.objects[i].segments = try p.objects[i].segments?.map { try portable($0,kind:kind,id:p.objects[i].id) }
     }
     return p
   }

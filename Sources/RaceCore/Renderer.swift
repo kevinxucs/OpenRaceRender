@@ -86,7 +86,8 @@ public enum OverlayRenderer {
         c.restoreGState(); continue
       }
       if o.kind == .image {
-        if !ImageRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time) {
+        let sourcePicture = scene.project.inputs.first { $0.kind == "image" && !o.text.isEmpty && $0.path == o.text }?.picture
+        if !ImageRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time,inputPicture:sourcePicture) {
           panel(c,r); text(c,"IMAGE",x:r.midX,y:r.midY,size:min(r.width,r.height)*0.1,color:"#97A6BA")
         }
       } else { renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit) }

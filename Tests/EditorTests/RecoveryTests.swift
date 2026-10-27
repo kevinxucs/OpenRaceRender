@@ -79,12 +79,15 @@ final class RecoveryTests: XCTestCase {
     try bitmap.representation(using: .png, properties: [:])!.write(to: replacement)
     let model = EditorModel()
     let input = MediaInput(name: "Logo", path: "/missing/old.png", kind: "image", legacyIndex: 8)
-    var display = DisplayObject(name: "Logo", kind: .image); display.inputIndex = 8; display.text = input.path
+    var display = DisplayObject(name: "Logo", kind: .image); display.inputIndex = 2; display.text = input.path
+    display.imageControl = ImageControlSettings()
+    var event = ObjectSegment(time:1); event.text = input.path; display.segments = [event]
     model.project.inputs = [input]; model.project.objects = [display]
     let before = model.project
     let success = await model.relink(input.id, to: replacement)
     XCTAssertTrue(success)
     XCTAssertEqual(model.project.objects[0].text, replacement.path)
+    XCTAssertEqual(model.project.objects[0].segments?.first?.text, replacement.path)
     model.undo()
     XCTAssertEqual(model.project, before)
   }

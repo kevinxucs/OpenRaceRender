@@ -614,8 +614,13 @@ import UniformTypeIdentifiers
         project.warnings += data.warnings.filter { !project.warnings.contains($0) }
       }
       if original.kind == "image" {
-        for j in project.objects.indices where project.objects[j].kind == .image && project.objects[j].inputIndex == original.legacyIndex && project.objects[j].text == original.path {
-          project.objects[j].text = url.path
+        for j in project.objects.indices where project.objects[j].kind == .image {
+          if project.objects[j].text == original.path { project.objects[j].text = url.path }
+          project.objects[j].segments = project.objects[j].segments?.map { record in
+            var record = record
+            if record.text == original.path { record.text = url.path }
+            return record
+          }
         }
       }
       configurePlayers()

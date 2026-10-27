@@ -82,6 +82,7 @@ struct InputTimingControls: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Trim & playback").font(.system(size: 13, weight: .semibold))
+      if input.isJoinRoot != true { SourceMediaTools(model:model,input:$input) }
       value("Trim start in source (s)", timing.trimStart)
       value("Trim end in source (s)", Binding(get: { timing.wrappedValue.trimEnd ?? input.duration }, set: { timing.wrappedValue.trimEnd = $0 }))
       value("Start within project (s)", timing.projectStart)
@@ -439,11 +440,7 @@ struct ObjectTracks: View {
                       model.seek(model.timelineLower+max(0,min(1,v.location.x/max(1,g.size.width)))*model.timelineSpan)
                     })
                   ForEach((object.segments ?? []).filter { $0.time >= model.timelineLower && $0.time <= model.timelineUpper }) { segment in
-                    Button { model.selectSegment(object.id,at:segment.time) } label: {
-                      Rectangle().fill(object.id == model.selected && model.editingSegment == segment.time ? Color.white : mint).frame(width:5,height:18)
-                    }.buttonStyle(.plain)
-                      .offset(x:max(0,min(g.size.width-5,g.size.width*(segment.time-model.timelineLower)/model.timelineSpan)))
-                      .help(clockText(segment.time)+" · "+segment.changedFields.map(\.title).joined(separator:", "))
+                    TimelineEventMarker(model:model,object:object,segment:segment,width:g.size.width)
                   }
                   Rectangle().fill(.white.opacity(0.6)).frame(width:1)
                     .offset(x:g.size.width*(model.time-model.timelineLower)/model.timelineSpan).allowsHitTesting(false)
