@@ -37,6 +37,12 @@ extension RaceProject {
             require(input.path, label: input.name)
           }
         }
+        if display.kind == .map,let comparison = display.mapComparison {
+          for index in [display.inputIndex,comparison.referenceInputIndex] {
+            if let input = inputs.first(where:{$0.legacyIndex == index && $0.kind == "data"}) { require(input.path,label:input.name) }
+            else { missing.insert(display.name + ": choose both comparison data inputs") }
+          }
+        }
         if display.gauge?.backgroundImage == nil, let path = display.gauge?.backgroundPath {
           require(path, label: display.name + " background")
         }

@@ -312,10 +312,11 @@ import UniformTypeIdentifiers
     if let length = project.lengthInputIndex, ids.contains(length) { project.lengthInputIndex = nil }
     project.objects.removeAll { ids.contains($0.inputIndex) }
     for i in project.objects.indices {
+      if let index = project.objects[i].mapComparison?.referenceInputIndex,ids.contains(index) { project.objects[i].mapComparison?.referenceInputIndex = -1 }
       project.objects[i].segments = project.objects[i].segments?.map { segment in
         var segment = segment
         if let index = segment.inputIndex, ids.contains(index) { segment.visible = false; segment.inputIndex = nil }
-        return segment
+        return segment.remappingSources { ids.contains($0) ? -1 : $0 }
       }
     }
     for index in ids { telemetry.removeValue(forKey: index) }
@@ -437,15 +438,9 @@ import UniformTypeIdentifiers
     }
   }
   nonisolated static func loadTelemetry(_ p: RaceProject) async throws -> [Int: Telemetry] {
-    try await Task.detached {
-      var result: [Int: Telemetry] = [:]
-      for input in p.inputs where input.kind == "data" && input.exists {
-        let data = try Telemetry(url: URL(fileURLWithPath: input.path), settings: input.dataSettings)
-        result[input.legacyIndex] = data
-      }
-      return result
-    }.value
+    try await Task.detached { try Telemetry.loadSources(p.inputs) }.value
   }
+
   func save(as saveAs: Bool = false) {
     var url = fileURL
     if saveAs || url == nil {

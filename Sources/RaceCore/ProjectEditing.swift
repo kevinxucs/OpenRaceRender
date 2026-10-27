@@ -68,6 +68,7 @@ extension RaceProject {
         return inputs.first { $0.kind == kind && $0.joinedTo == nil }?.legacyIndex ?? -1
       }
       object.inputIndex = remap(object.inputIndex)
+      if let index = object.mapComparison?.referenceInputIndex { object.mapComparison?.referenceInputIndex = remap(index) }
       object.segments = object.segments?.map { segment in
         var segment = segment.remappingGroupSnapshots(identities)
         segment = segment.remappingSources(remap)
@@ -116,7 +117,7 @@ extension RaceProject {
       inputs.first { $0.kind == "image" && !path.isEmpty && $0.path == path }?.picture
     }
     func portable(_ original: ObjectSegment, kind: ObjectKind, id: UUID) throws -> ObjectSegment {
-      var segment = original
+      var segment = original.portableMapComparison()
       if let path = segment.gauge?.backgroundPath {
         segment.gauge?.backgroundImage = try Data(contentsOf:URL(fileURLWithPath:path)); segment.gauge?.backgroundPath = nil
       }
@@ -143,6 +144,7 @@ extension RaceProject {
       return segment
     }
     for i in p.objects.indices {
+      p.objects[i].mapComparison?.primaryLapStart = nil; p.objects[i].mapComparison?.referenceLapStart = nil
       p.objects[i].legacyOffset = nil
       if p.objects[i].kind == .image, p.objects[i].embeddedImage == nil, p.objects[i].artwork == nil, !p.objects[i].text.isEmpty {
         p.objects[i].embeddedImage = try Data(contentsOf: URL(fileURLWithPath: p.objects[i].text))

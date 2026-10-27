@@ -79,12 +79,17 @@ public struct GPSTrackSample:Identifiable,Sendable {
   public init(time:Double,latitude:Double,longitude:Double) { self.time = time; self.latitude = latitude; self.longitude = longitude }
 }
 extension Telemetry {
-  public func gpsTrackSamples(maximum:Int = 4000) -> [GPSTrackSample] {
+  public func gpsTrackSamples(maximum:Int = 4000,interpolateCurves:Bool = false) -> [GPSTrackSample] {
     guard aliases["lat"] != nil,aliases["lon"] != nil,maximum > 1 else { return [] }
     let step = max(1,Int(ceil(Double(count)/Double(maximum))))
-    return stride(from:0,to:count,by:step).compactMap { i in
-      guard let lat = value("lat",at:times[i]),abs(lat) <= 90,let lon = value("lon",at:times[i]),abs(lon) <= 180 else { return nil }
-      return GPSTrackSample(time:times[i],latitude:lat,longitude:lon)
+    let clocks:[Double]
+    if interpolateCurves,!positionSlopes.isEmpty {
+      let intervals = min(maximum-1,max(1,(count-1)*8))
+      clocks = (0...intervals).map{duration*Double($0)/Double(intervals)}
+    } else { clocks = stride(from:0,to:count,by:step).map{times[$0]} }
+    return clocks.compactMap { time in
+      guard let lat = value("lat",at:time),abs(lat) <= 90,let lon = value("lon",at:time),abs(lon) <= 180 else { return nil }
+      return GPSTrackSample(time:time,latitude:lat,longitude:lon)
     }
   }
 }

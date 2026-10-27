@@ -1,5 +1,10 @@
 # Changelog
 
+## F20 — Two-run map comparison and lap ghosts
+
+- Shared GPS projection/bounds, filled/hollow markers, optional reference course, source labels, synchronized clocks or equal-elapsed lap ghosts that retain recorded pace.
+- Independent data duplication and lap-start alignment, shared telemetry tables, timeline/template role handling, missing-reference preflight and undo. See [workflow and limits](docs/map-comparison.md).
+
 ## F19 — GPS finish-line editor and saved tracks
 
 - Private map/coordinate gate editing, motion/manual heading, coordinate and heading tolerances, interpolated/sample precision, ignored calculated or recorded triggers, lap previews and one-step Apply/Undo.

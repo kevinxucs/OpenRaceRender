@@ -70,6 +70,7 @@ extension DisplayObject {
     var result = style
     result.id = id; result.name = name; result.kind = kind
     result.inputIndex = inputIndex; result.channel = channel
+    result.mapComparison = mapComparison
     result.x = x; result.y = y; result.width = width; result.height = height
     result.opacity = opacity; result.visible = visible; result.start = start; result.end = end
     result.segments = segments; result.parentIndex = parentIndex; result.parentID = parentID

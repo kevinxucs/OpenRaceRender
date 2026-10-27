@@ -178,6 +178,7 @@ public enum LegacyWriter {
   static func record(_ object: DisplayObject, sources: [Int:Int], parents: [Int:Int]) throws -> Record {
     let o = object
     func unsupported(_ detail: String) -> RaceError { .invalid("‘\(o.name)’: \(detail) Save this project in .orrp format.") }
+    guard o.mapComparison == nil else { throw unsupported("Shared-map comparisons and lap ghosts require .orrp/.orrt.") }
     guard o.hud == nil else { throw unsupported("GT/HUD instruments have no equivalent RaceRender display.") }
     var common = o.legacyCommon?.count == 344 ? o.legacyCommon! : Data(repeating:0,count:344)
     var payload = o.legacyPayload ?? Data()

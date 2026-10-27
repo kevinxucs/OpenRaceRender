@@ -42,6 +42,23 @@ public final class Telemetry: @unchecked Sendable {
     laps.filter(\.complete).filter { $0.duration > 5 }.min { $0.duration < $1.duration }
   }
 
+  /// Inputs may have independent clocks while sharing one immutable recorded/configured table.
+  public static func loadSources(_ inputs:[MediaInput]) throws -> [Int:Telemetry] {
+    var result:[Int:Telemetry] = [:]
+    var tables:[(path:String,settings:DataSettings?,data:Telemetry)] = []
+    for input in inputs where input.kind == "data" && input.exists {
+      let url = URL(fileURLWithPath:input.path).standardizedFileURL
+      let data:Telemetry
+      if let cached = tables.first(where:{$0.path == url.path && $0.settings == input.dataSettings}) { data = cached.data }
+      else {
+        data = try Telemetry(url:url,settings:input.dataSettings)
+        tables.append((url.path,input.dataSettings,data))
+      }
+      result[input.legacyIndex] = data
+    }
+    return result
+  }
+
   public convenience init(url: URL, settings: DataSettings? = nil) throws {
     let d = try Data(contentsOf: url)
     guard d.count <= 512 * 1024 * 1024 else {

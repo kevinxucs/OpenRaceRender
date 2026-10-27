@@ -26,16 +26,23 @@ extension RaceProject {
       guard usesSource(kind,id:id), kind != .image || inputs.contains(where: { $0.legacyIndex == index && $0.kind == "data" }) else { return [] }
       return [index]
     }
-    func sources(_ segments: [ObjectSegment], kind: ObjectKind, id: UUID) -> [Int] {
-      segments.flatMap { segment in
-        segment.inputIndex.map { indexIfUsed($0,kind:kind,id:id) } ?? []
-      } + segments.flatMap { segment in
-        (segment.groupChildrenBefore ?? [:]).filter { included.contains($0.key) }
-          .flatMap { sources($0.value,kind:kinds[$0.key] ?? .group,id:$0.key) }
+    func sources(_ segments:[ObjectSegment],kind:ObjectKind,id:UUID) -> [Int] {
+      var result:[Int] = []
+      for segment in segments {
+        if let index = segment.inputIndex { result += indexIfUsed(index,kind:kind,id:id) }
+        if let comparison = segment.mapComparison { result.append(comparison.referenceInputIndex) }
+        for (child,records) in segment.groupChildrenBefore ?? [:] where included.contains(child) {
+          result += sources(records,kind:kinds[child] ?? .group,id:child)
+        }
       }
+      return result
     }
-    return Set(objects.filter { included.contains($0.id) }.flatMap {
-      indexIfUsed($0.inputIndex,kind:$0.kind,id:$0.id) + sources($0.segments ?? [],kind:$0.kind,id:$0.id)
-    }).intersection(Set(inputs.map(\.legacyIndex)))
+    var used = Set<Int>()
+    for object in objects where included.contains(object.id) {
+      used.formUnion(indexIfUsed(object.inputIndex,kind:object.kind,id:object.id))
+      if let comparison = object.mapComparison { used.insert(comparison.referenceInputIndex) }
+      used.formUnion(sources(object.segments ?? [],kind:object.kind,id:object.id))
+    }
+    return used.intersection(Set(inputs.map(\.legacyIndex)))
   }
 }

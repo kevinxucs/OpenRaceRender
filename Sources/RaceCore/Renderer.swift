@@ -73,6 +73,7 @@ public enum OverlayRenderer {
       if [.speed, .rpm, .gauge].contains(o.kind), GaugeDesignerRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }
+      if MapComparisonRenderer.draw(c,object:o,rect:r,scene:scene,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }

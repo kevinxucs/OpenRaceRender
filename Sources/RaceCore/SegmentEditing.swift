@@ -2,17 +2,18 @@ import Foundation
 
 public enum SegmentField: String, CaseIterable, Sendable, Identifiable {
   case visibility, source, position, size, opacity, channel, text, color, range, picture,
-    gauge, graph, imageControl, typography, shape, hud, audio, style, artwork
+    gauge, graph, mapComparison, imageControl, typography, shape, hud, audio, style, artwork
   public var id: String { rawValue }
   public var title: String {
     switch self { case .source:return "Data/media source"; case .imageControl:return "Image control"
-    case .typography:return "Text typography"; case .hud:return "HUD parameters"; case .style:return "Style / legacy parameters"
+    case .mapComparison:return "Map comparison"; case .typography:return "Text typography"; case .hud:return "HUD parameters"; case .style:return "Style / legacy parameters"
     default:return rawValue.capitalized }
   }
   public static func available(for o: DisplayObject) -> [Self] {
     if o.kind == .group { return [.visibility,.position,.size,.opacity] }
     var fields: [Self] = [.visibility,.source,.position,.size,.opacity,.channel,.text,.color,.range,.picture,.style,.artwork]
     if [.speed,.rpm,.gauge].contains(o.kind) { fields.append(.gauge) }
+    if o.kind == .map { fields.append(.mapComparison) }
     if o.kind == .graph { fields.append(.graph) }; if o.kind == .image { fields.append(.imageControl) }
     if o.kind == .text { fields.append(.typography) }; if o.kind == .shape { fields.append(.shape) }
     if o.hud != nil || (o.segments ?? []).contains(where: { $0.hud != nil || $0.clearedProperties?.contains(.hud) == true }) { fields.append(.hud) }; if [.video,.audio].contains(o.kind) { fields.append(.audio) }
@@ -24,7 +25,7 @@ extension ObjectSegment {
   public func overrides(_ field: SegmentField) -> Bool {
     let cleared: ObjectSegment.ClearedProperty?
     switch field {
-    case .picture:cleared = .picture; case .gauge:cleared = .gauge; case .graph:cleared = .graph
+    case .picture:cleared = .picture; case .gauge:cleared = .gauge; case .graph:cleared = .graph; case .mapComparison:cleared = .mapComparison
     case .imageControl:cleared = .imageControl; case .typography:cleared = .typography
     case .shape:cleared = .shape; case .hud:cleared = .hud; case .audio:cleared = .audio
     default:cleared = nil
@@ -35,7 +36,7 @@ extension ObjectSegment {
     case .position:return x != nil || y != nil; case .size:return width != nil || height != nil
     case .opacity:return opacity != nil; case .channel:return channel != nil; case .text:return text != nil
     case .color:return color != nil; case .range:return minimum != nil || maximum != nil
-    case .picture:return picture != nil; case .gauge:return gauge != nil; case .graph:return graph != nil
+    case .picture:return picture != nil; case .gauge:return gauge != nil; case .graph:return graph != nil; case .mapComparison:return mapComparison != nil
     case .imageControl:return imageControl != nil; case .typography:return typography != nil
     case .shape:return shape != nil; case .hud:return hud != nil; case .audio:return audio != nil
     case .style:return style != nil || legacyPayload != nil || legacyType != nil || legacyCommon != nil || !(clearedProperties ?? []).isDisjoint(with:[.legacyType,.legacyCommon,.legacyPayload]); case .artwork:return artwork != nil || embeddedImage != nil
@@ -55,6 +56,7 @@ extension ObjectSegment {
     case .picture:picture = enabled ? o.picture ?? PictureSettings() : nil
     case .gauge:gauge = enabled ? o.gauge ?? GaugeSettings() : nil
     case .graph:graph = enabled ? o.graph ?? GraphSettings() : nil
+    case .mapComparison:mapComparison = enabled ? o.mapComparison ?? MapComparisonSettings() : nil
     case .imageControl:imageControl = enabled ? o.imageControl ?? ImageControlSettings() : nil
     case .typography:typography = enabled ? o.typography ?? TextSettings() : nil
     case .shape:shape = enabled ? o.shape ?? ShapeSettings() : nil
@@ -67,7 +69,7 @@ extension ObjectSegment {
     }
     let related: [ClearedProperty]
     switch field {
-    case .picture:related = [.picture]; case .gauge:related = [.gauge]; case .graph:related = [.graph]
+    case .picture:related = [.picture]; case .gauge:related = [.gauge]; case .graph:related = [.graph]; case .mapComparison:related = [.mapComparison]
     case .imageControl:related = [.imageControl]; case .typography:related = [.typography]
     case .shape:related = [.shape]; case .hud:related = [.hud]; case .audio:related = [.audio]
     case .style:related = [.legacyType,.legacyCommon,.legacyPayload]; default:related = []

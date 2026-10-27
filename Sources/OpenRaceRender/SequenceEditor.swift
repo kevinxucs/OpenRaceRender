@@ -47,6 +47,7 @@ struct SourceListRow: View {
       .contextMenu {
         Button(input.joinedTo == nil ? "Move stream up" : "Move clip up") { model.moveInput(input.id,direction:-1) }
         Button(input.joinedTo == nil ? "Move stream down" : "Move clip down") { model.moveInput(input.id,direction:1) }
+        if input.kind == "data" { Button("Duplicate data input") { model.duplicateData(input.id) } }
         if ["video","audio"].contains(input.kind) { Button("Edit sequence / add time filler…") { model.editSequence(input.id) } }
         Button("Remove input and its displays",role:.destructive) { model.removeInput(input.id) }
       }

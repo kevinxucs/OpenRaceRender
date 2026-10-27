@@ -128,11 +128,9 @@ enum CLI {
         if let value = option("--audio-bitrate") { guard let rate = Int(value),rate >= 64,rate <= 320 else { throw RaceError.invalid("Invalid audio bitrate in kbps.") };settings.audioBitRate = rate*1000 }
         p.exportSettings = settings
       }
-      var telemetry: [Int: Telemetry] = [:]
-      for input in p.inputs where input.kind == "data" && input.exists {
-        let data = try Telemetry(url: URL(fileURLWithPath: input.path), settings: input.dataSettings)
-        telemetry[input.legacyIndex] = data
-        if let i = p.inputs.firstIndex(where: { $0.id == input.id }) { p.inputs[i].duration = data.duration }
+      let telemetry = try Telemetry.loadSources(p.inputs)
+      for i in p.inputs.indices {
+        if let data = telemetry[p.inputs[i].legacyIndex] { p.inputs[i].duration = data.duration }
       }
       switch a[1] {
       case "inspect":

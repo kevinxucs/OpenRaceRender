@@ -20,19 +20,29 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 278 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 286 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
+- F20: shared two-run GPS maps, independent data duplication/alignment and elapsed-time lap ghosts implemented; see [map comparison](map-comparison.md).
 - F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F20 — two-run/two-car map comparison and time-trial ghost**, after committing/pushing F19. F18 is pushed as `dc4d8a5`; CI40525222794 succeeded.
+Next feature: **F21 — editable map display options**, after committing/pushing F20. F19 is pushed as `833f6fc`; CI40527712020 succeeded.
 
 ## Remaining queue
 
-F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F20 handoff — implementation validated, live UI limited
+
+- MapComparisonSettings and shared map renderer use one equirectangular GPS origin/bounds across primary/reference full-source tracks. Filled primary/hollow reference markers remain distinguishable at overlap, optional reference trace/color/source labels; shared geometry cached by telemetry identity/revision/settings. GPS required; unrelated XY origins are not aligned. Source curve interpolation honored; selected trace intervals include exact endpoints. Full-source bounds stay stable across lap changes.
+- Timeline mode uses each source placement clock and optional explicit lap gates. LapGhost matches elapsed primary lap time to best complete or explicit reference lap, preserving pace and waiting at finish. Primary may follow current lap or fixed start; reference ghost reads whole recorded lap independently of offset/trim/rate. Missing lap timing yields unavailable marker status rather than arbitrary fallback.
+- Inspector supports clock/source/lap selection, direct offset, lap-start alignment, duplication, reference trace/color/labels. Source list also duplicates independent data inputs with copied configuration/clock and no displays. Duplication-for-map updates source+widget in one Undo. Shared-source offset disabled for same-input timeline mode; duplicate first. Align uses existing transactional source synchronization and preserves originals/marks. Automatic length can extend when offsets move data; existing video-bound length/marks remain available.
+- Telemetry.loadSources shares a parsed/configured table only for normalized-path + equal DataSettings, while source clocks stay independent; editor/CLI both use it. Public source remapping now covers comparison roles and nested group snapshots. Native timeline inheritance/clear, SegmentField, templates role discovery/remap and portable lap-selection stripping integrated. Style application retains instance comparison settings. Source removal marks reference missing; export preflight requires both files. Native rewriting refuses comparisons rather than flattening.
+- 286 tests (232 core/54 editor) pass: six core/two editor tests cover equal-time ghost pace/finish/invalid selection, independent duplicate/align, parsed table sharing/config isolation, shared origin/bounds, timeline clear/template roles/remap/session cleanup, reference preflight/removal and Undo. validate-map-comparison uses independent circular marker-pixel math and encoded snapshot/chunk consistency. Finish-line regression rerun. Artifacts under build/validation/map-comparison; local app/ZIP carries authorized library only. Live editor/native remains cgWindowNotFound, no native parity claim.
+- Mirrored HowTo-TwoVehicleMap guide read. F19 CI40527712020 succeeded. Commit/push F20 and verify CI before F21, continue each feature separately without manual compaction waits.
 
 ## F19 handoff — implementation validated, catalogue/live UI limits explicit
 

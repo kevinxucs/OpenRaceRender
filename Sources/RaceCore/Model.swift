@@ -102,6 +102,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
   public var graph: GraphSettings?
+  public var mapComparison:MapComparisonSettings?
   public var imageControl: ImageControlSettings?
   public var hud: HUDSettings?
   public var typography: TextSettings?

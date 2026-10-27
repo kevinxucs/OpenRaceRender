@@ -257,9 +257,10 @@ extension ObjectSegment {
     result.groupChildrenBefore = groupChildrenBefore?.mapValues { $0.map { $0.transformingGeometry(from:from,to:to) } }
     return result
   }
-  func remappingSources(_ remap: (Int) -> Int) -> ObjectSegment {
+  public func remappingSources(_ remap: (Int) -> Int) -> ObjectSegment {
     var result = self
     if let index = inputIndex { result.inputIndex = remap(index) }
+    if let index = mapComparison?.referenceInputIndex { result.mapComparison?.referenceInputIndex = remap(index) }
     result.groupChildrenBefore = groupChildrenBefore?.mapValues { $0.map { $0.remappingSources(remap) } }
     return result
   }
