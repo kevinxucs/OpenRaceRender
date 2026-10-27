@@ -12,11 +12,13 @@ final class SceneInstruction: NSObject, AVVideoCompositionInstructionProtocol, @
   let scene: RenderScene
   let tracks: [Int: CMPersistentTrackID]
   let transforms: [Int: CGAffineTransform]
+  let options:RenderOptions
   init(
     scene: RenderScene, tracks: [Int: CMPersistentTrackID], transforms: [Int: CGAffineTransform],
-    duration: Double, clockTrackID:CMPersistentTrackID? = nil
+    duration: Double, clockTrackID:CMPersistentTrackID? = nil, options:RenderOptions = RenderOptions()
   ) {
     self.scene = scene
+    self.options = options
     self.tracks = tracks
     self.transforms = transforms
     self.timeRange = CMTimeRange(
@@ -63,7 +65,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           let placement = instruction.scene.project.media(for:first.inputIndex,at:time),
           let track = instruction.tracks[placement.input.legacyIndex],let frame = request.sourceFrame(byTrackID:track) {
           let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(by:instruction.transforms[placement.input.legacyIndex] ?? .identity)
-          let layer = PictureProcessor.positioned(image,in:OverlayRenderer.rect(first,size:size),opacity:first.opacity,input:placement.input.picture,object:first.picture)
+          let layer = PictureProcessor.positioned(image,in:OverlayRenderer.rect(first,size:size),opacity:first.opacity,input:placement.input.picture,object:first.picture,scaling:instruction.options.scaling)
           let bounds = CGRect(origin:.zero,size:size)
           let background = CIImage(color:CIColor(red:0,green:0,blue:0)).cropped(to:bounds)
           self.ci.render(layer.composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
@@ -81,7 +83,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           request.finish(with: RaceError.invalid("Could not create export canvas."))
           return
         }
-        c.interpolationQuality = .high
+        c.interpolationQuality = instruction.options.scaling == .nearest ? .none : instruction.options.scaling == .linear ? .low : .high
         if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:size)) }
         for o in objects where o.id != baseVideo {
           if o.kind == .video, let placement = instruction.scene.project.media(for: o.inputIndex, at: time),
@@ -181,8 +183,9 @@ public final class VideoExporter: @unchecked Sendable {
     public let audio: AVMutableAudioMix
   }
   /// Used by both the editor player and file export, including layers, source changes and picture effects.
-  public static func prepare(scene: RenderScene) async throws -> PreparedScene {
+  public static func prepare(scene: RenderScene, options:RenderOptions = RenderOptions()) async throws -> PreparedScene {
     let p = scene.project
+    try options.validate()
     guard p.width > 0, p.height > 0, p.width <= 7680, p.height <= 4320, p.fps.isFinite, p.fps > 0, p.fps <= 120 else {
       throw RaceError.invalid("Invalid canvas dimensions or frame rate.")
     }
@@ -211,16 +214,16 @@ public final class VideoExporter: @unchecked Sendable {
         videoEnd = max(videoEnd,placement.start+sourceLength/placement.rate)
         if clockSource == nil { clockSource = (asset,source,range) }
       }
-      if let source = try await asset.loadTracks(withMediaType: .audio).first,
+      if options.audio != .disabled,let source = try await asset.loadTracks(withMediaType: .audio).first,
         let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-        let stereo = try await StereoAudioSource.shared.source(asset:asset,track:source,url:URL(fileURLWithPath:input.path))
+        let stereo = try await StereoAudioSource.shared.source(asset:asset,track:source,url:URL(fileURLWithPath:input.path),sampleRate:options.audioSampleRate)
         try withExtendedLifetime(stereo.asset) { try track.insertTimeRange(range,of:stereo.track,at:destination) }
         track.scaleTimeRange(inserted, toDuration: scaled)
         let parameter = AVMutableAudioMixInputParameters(track: track)
         // Use the same sample-accurate gate for ordinary and routed audio. Discrete
         // setVolume(at:) points alone can interpolate across a hidden group interval.
         parameter.setVolume(1, at: .zero)
-        parameter.audioTapProcessor = try AudioProcessing.tap(project: p, placement: placement)
+        parameter.audioTapProcessor = try AudioProcessing.tap(project: p, placement: placement,mono:options.audio == .mono,bits:options.audioBits)
         audioParameters.append(parameter)
       }
     }
@@ -243,9 +246,9 @@ public final class VideoExporter: @unchecked Sendable {
     }
     let vc = AVMutableVideoComposition()
     vc.customVideoCompositorClass = RaceCompositor.self
-    vc.instructions = [SceneInstruction(scene: scene, tracks: tracks, transforms: transforms, duration: composition.duration.seconds,clockTrackID:clockTrackID)]
-    vc.renderSize = CGSize(width: p.width, height: p.height)
-    vc.frameDuration = CMTime(seconds: 1/p.fps, preferredTimescale: 60000)
+    vc.instructions = [SceneInstruction(scene: scene, tracks: tracks, transforms: transforms, duration: composition.duration.seconds,clockTrackID:clockTrackID,options:options)]
+    vc.renderSize = options.size ?? CGSize(width: p.width, height: p.height)
+    vc.frameDuration = CMTime(seconds: 1/(options.fps ?? p.fps), preferredTimescale: 60000)
     let mix = AVMutableAudioMix(); mix.inputParameters = audioParameters
     return PreparedScene(composition: composition, video: vc, audio: mix)
   }

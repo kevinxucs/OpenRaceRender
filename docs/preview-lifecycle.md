@@ -1,6 +1,6 @@
 # Composition preview lifecycle
 
-The main editor and synchronization wizard use the same composed video player. Video frames include camera picture settings and telemetry overlays; a separate AppKit overlay handles selection and widget dragging.
+The main editor, synchronization wizard and dedicated composition window use the same composed video player. Video frames include camera picture settings and telemetry overlays; a separate AppKit overlay handles selection and widget dragging.
 
 The player layer is hosted in its own `PlayerSurfaceView`. This view assigns its layer before enabling `wantsLayer`, disables AppKit content redraws, and contains no subviews. The surrounding preview owns the video surface and selection overlay as separate sibling views. AppKit can redraw the container and selection without modifying the video layer's contents.
 
@@ -13,3 +13,7 @@ Regression checks cover resize/reattachment, player replacement, redraw isolatio
 ## Manual frame synchronization
 
 The telemetry input inspector's **−1 frame / +1 frame** buttons adjust synchronization without moving the video playhead. An offset is stored in source seconds, so one project frame changes the offset by `input playback rate / project fps`. Positive advances the telemetry. The buttons preserve other source settings, create an undo checkpoint, and retain the exact value in native project saves. Numeric entry shows up to six decimal places. Synthetic tests cover 24, 30, 30000/1001 and 60 FPS with normal, half-speed and double-speed data.
+
+## Independent quality and composition window
+
+F25 adds a weak preview-surface registry that detaches inactive player layers before handing video to the editor, wizard or full-screen composition. The wizard takes priority and closes an open composition window; closing the composition window returns ownership to the canvas. [Preview settings](preview-settings.md) now control render size/FPS/scaling and audio independently of the scene clock and exports. F25 adds tests for these handoffs and real composed media; its live full-screen operation remains unverified while CUA reports cgWindowNotFound. Earlier live findings above apply to their original builds.

@@ -303,6 +303,11 @@ struct RaceRenderApp: App {
           Button("Undo", action: model.undo).keyboardShortcut("z")
           Button("Redo", action: model.redo).keyboardShortcut("z", modifiers: [.command, .shift])
         }
+        CommandMenu("Preview") {
+          Button("Preview settings…") { model.showPreviewSettings = true }
+          Button("Full-screen composition",action:model.openCompositionWindow).keyboardShortcut("f",modifiers:[.command,.shift])
+          Button(model.previewMuted ? "Unmute preview" : "Mute preview") { model.previewMuted.toggle() }
+        }
         CommandMenu("Timeline") {
           Button("Synchronize data…") { model.showSync = true }.disabled(model.dataIndex == nil)
           Button("Synchronize cameras side by side…",action:model.beginSourceSync)

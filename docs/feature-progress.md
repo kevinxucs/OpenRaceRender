@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 313 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 320 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -31,13 +31,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F24: source/display chroma key, color/brightness tolerances, screen/RGB sampling, soft edges and tint/spectrum implemented; see [picture effects](picture-effects.md).
 
-Next feature: **F25 — independent preview controls and full-screen composition**, after committing/pushing F24. F23 CI correction `acd5495` passed CI40544038142.
+- F25: independent size/FPS/scaling/seek/audio preferences and composition-only full-screen window implemented; see [preview settings](preview-settings.md).
+
+Next feature: **F26 — output profiles and remaining export controls**, after committing/pushing F25. F24 `1692dc4` passed CI40562461127.
 
 ## Remaining queue
 
-F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F25 handoff — actual composed media validated, live full-screen limited
+
+- RenderOptions passes independent size/FPS/scaling/audio into prepare; SceneInstruction retains original project dimensions/FPS for scripts/history. PreviewSettings caps size/aspect/even pixels and FPS; reduced seek mode max360p/15/nearest restores after drag, ordinary numeric/frame seeks keep quality. Base camera CI sampling and other-layer CG interpolation share quality choices; object-only designs draw into capped bitmap. UI clock runs at most60Hz and published updates follow target FPS.
+- Preview settings private draft Apply/Cancel/Defaults in header/Preview menu, UserDefaults persistence with corruption fallback, effective preview header dimensions/FPS, no project/dirty/Undo/range/export mutation. Audio stereo/mono/disabled, source/22050/44100/48000 rate and full/16/8-bit signal precision. StereoAudioSource cache v2 includes target sample rate and validates it; actual resampling covered. Mono/quantization after per-source display mix; device format not controlled. Muting skips tracks/preparation via rebuild. First conversion/disk cost documented.
+- CompositionWindowController enters macOS full screen with composition-only shared transport, closing/exit/Escape returns canvas ownership. Weak registry detaches inactive player layers before transfers. Data wizard takes priority and closes full-screen window; no new window while wizard active. Full-screen keys cannot nudge/delete widgets. Existing source-sync players stay independent.
+- 320 tests pass locally (258 core/62 editor), no skips. Five new core/two editor cases plus cache resampling assertions cover caps/aspect/clock immutability, seek restoration, pixel sampling, audio quantization, preferences/Undo, repeated exclusive owner transfers, real H.264 composition320x180/15 from640x360/60, camera color-marker transitions and exact vector-blue area, mono quantized samples and disabled audio tracks. Test caught/fixed precision shadowing by format bit depth. Release validate-picture-effects and validate-audio regressions pass. Local app/library ZIP signed/verified. Logs build/validation/preview-settings. Native live UI/full-screen animation remains cgWindowNotFound; do not claim live/native parity.
+- Mirrored PreviewSettings/Main/Troubleshooting read; Apple composition/sampling/audio primary docs consulted and linked. F24 pushed1692dc4 and CI40562461127 succeeded. Commit/push F25 before F26; continue sequentially without manual compaction wait. Authorized library only in ignored local app/ZIP; no vendor/private fixtures in git.
 
 ## F24 handoff — rendering validated, native encoding/live sampler limited
 

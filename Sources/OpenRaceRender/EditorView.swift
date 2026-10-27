@@ -57,6 +57,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showTemplates) { TemplateBrowser(model: model) }
     .sheet(isPresented: $model.showSync) { SyncSheet(model: model) }
     .sheet(isPresented: $model.showExport) { ExportSheet(model: model) }
+    .sheet(isPresented: $model.showPreviewSettings) { PreviewSettingsSheet(model:model) }
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
@@ -220,17 +221,23 @@ struct EditorView: View {
     }.background(panelColor)
   }
   var previewHeader: some View {
-    HStack {
+    let options = model.previewOptions
+    let size = options.size ?? CGSize(width:model.project.width,height:model.project.height)
+    return HStack {
       sectionLabel("COMPOSITION")
       if model.usesDesignSamples { Text("SAMPLE DATA").font(.system(size: 9, weight: .bold)).foregroundStyle(.orange).help("Design preview only. Sample values are never saved or exported.") }
-      Text("\(model.project.width) × \(model.project.height)").font(
+      Text("\(Int(size.width)) × \(Int(size.height)) preview").font(
         .system(size: 10, design: .monospaced)
-      ).foregroundStyle(muted)
+      ).foregroundStyle(muted).help("Project canvas: \(model.project.width) × \(model.project.height)")
       Spacer()
       if model.busy { ProgressView().controlSize(.small) }
-      Text("\(model.project.fps.formatted()) FPS").font(
+      Text("\((options.fps ?? model.project.fps).formatted()) FPS").font(
         .system(size: 9, weight: .bold, design: .monospaced)
       ).foregroundStyle(muted)
+      Button { model.showPreviewSettings = true } label: { Image(systemName:"slider.horizontal.3") }
+        .buttonStyle(.plain).help("Preview settings")
+      Button(action:model.openCompositionWindow) { Image(systemName:"arrow.up.left.and.arrow.down.right") }
+        .buttonStyle(.plain).help("Full-screen composition")
       Button(action: model.snapshot) { Image(systemName: "camera").foregroundStyle(muted) }
         .buttonStyle(.plain).help("Save current frame as PNG")
     }.padding(.horizontal, 20).frame(height: 42)
@@ -394,7 +401,7 @@ struct EditorView: View {
           }.font(.system(size: 10, design: .monospaced))
           Slider(
             value: Binding(get: { max(model.timelineLower,min(model.timelineUpper,model.time)) }, set: { model.seek($0) }),
-            in: model.timelineLower...max(model.timelineLower+0.001,model.timelineUpper)
+            in: model.timelineLower...max(model.timelineLower+0.001,model.timelineUpper),onEditingChanged:model.setPreviewSeeking
           ).controlSize(.small)
           HStack(spacing: 12) {
             Label("Video", systemImage: "video.fill").foregroundStyle(Color.blue)
@@ -767,8 +774,9 @@ struct TimelineGraph: View {
       GeometryReader { g in
         Color.clear.contentShape(Rectangle()).gesture(
           DragGesture(minimumDistance: 0).onChanged { v in
+            model.setPreviewSeeking(true)
             model.seek(model.timelineLower + max(0,min(1,v.location.x/max(1,g.size.width)))*model.timelineSpan)
-          })
+          }.onEnded { _ in model.setPreviewSeeking(false) })
       }
     }
   }

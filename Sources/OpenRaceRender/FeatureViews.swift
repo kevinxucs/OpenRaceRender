@@ -152,7 +152,7 @@ struct SyncSheet: View {
             Button("+1 frame") { model.seek(model.time+1/model.project.fps) }
             Button("+1 s") { model.seek(model.time+1) }
           }
-          Slider(value: Binding(get: { model.time }, set: { model.seek($0) }), in: 0...max(1, model.project.duration))
+          Slider(value: Binding(get: { model.time }, set: { model.seek($0) }), in: 0...max(1, model.project.duration),onEditingChanged:model.setPreviewSeeking)
           HStack {
             Text("Video frame (seconds)")
             TextField("Video event time", value: Binding(get: { model.time }, set: { model.seek($0) }), format: .number.precision(.fractionLength(0...4)))
@@ -442,9 +442,10 @@ struct ObjectTracks: View {
                 ZStack(alignment:.leading) {
                   RoundedRectangle(cornerRadius:3).fill((object.id == model.selected ? mint : Color.blue).opacity(0.15))
                     .contentShape(Rectangle()).gesture(DragGesture(minimumDistance:0).onChanged { v in
+                      model.setPreviewSeeking(true)
                       model.selected = object.id; model.selectedInput = nil
                       model.seek(model.timelineLower+max(0,min(1,v.location.x/max(1,g.size.width)))*model.timelineSpan)
-                    })
+                    }.onEnded { _ in model.setPreviewSeeking(false) })
                   ForEach((object.segments ?? []).filter { $0.time >= model.timelineLower && $0.time <= model.timelineUpper }) { segment in
                     TimelineEventMarker(model:model,object:object,segment:segment,width:g.size.width)
                   }

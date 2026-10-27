@@ -31,12 +31,31 @@ import UniformTypeIdentifiers
   @Published var timelineStart: Double = 0
   @Published var previewPlayer: AVPlayer?
   weak var canvasView: PreviewView?
-  @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
-  @Published var showSync = false
+  @Published var previewMuted = false { didSet {
+    previewPlayer?.isMuted = previewMuted
+    if oldValue != previewMuted { schedulePreview() }
+  } }
+  @Published var previewSettings:PreviewSettings { didSet {
+    guard oldValue != previewSettings else { return }
+    if let data = try? JSONEncoder().encode(previewSettings) { preferences.set(data,forKey:"previewSettings") }
+    schedulePreview()
+  } }
+  @Published var showPreviewSettings = false
+  @Published var previewSeeking = false
+  @Published var fullScreenPreviewActive = false
+  var fullScreenPreview:CompositionWindowController?
+  let previewSurfaces = NSHashTable<PreviewView>.weakObjects()
+  @Published var showSync = false { didSet {
+    if showSync { fullScreenPreview?.close() }
+    refreshPreviewOwnership()
+  } }
   @Published var showSourceSync = false
   @Published var sequenceInput:MediaInput?
   @Published var showProjectSetup = false
-  @Published var setupSyncActive = false
+  @Published var setupSyncActive = false { didSet {
+    if setupSyncActive { fullScreenPreview?.close() }
+    refreshPreviewOwnership()
+  } }
   let preferences: UserDefaults
   @Published var preferredSpeedUnit: String { didSet { preferences.set(preferredSpeedUnit,forKey:"preferredSpeedUnit") } }
   @Published var setupOnNewProjects: Bool { didSet { preferences.set(setupOnNewProjects,forKey:"setupOnNewProjects") } }
@@ -99,12 +118,14 @@ import UniformTypeIdentifiers
   }
   init(preferences: UserDefaults = .standard) {
     self.preferences = preferences
+    let decoded = preferences.data(forKey:"previewSettings").flatMap{try? JSONDecoder().decode(PreviewSettings.self,from:$0)}
+    previewSettings = decoded.flatMap{(try? $0.validate()) != nil ? $0 : nil} ?? PreviewSettings()
     let saved = preferences.string(forKey:"preferredSpeedUnit") ?? "mph"
     preferredSpeedUnit = RaceProject.speedUnits.contains(saved) ? saved : "mph"
     setupOnNewProjects = preferences.bool(forKey:"setupOnNewProjects")
     project.speedUnit = preferredSpeedUnit
     dirty = false
-    timer = Timer.scheduledTimer(withTimeInterval: 1 / 30, repeats: true) { [weak self] _ in
+    timer = Timer.scheduledTimer(withTimeInterval: 1 / 60, repeats: true) { [weak self] _ in
       Task { @MainActor in self?.tick() }
     }
   }
@@ -200,7 +221,8 @@ import UniformTypeIdentifiers
       seek(project.duration)
       pause()
     } else {
-      time = t
+      let fps = previewOptions.fps ?? 30
+      if Int(t*fps) != Int(time*fps) { time = t }
     }
   }
   func togglePlayback() { playing ? pause() : play() }
@@ -237,7 +259,7 @@ import UniformTypeIdentifiers
         guard scene.project.inputs.contains(where: { $0.kind == "video" && $0.exists }) else {
           self.previewPlayer?.pause(); self.previewPlayer = nil; return
         }
-        let prepared = try await VideoExporter.prepare(scene: scene)
+        let prepared = try await VideoExporter.prepare(scene: scene,options:self.previewOptions)
         try Task.checkCancellation()
         let item = AVPlayerItem(asset: prepared.composition)
         item.videoComposition = prepared.video

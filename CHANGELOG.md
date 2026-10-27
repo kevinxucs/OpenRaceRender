@@ -1,5 +1,10 @@
 # Changelog
 
+## F25 — Independent preview and full-screen composition
+
+- Saved preview size/FPS caps, scaling quality, reduced seek quality and stereo/mono/disabled audio with rate/precision choices; original project/export/script clocks stay independent.
+- Composition-only full-screen window with shared transport and exclusive player ownership across editor/sync/full-screen surfaces. Real composed-frame/audio checks validate the new paths; see [workflow and limits](docs/preview-settings.md).
+
 ## F24 — Chroma key and colorize
 
 - Source/display video and image keying with RGB/hex/screen sampling, independent color/brightness tolerances and edge softness; tint and full-spectrum colorization with adjustable amount.

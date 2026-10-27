@@ -56,7 +56,7 @@ public enum PictureProcessor {
     }
     """)!
   static func positioned(_ original: CIImage, in rect: CGRect, opacity: Double,
-    input: PictureSettings?, object: PictureSettings?) -> CIImage {
+    input: PictureSettings?, object: PictureSettings?, scaling:RenderOptions.Scaling = .high) -> CIImage {
     var image = original
     if let input { image = apply(image,settings:input) }
     if let object { image = apply(image,settings:object) }
@@ -66,7 +66,9 @@ public enum PictureProcessor {
     if object?.maintainAspect ?? true { sx = min(sx,sy);sy = sx }
     let destination = CGRect(x:rect.midX-b.width*sx/2,y:rect.midY-b.height*sy/2,width:b.width*sx,height:b.height*sy)
     image = image.transformed(by:CGAffineTransform(translationX:-b.minX,y:-b.minY))
-    if sx < 1 || sy < 1 {
+    if scaling == .nearest { image = image.samplingNearest() }
+    else { image = image.samplingLinear() }
+    if scaling == .high && (sx < 1 || sy < 1) {
       image = image.applyingFilter("CILanczosScaleTransform",parameters:[kCIInputScaleKey:sy,kCIInputAspectRatioKey:sx/sy])
     } else { image = image.transformed(by:CGAffineTransform(scaleX:sx,y:sy)) }
     image = image.transformed(by:CGAffineTransform(translationX:destination.minX,y:destination.minY)).cropped(to:rect)

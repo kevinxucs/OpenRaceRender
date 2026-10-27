@@ -32,6 +32,16 @@ final class StereoAudioSourceTests:XCTestCase {
     }
     XCTAssertLessThan(leftDifference,1e-6); XCTAssertLessThan(rightDifference,1e-6)
     let cachedDuration = try await first.asset.load(.duration).seconds; XCTAssertEqual(cachedDuration,0.1,accuracy:1.0/44100.0)
+    let resampled = try await cache.source(asset:asset,track:track,url:url,sampleRate:22050)
+    XCTAssertNotEqual(resampled.asset.url,first.asset.url)
+    let formats = try await resampled.track.load(.formatDescriptions)
+    let description = try XCTUnwrap(formats.first)
+    let rate = try XCTUnwrap(CMAudioFormatDescriptionGetStreamBasicDescription(description)).pointee.mSampleRate
+    XCTAssertEqual(rate,22050)
+    let resampledDuration = try await resampled.asset.load(.duration).seconds
+    XCTAssertEqual(resampledDuration,0.1,accuracy:1.0/22050.0)
+    let reusedRate = try await cache.source(asset:asset,track:track,url:url,sampleRate:22050)
+    XCTAssertEqual(resampled.asset.url,reusedRate.asset.url)
     try Data().write(to:first.asset.url)
     let recovered = try await cache.source(asset:asset,track:track,url:url)
     XCTAssertFalse(try samples(asset:recovered.asset,track:recovered.track,channels:2).isEmpty)

@@ -5,16 +5,20 @@ import SwiftUI
 struct Preview: NSViewRepresentable {
   @ObservedObject var model: EditorModel
   var interactive = true
+  var fullScreen = false
   func makeNSView(context: Context) -> PreviewView {
     let v = PreviewView()
     v.model = model
     v.interactive = interactive
+    v.fullScreen = fullScreen
+    model.previewSurfaces.add(v)
     if interactive { model.canvasView = v }
     return v
   }
   func updateNSView(_ view: PreviewView, context: Context) {
     view.model = model
     view.interactive = interactive
+    view.fullScreen = fullScreen
     if interactive { model.canvasView = view }
     view.refresh()
   }
@@ -31,7 +35,16 @@ struct Preview: NSViewRepresentable {
   override func draw(_ dirtyRect: NSRect) {
     guard let m = model, let c = NSGraphicsContext.current?.cgContext else { return }
     if m.previewPlayer == nil {
-      OverlayRenderer.draw(c, scene: m.designScene, time: m.time, size: bounds.size)
+      let options = m.previewOptions
+      let size = options.size ?? bounds.size
+      if let bitmap = CGContext(data:nil,width:Int(size.width),height:Int(size.height),bitsPerComponent:8,bytesPerRow:0,space:OverlayRenderer.colorSpace,bitmapInfo:OverlayRenderer.bitmapInfo) {
+        bitmap.interpolationQuality = options.scaling == .nearest ? .none : options.scaling == .linear ? .low : .high
+        OverlayRenderer.draw(bitmap,scene:m.designScene,time:m.time,size:size)
+        if let image = bitmap.makeImage() {
+          c.saveGState(); c.interpolationQuality = options.scaling == .nearest ? .none : .high
+          c.draw(image,in:bounds); c.restoreGState()
+        }
+      }
     }
     if showSelection, let box = m.project.selectionBounds(m.selectedIDs, at: m.time) {
       func canvas(_ r: CGRect) -> CGRect {
@@ -81,6 +94,8 @@ struct Preview: NSViewRepresentable {
   let videoSurface = PlayerSurfaceView()
   var compositionLayer: AVPlayerLayer { videoSurface.playerLayer }
   var interactive = true
+  var fullScreen = false
+  var ownsPreview:Bool { model.map{ $0.previewOwner == (fullScreen ? .fullScreen : interactive ? .editor : .synchronization) } ?? false }
   var dragCheckpoint = false
   var dragging: UUID?
   var initialPoint = CGPoint.zero
@@ -117,10 +132,10 @@ struct Preview: NSViewRepresentable {
     CATransaction.setDisableActions(true)
     // Only the active preview owns video output. Opening the sync wizard must
     // detach the canvas, and dismissing it must explicitly return ownership.
-    let player = interactive != m.synchronizationPreviewActive ? m.previewPlayer : nil
+    let player = ownsPreview ? m.previewPlayer : nil
     if compositionLayer.player !== player {
       compositionLayer.player = player
-      m.syncPlayers(play: m.playing)
+      if player != nil { m.syncPlayers(play: m.playing) }
     }
     CATransaction.commit()
     overlay.needsDisplay = true
@@ -129,6 +144,7 @@ struct Preview: NSViewRepresentable {
     compositionLayer.player = nil
     overlay.model = nil
     if model?.canvasView === self { model?.canvasView = nil }
+    model?.previewSurfaces.remove(self)
     model = nil
   }
   override func mouseDown(with event: NSEvent) {
@@ -196,7 +212,9 @@ struct Preview: NSViewRepresentable {
   }
   override func keyDown(with event: NSEvent) {
     guard let m = model else { return }
-    if event.modifierFlags.contains(.option), [123, 124, 125, 126].contains(event.keyCode), m.selected != nil {
+    if fullScreen,event.keyCode == 53 { window?.close(); return }
+    if !interactive && !fullScreen { super.keyDown(with:event); return }
+    if interactive,event.modifierFlags.contains(.option), [123, 124, 125, 126].contains(event.keyCode), m.selected != nil {
       let amount = event.modifierFlags.contains(.shift) ? 10.0 : 1.0
       m.nudgeWidget(x: event.keyCode == 123 ? -amount : event.keyCode == 124 ? amount : 0,
         y: event.keyCode == 125 ? -amount : event.keyCode == 126 ? amount : 0)
@@ -214,7 +232,7 @@ struct Preview: NSViewRepresentable {
       m.seek(m.time + 1 / m.project.fps)
       return
     }
-    if event.keyCode == 51 {
+    if interactive,event.keyCode == 51 {
       m.deleteSelected()
       return
     }

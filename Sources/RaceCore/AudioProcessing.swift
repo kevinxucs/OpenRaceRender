@@ -39,8 +39,11 @@ struct StereoMatrix: Equatable {
 private final class AudioTapState {
   struct Span { var time: Double; var matrix: StereoMatrix }
   let spans: [Span]
+  let mono:Bool
+  let bits:Int
   var format = AudioStreamBasicDescription()
-  init(project: RaceProject, placement: InputPlacement) {
+  init(project: RaceProject, placement: InputPlacement,mono:Bool,bits:Int) {
+    self.mono = mono; self.bits = bits
     let boundaries = Set([placement.start, placement.end] + project.timelineBoundaries).sorted()
     spans = boundaries.map { time in
       let displays = project.resolvedObjects(at: time).filter {
@@ -86,7 +89,9 @@ private final class AudioTapState {
     let step = range.duration.seconds.isFinite && range.duration.seconds > 0 ? range.duration.seconds / Double(frames) : 1 / max(1, format.mSampleRate)
     for frame in 0..<frames {
       let l = address(frame, 0), r = address(frame, min(1, channels - 1))
-      let result = matrix(at: start + Double(frame) * step).apply(read(l), read(r))
+      var result = matrix(at: start + Double(frame) * step).apply(read(l), read(r))
+      if mono { let sample = (result.0+result.1)/2; result = (sample,sample) }
+      if self.bits > 0 { result = (AudioProcessing.quantize(result.0,bits:self.bits),AudioProcessing.quantize(result.1,bits:self.bits)) }
       if channels == 1 { write(l, (result.0 + result.1) / 2) }
       else { write(l, result.0); write(r, result.1) }
     }
@@ -94,8 +99,13 @@ private final class AudioTapState {
 }
 
 enum AudioProcessing {
-  static func tap(project: RaceProject, placement: InputPlacement) throws -> MTAudioProcessingTap {
-    let context = Unmanaged.passRetained(AudioTapState(project: project, placement: placement)).toOpaque()
+  static func quantize(_ value:Double,bits:Int) -> Double {
+    guard bits == 8 || bits == 16 else { return value }
+    let scale = bits == 8 ? 128.0 : 32768.0
+    return max(-scale,min(scale-1,(value*scale).rounded()))/scale
+  }
+  static func tap(project: RaceProject, placement: InputPlacement,mono:Bool = false,bits:Int = 0) throws -> MTAudioProcessingTap {
+    let context = Unmanaged.passRetained(AudioTapState(project: project, placement: placement,mono:mono,bits:bits)).toOpaque()
     var callbacks = MTAudioProcessingTapCallbacks(version: kMTAudioProcessingTapCallbacksVersion_0, clientInfo: context,
       init: { _, info, storage in storage.pointee = info },
       finalize: { tap in Unmanaged<AudioTapState>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).release() },

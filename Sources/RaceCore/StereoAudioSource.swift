@@ -11,7 +11,7 @@ actor StereoAudioSource {
     self.root = root ?? ProcessInfo.processInfo.environment["OPENRACERENDER_AUDIO_CACHE"].map{URL(fileURLWithPath:$0,isDirectory:true)}
       ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/OpenRaceRender/StereoAudio")
   }
-  func source(asset:AVURLAsset,track:AVAssetTrack,url:URL,retry:Bool = true) async throws -> (asset:AVURLAsset,track:AVAssetTrack) {
+  func source(asset:AVURLAsset,track:AVAssetTrack,url:URL,sampleRate:Int = 0,retry:Bool = true) async throws -> (asset:AVURLAsset,track:AVAssetTrack) {
     let descriptions = try await track.load(.formatDescriptions)
     guard let description = descriptions.first,let format = CMAudioFormatDescriptionGetStreamBasicDescription(description)?.pointee else { throw RaceError.invalid("Cannot read the source audio format.") }
     let isPCM = format.mFormatID == kAudioFormatLinearPCM
@@ -21,9 +21,10 @@ actor StereoAudioSource {
     let nativeEndian = format.mFormatFlags & kAudioFormatFlagIsBigEndian == 0
     let planar = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
     let packed = format.mBytesPerFrame == (format.mBitsPerChannel/8)*(planar ? 1 : format.mChannelsPerFrame)
-    if format.mChannelsPerFrame == 2,(!isPCM || (nativeBits && nativeEndian && packed)) { return (asset,track) }
+    let rate = sampleRate == 0 ? format.mSampleRate : Double(sampleRate)
+    if format.mChannelsPerFrame == 2,abs(rate-format.mSampleRate) < 0.5,(!isPCM || (nativeBits && nativeEndian && packed)) { return (asset,track) }
     let info = try url.resourceValues(forKeys:[.fileSizeKey,.contentModificationDateKey])
-    let key = "v1|\(url.standardizedFileURL.path)|\(info.fileSize ?? 0)|\(info.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(track.trackID)"
+    let key = "v2|\(url.standardizedFileURL.path)|\(info.fileSize ?? 0)|\(info.contentModificationDate?.timeIntervalSince1970 ?? 0)|\(track.trackID)|\(rate)"
     let hash = SHA256.hash(data:Data(key.utf8)).map{String(format:"%02x",$0)}.joined()
     let target = root.appendingPathComponent(hash+".caf")
     let task:Task<URL,Error>
@@ -35,10 +36,11 @@ actor StereoAudioSource {
           let cached = AVURLAsset(url:target)
           if let audio = try? await cached.loadTracks(withMediaType:.audio).first,
             let formats = try? await audio.load(.formatDescriptions),let first = formats.first,
-            CMAudioFormatDescriptionGetStreamBasicDescription(first)?.pointee.mChannelsPerFrame == 2 { return target }
+            let cachedFormat = CMAudioFormatDescriptionGetStreamBasicDescription(first)?.pointee,
+            cachedFormat.mChannelsPerFrame == 2,abs(cachedFormat.mSampleRate-rate) < 0.5 { return target }
           try? FileManager.default.removeItem(at:target)
         }
-        try await Self.convert(asset:asset,track:track,to:target,sampleRate:format.mSampleRate)
+        try await Self.convert(asset:asset,track:track,to:target,sampleRate:rate)
         return target
       }
       pending[key] = task
@@ -50,10 +52,11 @@ actor StereoAudioSource {
       if size > 0,
         let audio = try? await normalized.loadTracks(withMediaType:.audio).first,
         let descriptions = try? await audio.load(.formatDescriptions),let first = descriptions.first,
-        CMAudioFormatDescriptionGetStreamBasicDescription(first)?.pointee.mChannelsPerFrame == 2 { return (normalized,audio) }
+        let cachedFormat = CMAudioFormatDescriptionGetStreamBasicDescription(first)?.pointee,
+        cachedFormat.mChannelsPerFrame == 2,abs(cachedFormat.mSampleRate-rate) < 0.5 { return (normalized,audio) }
       if retry {
         pending[key] = nil; try? FileManager.default.removeItem(at:converted)
-        return try await source(asset:asset,track:track,url:url,retry:false)
+        return try await source(asset:asset,track:track,url:url,sampleRate:sampleRate,retry:false)
       }
       throw RaceError.invalid("The normalized stereo audio has no readable track.")
     } catch { pending[key] = nil; throw error }
