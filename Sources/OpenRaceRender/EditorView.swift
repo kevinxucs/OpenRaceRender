@@ -395,12 +395,13 @@ struct EditorView: View {
       }.padding(.horizontal, 20).background(panelColor)
       if bottomTab == 0 {
         VStack(spacing: 6) {
+          TimelineZoomControls(model:model)
           HStack {
-            Text("00:00")
+            Text(clockText(model.timelineLower))
             Spacer()
-            Text(clockText(model.project.duration / 2))
+            Text(clockText((model.timelineLower+model.timelineUpper)/2))
             Spacer()
-            Text(clockText(model.project.duration))
+            Text(clockText(model.timelineUpper))
           }.font(.system(size: 9, design: .monospaced)).foregroundStyle(muted)
           TimelineGraph(model: model).frame(height: 45)
           HStack {
@@ -409,8 +410,8 @@ struct EditorView: View {
             if model.project.rangeStart != nil || model.project.rangeEnd != nil { Button("Clear marks", action: model.clearMarks).buttonStyle(.plain) }
           }.font(.system(size: 10, design: .monospaced))
           Slider(
-            value: Binding(get: { model.time }, set: { model.seek($0) }),
-            in: 0...max(1, model.project.duration)
+            value: Binding(get: { max(model.timelineLower,min(model.timelineUpper,model.time)) }, set: { model.seek($0) }),
+            in: model.timelineLower...max(model.timelineLower+0.001,model.timelineUpper)
           ).controlSize(.small)
           HStack(spacing: 12) {
             Label("Video", systemImage: "video.fill").foregroundStyle(Color.blue)
@@ -626,7 +627,7 @@ struct ObjectInspector: View {
         Text("The adjustments below affect only this display.").font(.system(size: 10)).foregroundStyle(muted)
       }
       PictureControls(settings: Binding(get: { object.picture ?? PictureSettings() }, set: { object.picture = $0 }), media: [.video, .image].contains(object.kind))
-      small("ACTIVE TIME RANGE")
+      small(model.editingSegment == nil ? "ACTIVE TIME RANGE" : "ACTIVE TIME RANGE · EDIT IN BASE SETTINGS")
       HStack {
         field("Start (s)", $object.start)
         field("End (s)", $object.end)
@@ -727,12 +728,14 @@ struct TimelineGraph: View {
   var body: some View {
     Canvas { c, size in
       let d = model.activeData
-      let maxTime = max(1, model.project.duration)
+      let maxTime = model.timelineSpan
+      let startTime = model.timelineLower
       var path = Path()
       var started = false
       for i in 0..<500 {
-        let t = Double(i) / 499 * maxTime
-        if let v = d?.speed(at: model.dataIndex.flatMap { model.project.sourceTime(for: $0, at: t) } ?? -1, unit: model.project.speedUnit) {
+        let t = startTime + Double(i) / 499 * maxTime
+        if let d, let index = model.dataIndex, let source = model.project.sourceTime(for:index,at:t),
+          source >= 0, source <= d.duration, let v = d.speed(at:source,unit:model.project.speedUnit) {
           let p = CGPoint(
             x: Double(i) / 499 * size.width, y: size.height - max(0, min(1, v / 160)) * size.height)
           if started {
@@ -741,11 +744,11 @@ struct TimelineGraph: View {
             path.move(to: p)
             started = true
           }
-        }
+        } else { started = false }
       }
       c.stroke(path, with: .color(mint.opacity(0.7)), lineWidth: 1)
       for lap in d?.laps ?? [] {
-        let x = model.projectTime(for: lap.start) / maxTime * size.width
+        let x = (model.projectTime(for: lap.start)-startTime) / maxTime * size.width
         var line = Path()
         line.move(to: CGPoint(x: x, y: 0))
         line.addLine(to: CGPoint(x: x, y: size.height))
@@ -754,19 +757,19 @@ struct TimelineGraph: View {
       }
       if model.project.rangeStart != nil || model.project.rangeEnd != nil {
         let range = model.project.defaultExportRange
-        let a = range.lowerBound/maxTime*size.width, b = range.upperBound/maxTime*size.width
+        let a = (range.lowerBound-startTime)/maxTime*size.width, b = (range.upperBound-startTime)/maxTime*size.width
         c.fill(Path(CGRect(x: a, y: 0, width: max(0, b-a), height: size.height)), with: .color(mint.opacity(0.12)))
         for (position, color) in [(a, Color.green), (b, Color.red)] {
           var mark = Path(); mark.move(to: CGPoint(x: position, y: 0)); mark.addLine(to: CGPoint(x: position, y: size.height))
           c.stroke(mark, with: .color(color), lineWidth: 2)
         }
       }
-      let x = model.time / maxTime * size.width
+      let x = (model.time-startTime) / maxTime * size.width
       var cursor = Path()
       cursor.move(to: CGPoint(x: x, y: 0))
       cursor.addLine(to: CGPoint(x: x, y: size.height))
       c.stroke(cursor, with: .color(.white), lineWidth: 1.5)
-    }.background(panelColor).contentShape(Rectangle()).gesture(
+    }.background(panelColor).clipped().contentShape(Rectangle()).gesture(
       DragGesture(minimumDistance: 0).onChanged {
         event in /* width supplied by GeometryReader below */
       }
@@ -775,7 +778,7 @@ struct TimelineGraph: View {
       GeometryReader { g in
         Color.clear.contentShape(Rectangle()).gesture(
           DragGesture(minimumDistance: 0).onChanged { v in
-            model.seek(v.location.x / g.size.width * model.project.duration)
+            model.seek(model.timelineLower + max(0,min(1,v.location.x/max(1,g.size.width)))*model.timelineSpan)
           })
       }
     }

@@ -1,5 +1,10 @@
 # Changelog
 
+## F10 — Timeline editing and inheritance
+
+- Shared zoom/window navigation, event selection/details, exact-time/frame moves, following-event shifts and per-field inherit/freeze controls. Undo/redo keeps the retimed event selected.
+- Explicit optional-parameter/renderer clears, restored group child history and protection for ambiguous nested edits. Fixed an intermittent RRT input-delimiter collision with deterministic seed coverage. See [workflow and limits](docs/timeline-editing.md).
+
 ## F09 — Shared widget background editor
 
 - Private import/drop/clear drafts with zoom, pan, rotation, aspect, chroma key, PNG export, external edit/reload and whole-widget preview. Apply embeds the result in one undoable base/segment edit.

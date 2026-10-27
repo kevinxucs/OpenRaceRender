@@ -20,10 +20,8 @@ struct SegmentControls: View {
       }
       if let t = model.editingSegment {
         Text("Edits apply from \(clockText(t)) until a later segment overrides that field.").font(.system(size: 10)).foregroundStyle(mint)
-        Button("Inherit all fields from previous segment") {
-          guard let i = model.project.objects.firstIndex(where: { $0.id == object.id }),
-            let j = model.project.objects[i].segments?.firstIndex(where: { $0.time == t }) else { return }
-          model.checkpoint(); model.project.objects[i].segments?[j] = ObjectSegment(time: t)
+        if let segment = object.segments?.first(where:{abs($0.time-t) < 1e-6}) {
+          SegmentEditingControls(model:model,object:object,segment:segment).id(segment.id)
         }
       }
     }
@@ -425,26 +423,36 @@ struct WidgetTile: NSViewRepresentable {
 struct ObjectTracks: View {
   @ObservedObject var model: EditorModel
   var body: some View {
-    ScrollView {
-      VStack(spacing: 4) {
-        ForEach(model.project.objects.reversed()) { object in
-          HStack(spacing: 10) {
-            Button(object.name) { model.selected = object.id; model.selectedInput = nil }.buttonStyle(.plain).lineLimit(1).frame(width: 150, alignment: .leading)
-            GeometryReader { g in
-              ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3).fill((object.id == model.selected ? mint : Color.blue).opacity(0.15))
-                ForEach(object.segments ?? []) { segment in
-                  Rectangle().fill(mint).frame(width: 3).offset(x: g.size.width * segment.time / model.project.duration)
+    VStack(spacing:0) {
+      TimelineZoomControls(model:model).padding(.horizontal,20).padding(.top,8)
+      ScrollView {
+        VStack(spacing:4) {
+          ForEach(model.project.objects.reversed()) { object in
+            HStack(spacing:10) {
+              Button(object.name) { model.selectSegment(object.id,at:nil) }
+                .buttonStyle(.plain).lineLimit(1).frame(width:150,alignment:.leading)
+              GeometryReader { g in
+                ZStack(alignment:.leading) {
+                  RoundedRectangle(cornerRadius:3).fill((object.id == model.selected ? mint : Color.blue).opacity(0.15))
+                    .contentShape(Rectangle()).gesture(DragGesture(minimumDistance:0).onChanged { v in
+                      model.selected = object.id; model.selectedInput = nil
+                      model.seek(model.timelineLower+max(0,min(1,v.location.x/max(1,g.size.width)))*model.timelineSpan)
+                    })
+                  ForEach((object.segments ?? []).filter { $0.time >= model.timelineLower && $0.time <= model.timelineUpper }) { segment in
+                    Button { model.selectSegment(object.id,at:segment.time) } label: {
+                      Rectangle().fill(object.id == model.selected && model.editingSegment == segment.time ? Color.white : mint).frame(width:5,height:18)
+                    }.buttonStyle(.plain)
+                      .offset(x:max(0,min(g.size.width-5,g.size.width*(segment.time-model.timelineLower)/model.timelineSpan)))
+                      .help(clockText(segment.time)+" · "+segment.changedFields.map(\.title).joined(separator:", "))
+                  }
+                  Rectangle().fill(.white.opacity(0.6)).frame(width:1)
+                    .offset(x:g.size.width*(model.time-model.timelineLower)/model.timelineSpan).allowsHitTesting(false)
                 }
-                Rectangle().fill(.white).frame(width: 1).offset(x: g.size.width * model.time / model.project.duration)
-              }.contentShape(Rectangle()).gesture(DragGesture(minimumDistance: 0).onChanged { v in
-                model.selected = object.id; model.selectedInput = nil
-                model.seek(max(0, v.location.x / max(1, g.size.width) * model.project.duration))
-              })
-            }.frame(height: 15)
-          }.font(.system(size: 10))
-        }
-      }.padding(.horizontal, 20).padding(.vertical, 10)
+              }.frame(height:18).clipped()
+            }.font(.system(size:10))
+          }
+        }.padding(.horizontal,20).padding(.vertical,10)
+      }
     }
   }
 }

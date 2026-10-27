@@ -13,16 +13,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F06: configurable graph axes, seven time modes, ranges, style controls, persistence/migration, cached sampling and legacy graph writing implemented; see [graph controls and limits](graphs.md).
 - F08: data-controlled embedded images, deterministic flashing, source-role/artwork handling and native image record repair implemented; see [scope and validation limits](image-controls.md).
 - F09: shared background editor, transform/key baking, external file draft workflow, whole-widget preview and explicit background clear implemented; see [validation limits](background-editor.md).
-- Validation: 193 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F10: timeline zoom/navigation, retime/shift, field inheritance, explicit parameter clears and group event restoration implemented; see [timeline controls](timeline-editing.md).
+- Validation: 204 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F10 — full timeline editing**. F08 is pushed as `a030913` (CI 40475702925 succeeded). F09 is validated and ready to commit/push before F10.
+Next feature: **F11 — visual trim/crop**. F09 is pushed as `20755d7` (CI 40477172992 succeeded). F10 is validated and ready to commit/push before F11.
 
 ## Remaining queue
 
-F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F10 handoff — implementation validated, live UI limited
+
+- `SegmentEditing.swift` exposes transactional single/following-event retiming, per-field freeze/inherit, safe removal and inherit-all. Group geometry moves restore original member records before rebuilding the moved event and its new restoration history. Pure group opacity removal no longer drops unrelated child events; imported group geometry removal strips only geometry and retains independent fields. Later nested group ownership conflicts at the same timestamp are refused before mutation.
+- `ObjectSegment` adds explicit optional-property clears plus inherited legacy renderer type/common metadata. Style changes can clear a prior gauge/HUD/renderer instead of accidentally inheriting it. Clearing a field override removes its clear marker as well. Native JSON keeps clear/inherit semantics. Legacy writer refuses renderer-type transitions. HUD inheritance remains accessible even when the current HUD was explicitly cleared.
+- `TimelineEditing.swift`, SegmentControls, ObjectTracks and TimelineGraph add zoom up to4096, Fit/Playhead/window slider, marker selection/hover details, starting-time and frame moves, following-event shifts and field checkboxes. Source speed gaps break the graph. Base active-time controls are disabled during segment editing. Undo/redo resolves the inspector time using a stable event ID. No project dirtying for viewport changes.
+- An intermittent F08 image-template test exposed seed195 encrypting input ID0 to raw0xFF, the input-table delimiter. Deterministic test reproduced Malformed template object before the fix. RRT writer advances only unsafe seeds until every encoded role ID avoids0xFF. Existing known valid seed/checksum tests continue passing.
+- 204 tests pass with local library/graphics (173 core/31 editor). Eight segment tests, two editor tests and the delimiter regression supplement earlier parameter/media checks. `scripts/validate-timeline.py` passes HUD parameter clear/restore snapshots and encoded frames. Grouping acceptance rerun passes exact native/RRP-reopened snapshots and encoded audio/video gates. Logs: `build/validation/timeline-editing/{tests,build,acceptance,grouping-regression}.log`.
+- Mirrored TimelineView/TimelineEdit guides read. Live editor/native operation still unavailable (cgWindowNotFound); existing async window-restoration request unanswered. No live UI or native pixel parity claimed. F08 corrected authored-image native reopening also remains pending. No user originals touched.
+- F09 CI40477172992 succeeded on20755d7. Commit/push F10 before starting F11. The user explicitly waived manual compaction waits; continue sequentially.
 
 ## F09 handoff — implementation validated, live UI limited
 

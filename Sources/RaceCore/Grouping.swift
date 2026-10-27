@@ -109,16 +109,23 @@ extension RaceProject {
   public mutating func removeDisplaySegment(_ id: UUID, at time: Double) {
     guard let i = objects.firstIndex(where: { $0.id == id }) else { return }
     if objects[i].kind == .group {
-      let before = objects[i].segments?.first { abs($0.time-time) < 0.000001 }?.groupChildrenBefore
+      let event = objects[i].segments?.first { abs($0.time-time) < 0.000001 }
+      let before = event?.groupChildrenBefore
+      let changesGeometry = event?.x != nil || event?.y != nil || event?.width != nil || event?.height != nil
       let members = descendants(of: [id]).subtracting([id])
       for j in objects.indices where members.contains(objects[j].id) {
         if let before {
           guard let saved = before[objects[j].id] else { continue }
           objects[j].segments?.removeAll { abs($0.time-time) < 0.000001 }
           objects[j].segments = ((objects[j].segments ?? []) + saved).sorted { $0.time < $1.time }
-        } else {
-          // Imported RR group events have matching member records and no native edit snapshot.
-          objects[j].segments?.removeAll { abs($0.time-time) < 0.000001 }
+        } else if changesGeometry {
+          // Imported geometry has no ownership snapshot. Remove its baked geometry,
+          // retaining independent text/source/appearance edits at the same instant.
+          objects[j].segments = objects[j].segments?.compactMap { segment in
+            guard abs(segment.time-time) < 0.000001 else { return segment }
+            var segment = segment; segment.x = nil; segment.y = nil; segment.width = nil; segment.height = nil
+            return segment.changedFields.isEmpty && segment.groupChildrenBefore == nil ? nil : segment
+          }
         }
       }
     }

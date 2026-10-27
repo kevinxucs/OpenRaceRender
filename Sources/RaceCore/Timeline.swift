@@ -60,6 +60,12 @@ public struct PictureSettings: Codable, Equatable, Sendable {
 
 /// Each nil property inherits its value from earlier segments, as in RaceRender.
 public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
+  public enum ClearedProperty: String, Codable, Hashable, Sendable {
+    case picture, gauge, graph, imageControl, typography, shape, hud, audio, legacyType, legacyCommon, legacyPayload
+  }
+  public var clearedProperties: Set<ClearedProperty>?
+  public var legacyType: Int?
+  public var legacyCommon: Data?
   public var id = UUID()
   public var time: Double
   public var visible: Bool?
@@ -90,6 +96,16 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var groupChildrenBefore: [UUID: [ObjectSegment]]?
   public init(time: Double) { self.time = time }
   public func apply(to object: inout DisplayObject) {
+    for property in clearedProperties ?? [] {
+      switch property {
+      case .picture: object.picture = nil; case .gauge: object.gauge = nil; case .graph: object.graph = nil
+      case .imageControl: object.imageControl = nil; case .typography: object.typography = nil
+      case .shape: object.shape = nil; case .hud: object.hud = nil; case .audio: object.audio = nil
+      case .legacyType: object.legacyType = nil; case .legacyCommon: object.legacyCommon = nil
+      case .legacyPayload: object.legacyPayload = nil
+      }
+    }
+    if let legacyType { object.legacyType = legacyType }; if let legacyCommon { object.legacyCommon = legacyCommon }
     if let v = visible { object.visible = v }
     if let v = inputIndex { object.inputIndex = v }
     if let v = x { object.x = v }
@@ -140,15 +156,24 @@ extension DisplayObject {
     if old.text != value.text { list[i].text = value.text }
     if old.color != value.color { list[i].color = value.color }
     if old.channel != value.channel { list[i].channel = value.channel }
-    if old.picture != value.picture { list[i].picture = value.picture }
-    if old.gauge != value.gauge { list[i].gauge = value.gauge }
-    if old.graph != value.graph { list[i].graph = value.graph }
-    if old.imageControl != value.imageControl { list[i].imageControl = value.imageControl }
-    if old.typography != value.typography { list[i].typography = value.typography }
-    if old.shape != value.shape { list[i].shape = value.shape }
-    if old.hud != value.hud { list[i].hud = value.hud }
-    if old.audio != value.audio { list[i].audio = value.audio }
-    if old.legacyPayload != value.legacyPayload { list[i].legacyPayload = value.legacyPayload }
+    func parameter<T: Equatable>(_ property: ObjectSegment.ClearedProperty, _ path: WritableKeyPath<ObjectSegment,T?>, _ before: T?, _ after: T?) {
+      guard before != after else { return }
+      list[i][keyPath:path] = after
+      var cleared = list[i].clearedProperties ?? []
+      if after == nil { cleared.insert(property) } else { cleared.remove(property) }
+      list[i].clearedProperties = cleared.isEmpty ? nil : cleared
+    }
+    parameter(.picture,\.picture,old.picture,value.picture)
+    parameter(.gauge,\.gauge,old.gauge,value.gauge)
+    parameter(.graph,\.graph,old.graph,value.graph)
+    parameter(.imageControl,\.imageControl,old.imageControl,value.imageControl)
+    parameter(.typography,\.typography,old.typography,value.typography)
+    parameter(.shape,\.shape,old.shape,value.shape)
+    parameter(.hud,\.hud,old.hud,value.hud)
+    parameter(.audio,\.audio,old.audio,value.audio)
+    parameter(.legacyType,\.legacyType,old.legacyType,value.legacyType)
+    parameter(.legacyCommon,\.legacyCommon,old.legacyCommon,value.legacyCommon)
+    parameter(.legacyPayload,\.legacyPayload,old.legacyPayload,value.legacyPayload)
     if old.style != value.style { list[i].style = value.style }
     if old.minimum != value.minimum { list[i].minimum = value.minimum }
     if old.maximum != value.maximum { list[i].maximum = value.maximum }

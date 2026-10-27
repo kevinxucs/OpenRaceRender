@@ -147,3 +147,5 @@ RaceRender is a product of HP Tuners/RaceRender LLC. OpenRaceRender is an indepe
 Graph axes, time windows and saved styles: [2D graph controls](docs/graphs.md). Data-driven artwork: [image controls](docs/image-controls.md).
 
 Widget artwork tools: [background editor](docs/background-editor.md).
+
+Segment controls and navigation: [timeline editing](docs/timeline-editing.md).

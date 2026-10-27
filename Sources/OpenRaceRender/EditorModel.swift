@@ -21,6 +21,8 @@ import UniformTypeIdentifiers
   @Published var selectedIDs: Set<UUID> = []
   var changingSelection = false
   @Published var editingSegment: Double?
+  @Published var timelineZoom: Double = 1
+  @Published var timelineStart: Double = 0
   @Published var previewPlayer: AVPlayer?
   weak var canvasView: PreviewView?
   @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
@@ -93,14 +95,18 @@ import UniformTypeIdentifiers
   func undo() {
     guard let p = undoStack.popLast() else { return }
     redoStack.append(project)
+    let event = selected.flatMap { id in project.objects.first { $0.id == id }?.segments?.first { $0.time == editingSegment }?.id }
     project = p
+    restoreEditingSegment(event)
     dirty = true
     configurePlayers()
   }
   func redo() {
     guard let p = redoStack.popLast() else { return }
     undoStack.append(project)
+    let event = selected.flatMap { id in project.objects.first { $0.id == id }?.segments?.first { $0.time == editingSegment }?.id }
     project = p
+    restoreEditingSegment(event)
     dirty = true
     configurePlayers()
   }
@@ -257,7 +263,10 @@ import UniformTypeIdentifiers
   }
   func removeSegment() {
     guard let index = project.objects.firstIndex(where: { $0.id == selected }), let t = editingSegment else { return }
-    checkpoint(); project.removeDisplaySegment(project.objects[index].id, at: t); editingSegment = nil
+    do {
+      var updated = project; try updated.removeSegmentSafely(project.objects[index].id,at:t)
+      checkpoint(); project = updated; editingSegment = nil
+    } catch { self.error = error.localizedDescription }
   }
   func joinPrevious(_ id: UUID) {
     guard let i = project.inputs.firstIndex(where: { $0.id == id }), i > 0,

@@ -3,6 +3,18 @@ import XCTest
 @testable import RaceCore
 
 final class LegacyWriterTests: XCTestCase {
+  func testTemplateSeedAvoidsEncryptedInputDelimiterCollision() throws {
+    let zero = Data(repeating:0,count:136)
+    let badSeed = try XCTUnwrap((UInt32(0)..<4096).first { LegacyCodec.transform(zero,key:LegacyCodec.templateKey($0))[0] == 255 })
+    var p = RaceProject(); p.inputs = [MediaInput(name:"Logger",path:"",kind:"data")]
+    p.objects = [DisplayObject(name:"Speed",kind:.speed)]
+    let bytes = try LegacyWriter.data(p,format:.rrt,seed:badSeed)
+    XCTAssertNotEqual(bytes[64825],255)
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".rrt")
+    try bytes.write(to:root); defer {try? FileManager.default.removeItem(at:root)}
+    XCTAssertEqual(try RaceProject.read(root).inputs.first?.name,"Logger")
+  }
+
   func project() -> RaceProject {
     var p = RaceProject(); p.name = "Writer acceptance"; p.notes = "Native authored — no original RRP bytes"
     var video = MediaInput(name:"Camera",path:"/tmp/camera.mp4",kind:"video",legacyIndex:7)

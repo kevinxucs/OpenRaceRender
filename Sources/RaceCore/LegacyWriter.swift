@@ -16,6 +16,7 @@ public enum LegacyWriter {
     try bytes.write(to: url, options: .atomic)
   }
 
+  /// RRT seeds are adjusted when an encrypted source ID would collide with its raw delimiter.
   public static func data(_ sourceProject: RaceProject, format: Format, seed: UInt32 = .random(in: .min ... .max)) throws -> Data {
     guard Set(sourceProject.objects.map(\.id)).count == sourceProject.objects.count else {
       throw RaceError.invalid("Display identities must be unique before RaceRender export.")
@@ -99,8 +100,17 @@ public enum LegacyWriter {
       try noTimeline(project)
       var b = Data("rrt2".utf8) + word(version) + word(minimumVersion)
       b.append(try workspace(project)); b.append(preview(project, width: 180, height: 120))
-      b.append(word(seed)); b.append(word(136)); b.append(word(216))
-      let key = LegacyCodec.templateKey(seed)
+      // The input table terminates with a raw 0xFF. Avoid a seed whose
+      // encrypted input identifier would be indistinguishable from that marker.
+      var templateSeed = seed, key = LegacyCodec.templateKey(seed)
+      for _ in 0..<4096 {
+        let pad = LegacyCodec.transform(Data(repeating:0,count:136),key:key)[0]
+        if !(0..<project.inputs.count).contains(where: { UInt8($0) ^ pad == 255 }) { break }
+        templateSeed &+= 1; key = LegacyCodec.templateKey(templateSeed)
+      }
+      let pad = LegacyCodec.transform(Data(repeating:0,count:136),key:key)[0]
+      guard !(0..<project.inputs.count).contains(where: { UInt8($0) ^ pad == 255 }) else { throw RaceError.invalid("Could not encode template input identifiers.") }
+      b.append(word(templateSeed)); b.append(word(136)); b.append(word(216))
       for (index, source) in project.inputs.enumerated() {
         var r = Data(repeating: 0, count: 136); r[0] = UInt8(index)
         r[1] = source.kind == "data" ? 4 : source.kind == "audio" ? 2 : 1
@@ -456,6 +466,9 @@ public enum LegacyWriter {
       guard segment.time.isFinite, segment.time >= 0 else { throw RaceError.invalid("Invalid timeline time.") }
       var value = previous; segment.apply(to:&value)
       let old = try record(previous,sources:sources,parents:parents), new = try record(value,sources:sources,parents:parents)
+      guard old.common[280] == new.common[280] else {
+        throw RaceError.invalid("Changing display renderer types in a timeline segment requires .orrp format.")
+      }
       if old.image != new.image, new.image == word(0), old.image != word(0) {
         throw RaceError.invalid("Clearing background artwork in a timeline segment requires .orrp format.")
       }

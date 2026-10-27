@@ -49,3 +49,5 @@ F06 adds authored/imported type-35 graph writing for verified axes, modes, range
 F08 adds E Image control payloads, mapped data roles and length-prefixed artwork. Pulse intervals must be representable in tenths of a second; Visibility uses opacity endpoints for legacy export. Native-saved image import is verified, but corrected authored native reopening remains unverified because the UI window is inaccessible; see [image validation](image-controls.md).
 
 F09 allows a cleared base background. Artwork-clear timeline events require native format and are explicitly refused for RRP output; see [background editor](background-editor.md).
+
+F10 refuses renderer-type changes inside a legacy timeline event. RRT seeds are normalized if an encrypted input identifier would collide with the raw input-table delimiter; valid seeds remain unchanged. See [timeline validation](timeline-editing.md).
