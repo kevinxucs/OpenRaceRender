@@ -58,6 +58,8 @@ python3 scripts/validate-designer.py
 
 ## Editing a session
 
+Export offers local/internet/television profiles, reusable custom profiles, independent output aspect/size/FPS, whole-composition borders, scaling choices and mono/stereo 44.1/48 kHz AAC. See [output settings](docs/output-settings.md).
+
 **Preview → Preview settings…** controls preview size/FPS, scaling, seek quality and audio independently of export. **Full-screen composition** (Command-Shift-F) offers a dedicated playback view; see [preview controls and limits](docs/preview-settings.md).
 
 Video and image picture controls include chroma key (screen/RGB color, separate color/brightness ranges and soft edges) and tint/full-spectrum colorization. Source and display effects share preview/export and portable-artwork processing; see [picture effects and compatibility limits](docs/picture-effects.md).

@@ -54,7 +54,9 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           request.finish(with: RaceError.invalid("Could not allocate export frame."))
           return
         }
-        let size = request.renderContext.size
+        let outputSize = request.renderContext.size
+        let viewport = instruction.options.viewport(project:instruction.scene.project,size:outputSize)
+        let size = viewport.size
         let time = request.compositionTime.seconds
         let objects = instruction.scene.project.resolvedObjects(at: time).filter { $0.visible && time >= $0.start && time < $0.end }
         // Most sessions place one camera under all HUD layers. Render that camera
@@ -65,8 +67,9 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           let placement = instruction.scene.project.media(for:first.inputIndex,at:time),
           let track = instruction.tracks[placement.input.legacyIndex],let frame = request.sourceFrame(byTrackID:track) {
           let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(by:instruction.transforms[placement.input.legacyIndex] ?? .identity)
-          let layer = PictureProcessor.positioned(image,in:OverlayRenderer.rect(first,size:size),opacity:first.opacity,input:placement.input.picture,object:first.picture,scaling:instruction.options.scaling)
-          let bounds = CGRect(origin:.zero,size:size)
+          let rect = OverlayRenderer.rect(first,size:size).offsetBy(dx:viewport.minX,dy:viewport.minY)
+          let layer = PictureProcessor.positioned(image,in:rect,opacity:first.opacity,input:placement.input.picture,object:first.picture,scaling:instruction.options.scaling).cropped(to:viewport)
+          let bounds = CGRect(origin:.zero,size:outputSize)
           let background = CIImage(color:CIColor(red:0,green:0,blue:0)).cropped(to:bounds)
           self.ci.render(layer.composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
           baseVideo = first.id
@@ -84,7 +87,9 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           return
         }
         c.interpolationQuality = instruction.options.scaling == .nearest ? .none : instruction.options.scaling == .linear ? .low : .high
-        if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:size)) }
+        if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:outputSize)) }
+        c.clip(to:viewport)
+        c.translateBy(x:viewport.minX,y:viewport.minY)
         for o in objects where o.id != baseVideo {
           if o.kind == .video, let placement = instruction.scene.project.media(for: o.inputIndex, at: time),
             let track = instruction.tracks[placement.input.legacyIndex],
@@ -159,15 +164,17 @@ public final class VideoExporter: @unchecked Sendable {
   {
     try beginExport();defer { endExport() }
     let p = scene.project
-    guard p.width > 0, p.height > 0, p.width <= 7680, p.height <= 4320, p.width % 2 == 0,
-      p.height % 2 == 0, p.fps > 0, p.fps <= 120, p.fps.isFinite, start.isFinite, start >= 0,
+    let settings = p.exportSettings ?? ExportSettings()
+    try settings.validate(project:p)
+    guard p.width > 0, p.height > 0,p.width <= 16384,p.height <= 16384,p.fps > 0, p.fps <= 240, p.fps.isFinite, start.isFinite, start >= 0,
       duration.isFinite, duration > 0
     else { throw RaceError.invalid("Invalid export dimensions, frame rate or time range.") }
     guard !FileManager.default.fileExists(atPath: url.path) else {
       throw RaceError.invalid("Output already exists. Choose a new filename.")
     }
     try p.validateExportAssets(start: start, duration: min(duration, p.duration - start),telemetry:scene.telemetry)
-    let prepared = try await Self.prepare(scene: scene)
+    let options = try (settings.output ?? OutputSettings()).renderOptions(project:p)
+    let prepared = try await Self.prepare(scene: scene,options:options)
     let composition = prepared.composition
     let fullDuration = min(p.duration, composition.duration.seconds)
     guard start < fullDuration else { throw RaceError.invalid("Export start is beyond the project duration.") }
@@ -186,7 +193,9 @@ public final class VideoExporter: @unchecked Sendable {
   public static func prepare(scene: RenderScene, options:RenderOptions = RenderOptions()) async throws -> PreparedScene {
     let p = scene.project
     try options.validate()
-    guard p.width > 0, p.height > 0, p.width <= 7680, p.height <= 4320, p.fps.isFinite, p.fps > 0, p.fps <= 120 else {
+    let size = options.size ?? CGSize(width:p.width,height:p.height),fps = options.fps ?? p.fps
+    guard p.width > 0,p.height > 0,p.width <= 16384,p.height <= 16384,p.fps.isFinite,p.fps > 0,p.fps <= 240,
+      size.width >= 2,size.height >= 2,size.width <= 7680,size.height <= 4320,fps.isFinite,fps > 0,fps <= 120 else {
       throw RaceError.invalid("Invalid canvas dimensions or frame rate.")
     }
     let composition = AVMutableComposition()

@@ -41,6 +41,7 @@ import UniformTypeIdentifiers
     schedulePreview()
   } }
   @Published var showPreviewSettings = false
+  @Published var customOutputProfiles:[OutputProfile]
   @Published var previewSeeking = false
   @Published var fullScreenPreviewActive = false
   var fullScreenPreview:CompositionWindowController?
@@ -118,6 +119,7 @@ import UniformTypeIdentifiers
   }
   init(preferences: UserDefaults = .standard) {
     self.preferences = preferences
+    customOutputProfiles = preferences.data(forKey:"outputProfiles").flatMap{try? JSONDecoder().decode([OutputProfile].self,from:$0)} ?? []
     let decoded = preferences.data(forKey:"previewSettings").flatMap{try? JSONDecoder().decode(PreviewSettings.self,from:$0)}
     previewSettings = decoded.flatMap{(try? $0.validate()) != nil ? $0 : nil} ?? PreviewSettings()
     let saved = preferences.string(forKey:"preferredSpeedUnit") ?? "mph"
@@ -844,6 +846,7 @@ import UniformTypeIdentifiers
   }
   var exportRangeError: String? {
     do {
+      try (project.exportSettings ?? ExportSettings()).validate(project:project)
       try project.validateExportRange(start: exportStart, duration: exportDuration)
       try project.validateExportAssets(start: exportStart, duration: exportDuration,telemetry:telemetry)
       return nil

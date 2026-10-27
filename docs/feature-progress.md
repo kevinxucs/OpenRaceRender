@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 320 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 326 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -33,13 +33,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F25: independent size/FPS/scaling/seek/audio preferences and composition-only full-screen window implemented; see [preview settings](preview-settings.md).
 
-Next feature: **F26 — output profiles and remaining export controls**, after committing/pushing F25. F24 `1692dc4` passed CI40562461127.
+- F26: distribution/custom output profiles, independent fit/reshape output size/FPS, whole-composition border/scaling and mono/stereo/disabled 44.1/48 kHz audio implemented; see [output settings](output-settings.md).
+
+Next feature: **F27 — camera-free exports with a generated clock**, after committing/pushing F26. F25 `39fd4d3` passed CI40564268327.
 
 ## Remaining queue
 
-F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F26 handoff — encoded output validated, live UI/native preferences limited
+
+- OutputSettings optional inside ExportSettings, preserving older decoding. Independent output dimensions/FPS, fitCanvas versus percentage-layout output proportions, border0..20% eachside, shared scaling, audio channels0/1/2 and44100/48000. RenderOptions viewport computes inset/aspect and applies it to CI base video plus all CGContext layers, clips to inner workspace, keeps scene script/project clocks unchanged. Writer/bitrate use output dimensions/FPS; final audio mix converts to chosen16bitPCM/AAC format. Invalid settings rejected before media/output creation.
+- Own local4K/local1080/internet1080/internet720/TV1080 distribution presets plus named user profiles in injected UserDefaults. Save/update same case-insensitive name retainsID; built-ins fixed, remove preserves applied settings, project stores applied settings/profileID, templatesstrip. Profile/manual output edits use Undo without changing canvas/preview/marks. Aspect/height/exactsize/workspace/FPS/border/scaling/bitrate/audio controls split into small views; scroll controls with pinned actions. Numeric dimension/bitrate entry guarded before risky conversions/multiplication. Cancel dismiss retains saved-field edits, as earlier UI did.
+- CLI export resolution/FPS now populate output settings without mutating logical canvas; snapshot flags retain their former behavior. --profile/--workspace/--border(percent)/--scaling/--audio-rate/--audio-channels supported; overrides clear selected profileID. RRP application-global preference encoding remains outside project export scope, not invented.
+- 326 tests pass (262core/64editor), no skips with authorized library/graphics. Four core/two editor additions cover old decoding, encoder/bitrate params, viewport math/border, invalid no-file preflight, presets/project persistence/template isolation, canvas/preview/marks/Undo and custom profile save/update/delete/persistence. validate-output-settings passes independently mapped fit/reshape/bordered frames at marked nonzero times, dimensions15FPS/duration, actual mono44100AAC/stereo48000profile/noaudio metadata, CLIoverride and unchanged project bytes. Fit reference image visually inspected. Existing validate-media regression passes joins/trim/rate/visibility/audio/camera switching/nonzero/fractional output/tags/markers/picture/preflight/RCZ equivalence. Logs build/validation/output-settings. Local release library app/ZIP verified.
+- Mirrored CreateVideo/TechInfo read. Native/editor live export UI still cgWindowNotFound; no native algorithm/profile-file parity or universal performance claim. 360workspace belongsF34. F25 pushed39fd4d3 and CI40564268327 succeeded. Commit/push F26 before F27; continue sequentially without manual compaction waits. No private/vendor fixtures committed.
 
 ## F25 handoff — actual composed media validated, live full-screen limited
 

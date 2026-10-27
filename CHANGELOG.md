@@ -1,5 +1,10 @@
 # Changelog
 
+## F26 — Output profiles and independent workspace
+
+- Local/internet/television presets, saved custom profiles, output aspect/dimensions/FPS independent of the canvas, fit/reshape layout choices and whole-composition outer border.
+- Selectable scaling, mono/stereo/disabled AAC and 44.1/48 kHz audio; CLI overrides, preflight validation, native persistence and Undo. See [workflow and limits](docs/output-settings.md).
+
 ## F25 — Independent preview and full-screen composition
 
 - Saved preview size/FPS caps, scaling quality, reduced seek quality and stereo/mono/disabled audio with rate/precision choices; original project/export/script clocks stay independent.

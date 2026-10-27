@@ -19,6 +19,7 @@ enum CLI {
       OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
+      Export options: --profile local-1080 --workspace fitCanvas|output --border 5 --scaling high|linear|nearest --audio-rate 44100|48000 --audio-channels 0|1|2
       OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
@@ -113,6 +114,38 @@ enum CLI {
         return 0
       }
       var p = try RaceProject.read(url)
+      if a[1] == "export" {
+        var settings = p.exportSettings ?? ExportSettings()
+        if let id = option("--profile") {
+          guard let profile = OutputProfile.builtins.first(where:{$0.id == id}) else {throw RaceError.invalid("Unknown profile. Choose local-4k, local-1080, internet-1080, internet-720 or television-1080.")}
+          settings = profile.settings; settings.profileID = profile.id
+        }
+        var output = settings.output ?? OutputSettings()
+        if let value = option("--width") {
+          guard let width = Int(value),(2...7680).contains(width) else {throw RaceError.invalid("Invalid output width.")}
+          let oldSize = output.size(for:p)
+          guard oldSize.width > 0,oldSize.height > 0,oldSize.width <= 16384,oldSize.height <= 16384 else {throw RaceError.invalid("Invalid saved output dimensions.")}
+          output.width = width; output.height = max(2,Int((Double(width)*oldSize.height/oldSize.width/2).rounded())*2)
+        }
+        if let value = option("--height") {
+          guard let height = Int(value),(2...4320).contains(height) else {throw RaceError.invalid("Invalid output height.")}
+          if option("--width") == nil {
+            let oldSize = output.size(for:p)
+            guard oldSize.width > 0,oldSize.height > 0,oldSize.width <= 16384,oldSize.height <= 16384 else {throw RaceError.invalid("Invalid saved output dimensions.")}
+            output.width = max(2,Int((Double(height)*oldSize.width/oldSize.height/2).rounded())*2)
+          }
+          output.height = height
+        }
+        if let value = option("--fps") {guard let fps = Double(value),fps.isFinite else {throw RaceError.invalid("Invalid output frame rate.")};output.fps = fps}
+        if let value = option("--workspace") {guard let workspace = OutputSettings.Workspace(rawValue:value) else {throw RaceError.invalid("Use --workspace fitCanvas or output.")};output.workspace = workspace}
+        if let value = option("--border") {guard let border = Double(value),border.isFinite else {throw RaceError.invalid("Invalid border percent.")};output.border = border/100}
+        if let value = option("--scaling") {guard let scaling = RenderOptions.Scaling(rawValue:value) else {throw RaceError.invalid("Use --scaling high, linear or nearest.")};output.scaling = scaling}
+        if let value = option("--audio-rate") {guard let rate = Int(value) else {throw RaceError.invalid("Invalid audio sample rate.")};output.audioSampleRate = rate}
+        if let value = option("--audio-channels") {guard let channels = Int(value) else {throw RaceError.invalid("Invalid audio channels.")};output.audioChannels = channels}
+        let overrides = ["--width","--height","--fps","--workspace","--border","--scaling","--audio-rate","--audio-channels","--video-bitrate","--audio-bitrate"]
+        if overrides.contains(where:{option($0) != nil}) {settings.profileID = nil}
+        settings.output = output; p.exportSettings = settings
+      } else {
       if let width = option("--width").flatMap(Int.init) {
         p.height = Int((Double(width) * Double(p.height) / Double(p.width) / 2).rounded()) * 2
         p.width = width
@@ -122,6 +155,7 @@ enum CLI {
         p.height = height
       }
       if let fps = option("--fps").flatMap(Double.init) { p.fps = fps }
+      }
       if option("--video-bitrate") != nil || option("--audio-bitrate") != nil {
         var settings = p.exportSettings ?? ExportSettings()
         if let value = option("--video-bitrate") { guard let rate = Int(value),rate >= 100,rate <= 240000 else { throw RaceError.invalid("Invalid video bitrate in kbps.") };settings.videoBitRate = rate*1000 }

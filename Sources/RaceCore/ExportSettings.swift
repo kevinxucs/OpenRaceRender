@@ -5,6 +5,8 @@ public struct ExportSettings: Codable, Equatable, Sendable {
   /// Bits per second. Nil selects a quality-oriented rate for the canvas and frame rate.
   public var videoBitRate: Int?
   public var audioBitRate: Int = 240_000
+  public var output:OutputSettings?
+  public var profileID:String?
   public init(videoBitRate: Int? = nil, audioBitRate: Int = 240_000) {
     self.videoBitRate = videoBitRate; self.audioBitRate = audioBitRate
   }
@@ -12,14 +14,21 @@ public struct ExportSettings: Codable, Equatable, Sendable {
     videoBitRate ?? Int(max(2_000_000, min(120_000_000, Double(width)*Double(height)*fps*0.2)))
   }
   func videoSettings(project p: RaceProject) -> [String: Any] {
-    [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: p.width, AVVideoHeightKey: p.height,
+    let width = output?.width ?? p.width,height = output?.height ?? p.height,fps = output?.fps ?? p.fps
+    return [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: width, AVVideoHeightKey: height,
       AVVideoEncoderSpecificationKey: [kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: true],
       AVVideoColorPropertiesKey: [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
         AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
         AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2],
-      AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: resolvedVideoBitRate(width:p.width,height:p.height,fps:p.fps),
+      AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: resolvedVideoBitRate(width:width,height:height,fps:fps),
         AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
-        AVVideoExpectedSourceFrameRateKey: p.fps, AVVideoMaxKeyFrameIntervalDurationKey: 2.0]]
+        AVVideoExpectedSourceFrameRateKey: fps, AVVideoMaxKeyFrameIntervalDurationKey: 2.0]]
+  }
+  public func validate(project:RaceProject) throws {
+    let value = output ?? OutputSettings(); try value.validate(project:project)
+    let size = value.size(for:project),fps = value.fps ?? project.fps
+    let rate = resolvedVideoBitRate(width:Int(size.width),height:Int(size.height),fps:fps)
+    guard (100_000...240_000_000).contains(rate),(64_000...320_000).contains(audioBitRate) else { throw RaceError.invalid("Video bitrate must be 100–240000 kbps; audio bitrate must be 64–320 kbps.") }
   }
 }
 
@@ -28,10 +37,8 @@ public struct ExportSettings: Codable, Equatable, Sendable {
 extension VideoExporter {
   func write(prepared: PreparedScene, project: RaceProject, to url: URL, range: CMTimeRange) async throws {
     let settings = project.exportSettings ?? ExportSettings()
-    let rate = settings.resolvedVideoBitRate(width:project.width,height:project.height,fps:project.fps)
-    guard (100_000...240_000_000).contains(rate), (64_000...320_000).contains(settings.audioBitRate) else {
-      throw RaceError.invalid("Video bitrate must be 100–240000 kbps; audio bitrate must be 64–320 kbps.")
-    }
+    try settings.validate(project:project)
+    let audio = settings.output ?? OutputSettings()
     let reader = try AVAssetReader(asset: prepared.composition)
     reader.timeRange = range
     let writer = try AVAssetWriter(outputURL:url,fileType:.mp4)
@@ -48,13 +55,13 @@ extension VideoExporter {
     reader.add(videoOutput); writer.add(videoInput)
     var streams: [(AVAssetReaderOutput,AVAssetWriterInput)] = [(videoOutput,videoInput)]
     let tracks = prepared.composition.tracks(withMediaType:.audio)
-    if !tracks.isEmpty {
+    if !tracks.isEmpty,audio.audioChannels != 0 {
       let output = AVAssetReaderAudioMixOutput(audioTracks:tracks,audioSettings:[
-        AVFormatIDKey:kAudioFormatLinearPCM,AVSampleRateKey:48_000,AVNumberOfChannelsKey:2,
+        AVFormatIDKey:kAudioFormatLinearPCM,AVSampleRateKey:audio.audioSampleRate,AVNumberOfChannelsKey:audio.audioChannels,
         AVLinearPCMBitDepthKey:16,AVLinearPCMIsFloatKey:false,AVLinearPCMIsNonInterleaved:false])
       output.audioMix = prepared.audio; output.alwaysCopiesSampleData = false
       let input = AVAssetWriterInput(mediaType:.audio,outputSettings:[
-        AVFormatIDKey:kAudioFormatMPEG4AAC,AVSampleRateKey:48_000,AVNumberOfChannelsKey:2,AVEncoderBitRateKey:settings.audioBitRate])
+        AVFormatIDKey:kAudioFormatMPEG4AAC,AVSampleRateKey:audio.audioSampleRate,AVNumberOfChannelsKey:audio.audioChannels,AVEncoderBitRateKey:settings.audioBitRate])
       guard reader.canAdd(output),writer.canAdd(input) else { throw RaceError.invalid("Unsupported audio export settings.") }
       reader.add(output);writer.add(input);streams.append((output,input))
     }

@@ -367,73 +367,19 @@ struct ExportSheet: View {
   @Environment(\.dismiss) var dismiss
   @State var firstLap = -1
   @State var lastLap = -1
-  var videoRate: Binding<Int> {
-    Binding(get:{ (model.project.exportSettings ?? ExportSettings()).videoBitRate.map { $0/1000 } ?? 0 },set:{ value in
-      var settings = model.project.exportSettings ?? ExportSettings()
-      let rate = value > 0 ? value*1000 : nil
-      guard settings.videoBitRate != rate else { return }
-      model.checkpoint(); settings.videoBitRate = rate; model.project.exportSettings = settings
-    })
-  }
-  var audioRate: Binding<Int> {
-    Binding(get:{ (model.project.exportSettings ?? ExportSettings()).audioBitRate/1000 },set:{ value in
-      var settings = model.project.exportSettings ?? ExportSettings()
-      guard settings.audioBitRate != value*1000 else { return }
-      model.checkpoint(); settings.audioBitRate = value*1000; model.project.exportSettings = settings
-    })
-  }
   var body: some View {
-    VStack(alignment: .leading, spacing: 22) {
-      Text("Export telemetry video").font(.system(size: 24, weight: .semibold))
-      Text("H.264 MP4 · original audio · native Apple silicon rendering").font(.system(size: 12))
-        .foregroundStyle(muted)
+    VStack(alignment:.leading,spacing:16) {
+      Text("Export telemetry video").font(.system(size:24,weight:.semibold))
+      Text("H.264 MP4 · AAC · independent output configuration").font(.caption).foregroundStyle(muted)
       Divider()
-      HStack {
-        Text("Resolution")
-        Spacer()
-        Picker(
-          "Resolution",
-          selection: Binding(
-            get: { model.project.width },
-            set: {
-              let height = $0 == 856 ? 480 : Int(Double($0) * 9 / 16)
-              guard model.project.width != $0 || model.project.height != height else { return }
-              model.checkpoint()
-              model.project.width = $0
-              model.project.height = height
-            })
-        ) {
-          if ![3840,1920,1280,854,856].contains(model.project.width) { Text("Custom · \(model.project.width) × \(model.project.height)").tag(model.project.width) }
-          Text("4K · 3840 × 2160").tag(3840)
-          Text("1080p · 1920 × 1080").tag(1920)
-          Text("720p · 1280 × 720").tag(1280)
-          Text("480p · 854 × 480").tag(854)
-          Text("480p · 856 × 480").tag(856)
-        }.labelsHidden().frame(width: 230)
-      }
-      HStack {
-        Text("Frame rate")
-        Spacer()
-        Picker("Frame rate", selection: model.projectBinding(\.fps)) {
-          ForEach(Array(Set([5.0,10,15,24,25,30000.0/1001,30,50,60000.0/1001,60,120,model.project.fps])).sorted(), id: \.self) {
-            Text("\($0.formatted()) fps").tag($0)
-          }
-        }.labelsHidden().frame(width: 230)
-      }
-      HStack {
-        Text("Video bitrate (kbps)")
-        Spacer()
-        TextField("Automatic",value:videoRate,format:.number).frame(width:120)
-      }
-      Text("0 uses an automatic high-quality rate. H.264 High Profile, Rec.709.")
-        .font(.caption).foregroundStyle(muted)
-      HStack {
-        Text("Audio bitrate")
-        Spacer()
-        Picker("Audio bitrate",selection:audioRate) {
-          ForEach([128,192,240,256,320],id:\.self) { Text("\($0) kbps AAC").tag($0) }
-        }.labelsHidden().frame(width:230)
-      }
+      ScrollView {
+        VStack(alignment:.leading,spacing:18) {
+          OutputProfileControls(model:model)
+          Divider()
+          OutputGeometryControls(model:model)
+          Divider()
+          OutputEncodingControls(model:model)
+          Divider()
       HStack {
         VStack(alignment: .leading) {
           Text("Start (seconds)")
@@ -476,7 +422,9 @@ struct ExportSheet: View {
       if let path = model.project.lastExport?.path {
         Text("Previous output: " + URL(fileURLWithPath: path).lastPathComponent + ". A new filename is suggested for repeat exports.").font(.caption).foregroundStyle(muted)
       }
-      Text("Export settings and output location are saved with the project when rendering begins.").font(.caption).foregroundStyle(muted)
+      Text("Export settings and output location are saved with the project when rendering begins. The editing canvas and preview preferences stay independent.").font(.caption).foregroundStyle(muted)
+        }.padding(.trailing,8)
+      }
       Divider()
       HStack {
         Button("Cancel") { dismiss() }
@@ -484,7 +432,7 @@ struct ExportSheet: View {
         Button("Choose output & export…", action: model.exportVideo).buttonStyle(.borderedProminent)
           .foregroundStyle(bg).disabled(model.exportRangeError != nil || model.exportProgress != nil)
       }
-    }.padding(28).frame(width: 490).background(bg).preferredColorScheme(.dark).tint(mint)
+    }.padding(28).frame(width:560,height:820).background(bg).preferredColorScheme(.dark).tint(mint)
       .alert("Export could not start", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
         Button("OK") { model.error = nil }
       } message: { Text(model.error ?? "") }
