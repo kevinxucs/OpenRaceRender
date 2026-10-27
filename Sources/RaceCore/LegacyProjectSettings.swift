@@ -75,6 +75,7 @@ enum LegacyProjectSettings {
         if alias == "heading" { s.headingDerivation = .calculate }
         if alias == "gx" { s.longitudinalDerivation = .calculate }
         if alias == "gy" { s.lateralDerivation = .calculate }
+        if alias == "gear" { s.gearDerivation = .calculate }
       }
     }
     let timeScale = b.f32(128), conversion = b.f32(904)

@@ -1,5 +1,10 @@
 # Changelog
 
+## F16 — Gear estimation and calibration
+
+- Recorded-first automatic gear estimation, forced/disabled modes, learned time-weighted ratios, manual/playhead calibration, thresholds and gear-number adjustment. Results remain discrete and calibration is stable across render chunks.
+- Built-in estimated badges, unknown/neutral/reverse distinction, source provenance, one-step calibration edits and conservative legacy export checks. See [workflow and limits](docs/gear-estimation.md).
+
 ## F15 — Shared heading and G-force estimates
 
 - Recorded-first automatic roles, Calculate/Recorded only modes, GPS/metric-XY heading and speed, speed-derived longitudinal G, course-derived lateral G and visible provenance. Heading adjustment/reversal and circular CSV/RCZ interpolation are supported.

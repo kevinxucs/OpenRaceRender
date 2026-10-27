@@ -474,6 +474,7 @@ struct DataControls: View {
           }
         }
         DerivedMotionControls(settings:settings,data:data)
+        GearEstimationControls(settings:settings,data:data,model:model,inputIndex:input.legacyIndex)
         Divider()
         Text("Calculated fields: source × multiplier + offset").foregroundStyle(muted)
         ForEach(settings.fields) { $field in

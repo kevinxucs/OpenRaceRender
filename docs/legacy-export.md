@@ -28,6 +28,8 @@ Explicit sequence time fillers require native `.orrp`; their RaceRender source-r
 
 Heading Calculate uses the documented source-field marker. Explicit recorded-only heading and G calculation mode overrides require native `.orrp`; their native source controls remain unverified.
 
+Gear Calculate and whole-number gear adjustment are supported. Recorded-only gear and custom ratio/threshold calibration require `.orrp`; native equivalents have not been verified.
+
 RRT/RRO cannot store OpenRaceRender timeline events or display time bounds; export RRP or native ORRT instead. They are refused rather than silently flattened. RRO styles cannot carry a parent group. Other canvas ratios are refused until their workspace encodings are verified. RaceRender cannot represent an end flag at zero. RaceRender's application-wide video export preferences and OpenRaceRender's remembered destination are not RRP records.
 
 Compatibility does not establish identical pixels. Native fonts, glyph handling, gradients and supported renderers still have the limits described in the feature audit. RR3's macOS preview garbled a non-ASCII arrow while retaining its UTF-16 payload unchanged; the acceptance fixtures use ASCII captions for the visual check.

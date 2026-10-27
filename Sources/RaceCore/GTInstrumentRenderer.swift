@@ -65,9 +65,10 @@ enum GTInstrumentRenderer {
       text(digits, 0.04, 0.09, min(0.52, w/h/Double(digits.count)*1.1), white, 0, .medium)
       text(hud.unit, 0.96, 0.15, 0.24, muted, 1)
     case .gear:
-      let v = value(o.resolvedChannel)
-      text(v == 0 ? "N" : OverlayRenderer.number(v), 0.5, 0.12, 0.70, white, 0.5, .medium)
-      text(hud.label.uppercased(), 0.5, 0.88, 0.10, muted)
+      let v = d?.value(o.resolvedChannel,at:t,interpolate:false)
+      text(GearEstimator.displayName(v),0.5,0.12,0.70,white,0.5,.medium)
+      let label = hud.label+(d?.provenance(for:o.resolvedChannel)?.kind == .gear ? " · EST" : "")
+      text(label.uppercased(),0.5,0.88,0.10,muted)
     case .pedal:
       let v = value(o.resolvedChannel), fraction = max(0, min(1, ((v ?? 0)-o.minimum)/max(1, o.maximum-o.minimum)))
       let track = CGRect(x: r.minX+w*0.26, y: r.minY+h*0.19, width: w*0.48, height: h*0.65)

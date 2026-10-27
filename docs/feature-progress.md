@@ -19,16 +19,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F13: independent camera players, source event alignment, target rate/offset edits and composition verification implemented; see [camera synchronization](source-synchronization.md).
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
-- Validation: 246 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
+- Validation: 255 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F16 — gear estimation**, after committing/pushing F15. F14 is pushed as `499d215`; CI40487851615 succeeded.
+Next feature: **F17 — complete data assignments, conversions and reusable profiles**, after committing/pushing F16. F15 is pushed as `00107a9`; CI40513410215 succeeded.
 
 ## Remaining queue
 
-F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F16 handoff — implementation validated, live UI limited
+
+- `GearEstimation.swift` supplies deterministic whole-source ratio learning and manual calibration. Stable ±0.15s ratio windows feed a time-weighted log histogram, support thresholds, separated peaks and up to12 ratios; matching uses relative tolerance and small hysteresis. Invalid/stopped/unmatched/large-gap samples stay unknown. Observed ratio ranking starts at1; unobserved gears require adjustment/full manual list. No claim of reliable CVT/clutch-slip detection or inferred neutral/reverse.
+- DataSettings adds gearDerivation and optional GearEstimationSettings. Default prefers recorded usable gear (including a finite-sample check); Calculate forces estimates; Recorded only disables fallback. Source configuration installs estimated columns with `.gear` provenance and discrete sampling. Recorded gear and adjustment/custom-field conversions retain discrete behavior. Source gear ratio capture reads configured RPM/speed in m/s at the selected input's synchronized source time.
+- GearEstimationControls exposes mode, adjustment, learned/manual ratio table, use detected ratios, playhead capture, min speed/RPM, tolerance, max detected gears, support and reset. Source setting edits use existing atomic binding/undo. Stale ratio-row getters are bounds-safe after deletion; default option resets normalize to nil. Profiles remain F17.
+- Native/Apex/GT gear displays mark estimates with EST and distinguish unknown —, neutral N and reverse R. Imported scripts keep their own formatting but inspectors show provenance. Visual QA caught Apex's extended label clipping in a tall/narrow gear box; HUD labels now fit available width. Gear display reads are discrete independently of object kind.
+- Legacy Gear Calculate marker `(Calculate)` at1168 and signed whole-number adjustment survive automated roundtrip. Recorded-only/custom-calibration rewritten native export refused; no verified native threshold/table equivalent. Native application still cgWindowNotFound after documentation restoration and retry following usage-limit reset. No live/native pixel parity claim.
+- 255 tests pass (209 core/46 editor): seven core/two editor tests cover noisy learning, manual ratios, slip/unknown/gaps, speed units, recorded priority, force/disable, empty recorded column, adjustment steps, bad settings, markers/persistence, source-specific playhead calibration, undo/templates and all three built-in gear styles. `validate-gear-estimation.py` compares learned output with independent known-ratio manual output, unknown stationary/slip frames and a chunk starting after first gear. Logs under `build/validation/gear-estimation`.
+- Mirrored HowTo-Datalogger gear estimation and InputFileEdit controls read. F15 CI40513410215 succeeded on00107a9. Commit/push F16 and verify CI before F17. Continue each feature with its own commit/push, no manual compaction waits. No private/vendor data committed; authorized library stays in local release bundle only.
 
 ## F15 handoff — implementation validated, live UI limited
 

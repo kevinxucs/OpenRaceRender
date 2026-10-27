@@ -429,6 +429,9 @@ public enum LegacyWriter {
   }
 
   static func dataSettings(_ s: DataSettings, into b: inout Data) throws {
+    guard s.gearDerivation != .recordedOnly,(s.gearEstimation ?? GearEstimationSettings()) == GearEstimationSettings() else {
+      throw RaceError.invalid("Recorded-only gear and custom gear calibration require .orrp; their native settings are not verified.")
+    }
     guard s.headingDerivation != .recordedOnly,
       (s.longitudinalDerivation ?? .automatic) == .automatic,
       (s.lateralDerivation ?? .automatic) == .automatic else {
@@ -438,6 +441,7 @@ public enum LegacyWriter {
     guard Set(s.assignments.keys).isSubset(of:Set(fields.map(\.0))) else { throw RaceError.invalid("Some custom data assignments have no RaceRender input-setting field.") }
     for (alias,offset) in fields { try string(s.assignments[alias] ?? "",into:&b,at:offset,size:128,field:"Data assignment") }
     if s.headingDerivation == .calculate { try string("(Calculate)",into:&b,at:908,size:128,field:"Heading calculation") }
+    if s.gearDerivation == .calculate { try string("(Calculate)",into:&b,at:1168,size:128,field:"Gear calculation") }
     b.putFloat(try finite(s.timeUnitsPerSecond ?? 1,"Time units"),128)
     b.putFloat(try finite(s.speedMultiplier ?? 1,"Speed conversion"),904)
     b.putFloat(try finite(s.headingAdjustment ?? 0,"Heading adjustment"),1036)

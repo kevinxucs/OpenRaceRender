@@ -1,7 +1,7 @@
 import Foundation
 
 public struct ChannelProvenance:Equatable,Sendable {
-  public enum Kind:String,Sendable { case recorded,gps,position,speed,heading,calculated }
+  public enum Kind:String,Sendable { case recorded,gps,position,speed,heading,gear,calculated }
   public var kind:Kind
   public var details:String
 }
@@ -42,7 +42,7 @@ extension Telemetry {
     } else {
       recordedState = TelemetryRecordedState(headers:headers,columns:columns,aliases:aliases,times:times,laps:laps,mapPoints:mapPoints,discreteColumns:discreteColumns)
     }
-    provenance.removeAll(); circularColumns.removeAll(); invalidateValueCaches()
+    provenance.removeAll(); circularColumns.removeAll(); gearCalibration = nil; gearEstimateMessage = nil; invalidateValueCaches()
   }
   static func normalHeading(_ degrees:Double) -> Double { (degrees.truncatingRemainder(dividingBy:360)+360).truncatingRemainder(dividingBy:360) }
   static func headingDelta(from a:Double,to b:Double) -> Double { normalHeading(b-a+180)-180 }

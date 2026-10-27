@@ -38,6 +38,8 @@ public struct DataSettings: Codable, Equatable, Sendable {
   public var headingDerivation:DataDerivationMode?
   public var longitudinalDerivation:DataDerivationMode?
   public var lateralDerivation:DataDerivationMode?
+  public var gearDerivation:DataDerivationMode?
+  public var gearEstimation:GearEstimationSettings?
   public var gearAdjustment: Double?
   public var ignoreLapTriggers: Int?
   public var interpolate: Bool?
@@ -64,6 +66,7 @@ extension Telemetry {
       headers.append(name); columns.append(columns[index].map(operation)); aliases[alias] = headers.count - 1
       provenance[headers.count-1] = provenance[index]
       if circularColumns.contains(index) { circularColumns.insert(headers.count-1) }
+      if discreteColumns.contains(index) { discreteColumns.insert(headers.count-1) }
       if discreteColumns.contains(index) { discreteColumns.insert(headers.count - 1) }
     }
     if let multiplier = settings.speedMultiplier, multiplier.isFinite, settings.assignments["speed"] != nil {
@@ -79,6 +82,7 @@ extension Telemetry {
         return (adjusted.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360)
       }
     }
+    deriveGear(settings)
     if let adjustment = settings.gearAdjustment, adjustment.isFinite, adjustment != 0 {
       transformed("gear", name: "Configured gear") { $0 + adjustment }
     }

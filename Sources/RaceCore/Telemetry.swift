@@ -24,6 +24,8 @@ public final class Telemetry: @unchecked Sendable {
   var recordedState:TelemetryRecordedState?
   var provenance:[Int:ChannelProvenance] = [:]
   var circularColumns = Set<Int>()
+  public internal(set) var gearCalibration:GearCalibration?
+  public internal(set) var gearEstimateMessage:String?
   public internal(set) var columns: [[Double]]
   public let title: String
   public internal(set) var laps: [TelemetryLap]

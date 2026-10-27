@@ -227,8 +227,11 @@ public enum OverlayRenderer {
       }
     case .gear:
       panel(c, r)
-      let v = value("gear", false)
-      text(c, v == 0 ? "N" : number(v), x: cx, y: r.minY + h * 0.08, size: h * 0.72, color: accent)
+      let v = data?.value(o.resolvedChannel,at:time,interpolate:false)
+      text(c,GearEstimator.displayName(v),x:cx,y:r.minY+h*0.08,size:h*0.72,color:accent)
+      if data?.provenance(for:o.resolvedChannel)?.kind == .gear {
+        text(c,"EST",x:cx,y:r.minY+h*0.85,size:max(5,h*0.10),color:"#97A6BA")
+      }
     case .throttle, .brake, .bar:
       let key = o.kind == .brake ? "brake" : "throttle"
       let v = value(key)

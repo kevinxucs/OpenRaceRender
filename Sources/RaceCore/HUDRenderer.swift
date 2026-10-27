@@ -18,7 +18,9 @@ enum HUDRenderer {
     }
     func label(_ title: String? = nil) {
       let size = [.map, .gforce, .tyres].contains(hud.role) ? min(0.16, (w*0.05+h*0.015)/h) : 0.16
-      text((title ?? hud.label).uppercased(), 0.07, 0.74, size, muted, 0, .semibold)
+      let caption = (title ?? hud.label).uppercased()
+      let fitted = min(size,w*0.86/max(1,h*Double(max(1,caption.count))*0.72))
+      text(caption,0.07,0.74,fitted,muted,0,.semibold)
     }
     func value(_ channel: String) -> Double? { d?.value(channel, at: t, interpolate: o.kind != .gear) }
     func format(_ v: Double?, decimals: Int? = nil) -> String { OverlayRenderer.number(v, decimals: max(0, min(4, decimals ?? hud.decimals))) }
@@ -35,9 +37,9 @@ enum HUDRenderer {
       panel(); label(hud.label + " · " + unit.uppercased())
       text(format(d?.speed(at: t, unit: unit, channel: o.resolvedChannel)), 0.5, 0.02, 0.66, white, 0.5, .light)
     case .gear:
-      panel(); label()
-      let v = value(o.resolvedChannel)
-      text(v == 0 ? "N" : format(v), 0.5, 0.02, 0.66, o.color, 0.5, .semibold)
+      panel(); label(hud.label+(d?.provenance(for:o.resolvedChannel)?.kind == .gear ? " · EST" : ""))
+      let v = d?.value(o.resolvedChannel,at:t,interpolate:false)
+      text(GearEstimator.displayName(v),0.5,0.02,0.66,o.color,0.5,.semibold)
     case .rpm:
       panel()
       let rpm = value(o.resolvedChannel), maximum = max(1, o.maximum), redline = o.gauge?.redline ?? maximum*0.85
