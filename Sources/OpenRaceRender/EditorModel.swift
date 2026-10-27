@@ -67,6 +67,7 @@ import UniformTypeIdentifiers
   @Published var busy = false
   @Published var status = "Ready · Open a project or add video and telemetry"
   @Published var error: String?
+  @Published var showNetworkReceive = false
   @Published var showTemplates = false
   @Published var showExport = false
   @Published var showWidgets = false { didSet { if oldValue != showWidgets { schedulePreview() } } }

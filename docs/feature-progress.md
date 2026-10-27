@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 358 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 364 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -45,13 +45,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F31: documented MSL/GUTMA imports and saved CSV/GPX/TCX/concatenated-FIT/RCZ session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
 
-Next feature: **F32 — network receiving**, after committing/pushing F31’s verified scope. F30 `c998d0d` passed CI40579493246. Keep the unverified F31 binary-format subfeatures outstanding; do not claim all of F31 complete.
+- F32: explicit-start browser/HTTP local receiving, streamed private staging, destination/progress/cancel/completed-file import implemented. TrackAddict native discovery/wire protocol remains unverified and outstanding; see [network receiving](network-receive.md).
+
+Next feature: **F33 — current YouTube upload workflow**, after committing/pushing F32’s verified scope. F31 `e142c10` passed CI40581130955; session-Undo follow-up `0ff381c` passed CI40581568304. Keep unverified F31 binary-format and F32 native-protocol parts outstanding.
 
 ## Remaining queue
 
-F32, F33, F34, F35, F36; F31 binary formats/vendor-specific layouts remain pending verifiable fixtures.
+F33, F34, F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F32 handoff — open browser receiver validated; native TrackAddict protocol outstanding
+
+- Public mirroredTransfer/TrackAddict acquisition guides + current primary docs checked. They specify user workflow but no discovery/wire messages. Nativewindow stillCUAcgWindowNotFound. Read-only executable protocol-string search found no usable wire spec (no vendor code copied). No phone/packet fixture. NativeTrackAddict automatic scan/transfer remains explicitly unsupported and outstanding; do not fake Bonjour/nativecompatibility.
+- Own LocalTransferServer on Network.framework starts only fromReceivewindow. Token-auth HTTPpage/PUTrawfiles/POSTfinish, ephemeralport, activeIPv4URLs, bounded16KiBheaders/64KiBchunks, positiveContentLength, no chunked/multipart, 4clients/64files/64GiBfile/128GiBbatch,60sidletimeout. No outgoingservice/download/listendpoint. Tokenfreshpairlink andtrustedHTTPnetwork disclosure. NSLocalNetworkUsageDescription added; no launch-time listener/permission request.
+- Queue-confined private0700staging/0600files, single filename/whitelistext/caseUnicodecollision/pathtraversal/control validation, exactlength/close/sync, atomicnewReceivedfolder publication/nooverwrite. Stopcleansunfinishedonly, publishedfilesretained. Acknowledgment sent beforecompletecallback/autostop. Ownedrequesttimeouthandlers/listenercycle cleaned. Tests bindloopbackonly.
+- NetworkReceiveSheet destination defaultApplicationSupport/OpenRaceRender/Received, explicitStart/Stop, links/copy/progress, completedlist/reveal andAddCurrent/CreateNew usingexistingunsavedprompt. Import separate fromreceive; noautomaticoverwrite/newproject onnetworkrequest. Addinputs preservescurrentobjects/marks, Undo retainsrawfiles. Manualtemplatechoice/synccheck instructed; no claimedTrackAddict autosync. Actualbrowser/firewall/promptUI unverified.
+- 364tests pass (290core/74editor) withlibrary/graphics.4core+2editor additions coveractualURLSessionHTTP/token/page/200KBmultichunk/filebytes/completion/telemetrydecode, framing/storagelimits/collision/abort/existingfilepreservation, add/newimport/Undo/missingreceipts. Logs build/validation/network-receive. F31 followup0ff381c pushed beforeF32code; extendedUndo test nowawaits actualtable reload. F31e142c10CI40581130955 success, followupCI40581568304 succeeded. Commit/pushF32 verifiedscope beforeF33. Public/privatefilesunchanged exceptownedbuild/tests; no usermedia sent overnetwork.
 
 ## F31 handoff — documented subset validated; closed formats explicitly outstanding
 

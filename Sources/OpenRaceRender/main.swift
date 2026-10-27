@@ -371,6 +371,7 @@ struct RaceRenderApp: App {
           Button("Open project…", action: model.chooseOpen).keyboardShortcut("o")
           Button("Add inputs…", action: model.chooseInputs).keyboardShortcut("i")
           Button("Project setup…", action: model.beginProjectSetup)
+          Button("Receive files over WiFi / network…") { model.showNetworkReceive = true }
           Divider()
           Button("Templates & styles…") { model.showTemplates = true }.keyboardShortcut(
             "t", modifiers: [.command, .shift])

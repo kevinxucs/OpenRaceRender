@@ -182,5 +182,7 @@
 			</dict>
 		</dict>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>OpenRaceRender receives selected telemetry and video files from your devices while its network receiver is open.</string>
 </dict>
 </plist>
