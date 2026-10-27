@@ -1,6 +1,6 @@
 # Guide feature implementation progress
 
-User authorization: implement F01/F05/F07 first, then all remaining guide gaps individually. Keep IDs from [guide-gap-review.md](guide-gap-review.md). Save a compact handoff before each next feature. The agent has no manual conversation-compaction API; durable checkpoints preserve the working context across automatic compaction.
+User authorization: implement F01/F05/F07 first, then all remaining guide gaps individually. Keep IDs from [guide-gap-review.md](guide-gap-review.md). The user explicitly requires `/compact` before each feature. The agent has no manual conversation-compaction API or slash-command execution tool. Do not claim a durable handoff is actual compaction. F03 began immediately after automatic context compaction; wait for another actual compaction before starting F04.
 
 ## Current checkpoint
 
@@ -8,18 +8,30 @@ User authorization: implement F01/F05/F07 first, then all remaining guide gaps i
 - F05: expanded native/imported gauge designer implemented and validated.
 - F07: text typography and shape design implemented and validated.
 - F02: rebuilt RRP3 projects and RRT2/RRO2 export implemented for representable settings, with compatibility checks; see [supported scope and native validation](legacy-export.md).
-- Validation: 146 tests pass with the local library and graphics services; release app builds/signs with 369 local resources. All three synthetic media acceptance scripts pass. RaceRender loaded the authored RRP/RRT/RRO and applied written timeline events; the updated editor saved and reopened a UI-exported RRT. See [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F03: grouping/multiple selection, nested subtree operations, group timeline edits, stable template identities and group visibility/audio behavior implemented; see [controls, native findings and validation limits](grouping.md).
+- Validation: 160 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F03 — grouping and multi-selection**. F02 has a durable checkpoint below. The tool inventory has no manual context-compaction API; do not claim that saving this file itself compacts the conversation. Complete a context checkpoint before starting F03, and use automatic compaction when available.
+Next feature: **F04 — subset template export and editable input-role/object names**. F03 has a durable checkpoint below. Do not start F04 until context has actually been compacted, per the user's latest instruction.
 
 ## Remaining queue
 
-F03, F04, F06, F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F04, F06, F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint and commit before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
 
-## F02 compact handoff — implementation validated
+## F03 handoff — awaiting actual compaction before F04
+
+- `Grouping.swift` centralizes stable parent identity, selection bounds, hierarchy traversal, inherited visibility/opacity/time, canvas-coordinate group edits and subtree copy/delete/order. Native RR geometry is already baked into child records, including events; never apply the group rectangle as another rendering transform. Group legacy placeholder bounds are ignored for editing in favor of actual child union.
+- `Selection.swift`, the preview, sidebar and Display menu add multiple selection, combined numeric geometry, marquee, group/ungroup, member selection and combined drag/resize. Existing alignment/nudge/undo commands work on selections/groups. AppKit mouse-event tests exercise the actual preview handlers.
+- Template application and group duplication remap all identities, including saved pre-group-event snapshots. Single-group style saving includes its subtree and uses RRT rather than RRO when legacy export is selected. F04's arbitrary subset checkboxes and role/object naming are still queued.
+- The shared scene resolver gates overlay/video/snapshot/audio and missing-asset validation. Legacy writing bakes group activation/opacity/time into member events, preserving hierarchy. Audio always uses the existing processing tap: synthetic export proved AVAudioMix volume points alone faded through hidden intervals.
+- `docs/grouping.md` lists controls and validation. 160 tests pass (139 core,21 editor), no skips with local library. `scripts/validate-grouping.py` passes native/RRP exact snapshot comparisons at matched canvas size and encoded video/audio hide/resume. Logs: `build/validation/grouping/{tests,media,build}.log`.
+- Native RR3 synthetic grouping/base resize/timeline workflow completed and saved ignored `legacy-writer/acceptance/native-group*.rrp`; see docs for measured records. Updated ORR live Display menu checked. Further inspector/file-save UI validation hit accessibility timeouts; main-thread samples are idle, with no hierarchy or render loop. Do not report that full live UI validation completed.
+- OpenRaceRender may remain at its synthetic file picker. No user project is open or modified. Native RaceRender remains on the saved synthetic `native-group.rrp` at1.25sec. After context compaction restore CUA documentation before further UI work.
+- The tool inventory was searched again; no manual compaction API exists. Explicit user requirement is `/compact` before the next implementation. Save this checkpoint, finish commit/build checks, then wait for actual compaction rather than silently starting F04.
+
+## F02 handoff — implementation validated
 
 - Added `LegacyWriter.swift` (independent RRP3/RRT2/RRO2), CLI format-aware conversion, template/style format picker, and rebuilt-project export. The conservative `patchLegacy()` API remains for original opaque-copy use.
 - Authored gauge background images also serialize into the shared legacy artwork container; multiple independent background layers are refused rather than dropping one.

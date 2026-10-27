@@ -72,7 +72,7 @@ extension DisplayObject {
     result.inputIndex = inputIndex; result.channel = channel
     result.x = x; result.y = y; result.width = width; result.height = height
     result.opacity = opacity; result.visible = visible; result.start = start; result.end = end
-    result.segments = segments; result.parentIndex = parentIndex
+    result.segments = segments; result.parentIndex = parentIndex; result.parentID = parentID
     result.legacyIndex = legacyIndex; result.legacyOffset = nil
     result.picture = picture
     if result.hud != nil, let hud {

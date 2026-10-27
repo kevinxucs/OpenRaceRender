@@ -17,11 +17,33 @@ public enum LegacyWriter {
   }
 
   public static func data(_ sourceProject: RaceProject, format: Format, seed: UInt32 = .random(in: .min ... .max)) throws -> Data {
+    guard Set(sourceProject.objects.map(\.id)).count == sourceProject.objects.count else {
+      throw RaceError.invalid("Display identities must be unique before RaceRender export.")
+    }
     guard Set(sourceProject.inputs.map(\.legacyIndex)).count == sourceProject.inputs.count,
       sourceProject.inputs.allSatisfy({ (0...1_000_000).contains($0.legacyIndex) }) else {
       throw RaceError.invalid("Input identifiers must be unique nonnegative integers in the supported range.")
     }
-    let project = format == .rrp ? try canonicalJoins(sourceProject) : sourceProject
+    var project = format == .rrp ? try canonicalJoins(sourceProject) : sourceProject
+    // Convert stable identities to this file's object table, never reuse template indexes.
+    for object in project.objects {
+      if object.parentID == object.id || (object.parentID == nil && object.parentIndex >= 0 && project.parentID(of: object) == nil) {
+        throw RaceError.invalid("The parent group is missing or invalid.")
+      }
+      if let parent = object.parentID, !project.objects.contains(where: { $0.id == parent && $0.kind == .group }) {
+        throw RaceError.invalid("The parent group is missing.")
+      }
+      guard !project.ancestors(of: object.id).contains(where: { parent in project.ancestors(of: parent).contains(object.id) }) else {
+        throw RaceError.invalid("A display group contains a parent cycle.")
+      }
+    }
+    project.stabilizeHierarchy()
+    project = bakingGroupState(project)
+    let parentsByID = Dictionary(uniqueKeysWithValues: project.objects.enumerated().map { ($0.element.id, $0.offset) })
+    for i in project.objects.indices {
+      project.objects[i].legacyIndex = i
+      project.objects[i].parentIndex = project.objects[i].parentID.flatMap { parentsByID[$0] } ?? -1
+    }
     if format == .rrp, let original = project.legacyData {
       guard original.u32(12) == 2152, original.u32(20) == 2216, original.u32(24) == 11312, original.u32(28) == 56,
         original.u32(36) == 344, original.u32(44) == 208,
@@ -108,6 +130,34 @@ public enum LegacyWriter {
       if !r.payload.isEmpty { b.append(integrity(r.payload,seed:version)) }
       b.append(r.image); return b
     }
+  }
+
+  /// RaceRender's own group inspector copies activation changes to member records;
+  /// bake native group gates the same way so RR does not need inherited alpha/state.
+  static func bakingGroupState(_ source: RaceProject) -> RaceProject {
+    guard source.objects.contains(where: { $0.kind == .group }) else { return source }
+    var result = source
+    let times = source.timelineBoundaries.filter { $0 >= 0 && $0 < 1_000_000 }
+    for time in times {
+      let effective = source.resolvedObjects(at: time)
+      for i in result.objects.indices where result.objects[i].kind != .group && source.parentID(of: source.objects[i]) != nil {
+        let state = effective[i]
+        var value = result.objects[i].resolved(at: time)
+        value.visible = state.visible && time >= state.start && time < state.end; value.opacity = state.opacity
+        if time == 0 { result.objects[i].visible = value.visible; result.objects[i].opacity = value.opacity }
+        else {
+          let old = result.objects[i].resolved(at: time)
+          result.objects[i].editSegment(at:time,from:old,to:value)
+        }
+      }
+    }
+    for i in result.objects.indices where result.objects[i].kind == .group {
+      result.objects[i].visible = true; result.objects[i].opacity = 1; result.objects[i].start = 0; result.objects[i].end = 1_000_000
+      for j in (result.objects[i].segments ?? []).indices {
+        result.objects[i].segments?[j].visible = nil; result.objects[i].segments?[j].opacity = nil
+      }
+    }
+    return result
   }
 
   struct Record { var common: Data; var payload: Data; var image: Data }

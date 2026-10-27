@@ -54,7 +54,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         }
         let size = request.renderContext.size
         let time = request.compositionTime.seconds
-        let objects = instruction.scene.project.objects.map { $0.resolved(at:time) }.filter { $0.visible && time >= $0.start && time <= $0.end }
+        let objects = instruction.scene.project.resolvedObjects(at: time).filter { $0.visible && time >= $0.start && time < $0.end }
         // Most sessions place one camera under all HUD layers. Render that camera
         // directly into the destination surface rather than reading a 4K CGImage
         // back to the CPU and then copying it into another full-size bitmap.
@@ -111,6 +111,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
   }
   static func single(_ p: RaceProject, _ o: DisplayObject) -> RaceProject {
     var p = p
+    var o = o; o.parentID = nil; o.parentIndex = -1; o.segments = nil
     p.objects = [o]
     return p
   }
@@ -211,22 +212,10 @@ public final class VideoExporter: @unchecked Sendable {
         try track.insertTimeRange(range, of: source, at: destination)
         track.scaleTimeRange(inserted, toDuration: scaled)
         let parameter = AVMutableAudioMixInputParameters(track: track)
-        let requiresRouting = input.audio != nil || p.objects.contains { $0.audio != nil || ($0.segments ?? []).contains { $0.audio != nil } }
-        // Audio follows display visibility, its time span and camera/input selection.
-        let related = p.objects.filter { [.video, .audio].contains($0.kind) }
-        var boundaries: [Double] = [0,placement.start,placement.end]
-        for object in related {
-          boundaries.append(object.start)
-          boundaries.append(object.end)
-          for segment in object.segments ?? [] { boundaries.append(segment.time) }
-        }
-        let uniqueBoundaries = Set(boundaries)
-        let times = uniqueBoundaries.filter { $0 >= 0 && $0 <= p.duration }.sorted()
-        for t in times {
-          let audible = related.map { $0.resolved(at: t) }.contains { $0.visible && t >= $0.start && t < $0.end && $0.inputIndex == placement.rootIndex }
-          parameter.setVolume(Float(requiresRouting ? 1 : (audible ? input.volume : 0)), at: CMTime(seconds: t, preferredTimescale: 60000))
-        }
-        if requiresRouting { parameter.audioTapProcessor = try AudioProcessing.tap(project: p, placement: placement) }
+        // Use the same sample-accurate gate for ordinary and routed audio. Discrete
+        // setVolume(at:) points alone can interpolate across a hidden group interval.
+        parameter.setVolume(1, at: .zero)
+        parameter.audioTapProcessor = try AudioProcessing.tap(project: p, placement: placement)
         audioParameters.append(parameter)
       }
     }
@@ -259,7 +248,7 @@ public final class VideoExporter: @unchecked Sendable {
     c.setFillColor(CGColor(gray: 0, alpha: 1))
     c.fill(CGRect(origin: .zero, size: size))
     let ci = PictureProcessor.context()
-    for o in p.objects.map({ $0.resolved(at: time) }) where o.visible && time >= o.start && time <= o.end {
+    for o in p.resolvedObjects(at: time) where o.visible && time >= o.start && time < o.end {
       if o.kind == .video, let placement = p.media(for: o.inputIndex, at: time),
         placement.input.exists
       {

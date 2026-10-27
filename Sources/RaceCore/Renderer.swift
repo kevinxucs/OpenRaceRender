@@ -31,8 +31,8 @@ public enum OverlayRenderer {
   ) {
     c.saveGState()
     c.clip(to: CGRect(origin: .zero, size: size))
-    for o in scene.project.objects.map({ $0.resolved(at: time) })
-    where o.visible && time >= o.start && time <= o.end
+    for o in scene.project.resolvedObjects(at: time)
+    where o.visible && time >= o.start && time < o.end
       && ![.video, .audio, .group].contains(o.kind)
     {
       let r = LegacyStyledRenderer.contentRect(o,in:rect(o,size:size))
@@ -88,8 +88,7 @@ public enum OverlayRenderer {
       renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit)
       c.restoreGState()
     }
-    if let id = selection, let base = scene.project.objects.first(where: { $0.id == id }) {
-      let o = base.resolved(at: time)
+    if let id = selection, let o = scene.project.displayForEditing(id, at: time) {
       let r = rect(o, size: size)
       c.setStrokeColor(color("#5EE0B5"))
       c.setLineWidth(1.5)

@@ -46,6 +46,9 @@ extension RaceProject {
   }
   /// Remap sources by type, including per-segment switches. Missing sources remain unassigned.
   public mutating func applyLayout(_ layout: RaceProject, replace: Bool, mapping: [Int: Int] = [:]) {
+    stabilizeHierarchy()
+    var layout = layout; layout.stabilizeHierarchy()
+    let identities = Dictionary(uniqueKeysWithValues: layout.objects.map { ($0.id, UUID()) })
     if replace {
       let includesVideo = layout.objects.contains { $0.kind == .video }
       objects.removeAll { includesVideo || ![.video, .audio].contains($0.kind) }
@@ -61,11 +64,13 @@ extension RaceProject {
       }
       object.inputIndex = remap(object.inputIndex)
       object.segments = object.segments?.map { segment in
-        var segment = segment
-        if let index = segment.inputIndex { segment.inputIndex = remap(index) }
+        var segment = segment.remappingGroupSnapshots(identities)
+        segment = segment.remappingSources(remap)
         return segment
       }
-      object.id = UUID(); object.legacyOffset = nil
+      object.id = identities[object.id]!
+      object.parentID = object.parentID.flatMap { identities[$0] }
+      object.legacyOffset = nil; object.legacyIndex = nil
       objects.append(object)
     }
     warnings += layout.warnings.filter { !warnings.contains($0) }
@@ -77,7 +82,12 @@ extension RaceProject {
     p.explicitDuration = nil; p.rangeStart = nil; p.rangeEnd = nil
     p.exportSettings = nil; p.lastExport = nil
     p.notes = nil; p.lengthInputIndex = nil; p.legacyImportVersion = nil
-    if let selected { p.objects = p.objects.filter { $0.id == selected } }
+    p.stabilizeHierarchy()
+    if let selected {
+      let ids = p.descendants(of: [selected])
+      p.objects = p.objects.filter { ids.contains($0.id) }
+      for i in p.objects.indices where p.objects[i].id == selected { p.objects[i].parentID = nil }
+    }
     guard !p.objects.isEmpty else { throw RaceError.invalid("Add a display before saving a template.") }
     let used = Set(p.objects.flatMap { [$0.inputIndex] + ($0.segments ?? []).compactMap(\.inputIndex) })
     p.inputs = p.inputs.filter { used.contains($0.legacyIndex) }
@@ -86,6 +96,23 @@ extension RaceProject {
       p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
       p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1
       p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].legacyTrackIndex = nil
+    }
+    let kinds = Dictionary(p.objects.map { ($0.id,$0.kind) }, uniquingKeysWith: { first, _ in first })
+    func portable(_ original: ObjectSegment, kind: ObjectKind) throws -> ObjectSegment {
+      var segment = original
+      if let path = segment.gauge?.backgroundPath {
+        segment.gauge?.backgroundImage = try Data(contentsOf:URL(fileURLWithPath:path)); segment.gauge?.backgroundPath = nil
+      }
+      if kind == .image, let path = segment.text, !path.isEmpty {
+        segment.embeddedImage = try Data(contentsOf:URL(fileURLWithPath:path)); segment.text = ""
+      }
+      if let snapshots = segment.groupChildrenBefore {
+        segment.groupChildrenBefore = try Dictionary(uniqueKeysWithValues:snapshots.compactMap { id, records in
+          guard let memberKind = kinds[id] else { return nil }
+          return (id,try records.map { try portable($0,kind:memberKind) })
+        })
+      }
+      return segment
     }
     for i in p.objects.indices {
       p.objects[i].legacyOffset = nil
@@ -97,16 +124,8 @@ extension RaceProject {
         p.objects[i].gauge?.backgroundImage = try Data(contentsOf: URL(fileURLWithPath: path))
         p.objects[i].gauge?.backgroundPath = nil
       }
-      for j in (p.objects[i].segments ?? []).indices {
-        if let path = p.objects[i].segments?[j].gauge?.backgroundPath {
-          p.objects[i].segments?[j].gauge?.backgroundImage = try Data(contentsOf: URL(fileURLWithPath: path))
-          p.objects[i].segments?[j].gauge?.backgroundPath = nil
-        }
-        if p.objects[i].kind == .image, let path = p.objects[i].segments?[j].text, !path.isEmpty {
-          p.objects[i].segments?[j].embeddedImage = try Data(contentsOf: URL(fileURLWithPath: path))
-          p.objects[i].segments?[j].text = ""
-        }
-      }
+      let kind = p.objects[i].kind
+      p.objects[i].segments = try p.objects[i].segments?.map { try portable($0,kind:kind) }
     }
     return p
   }

@@ -1,5 +1,11 @@
 # Changelog
 
+## F03 — Groups and multiple selection
+
+- Command/Shift selection, canvas marquee, group/ungroup, nested groups, combined move/resize, numeric selection geometry, subtree copy/delete/order and one-step drag undo.
+- Stable parent identities prevent repeated templates from cross-wiring groups. Group edits retain child timeline events and native saves retain the history needed to restore an earlier member event.
+- Shared visibility/time/opacity gates cover overlays, cameras, snapshots and audio. Fixed interpolated audio fading through hidden intervals using the existing sample-level processing gate. Added original synthetic export acceptance and AppKit mouse-event coverage. See [workflow and native validation](docs/grouping.md).
+
 ## F02 — RaceRender file writing
 
 - Independent RRP3/RRT2/RRO2 serialization, including native authoring without original project bytes, source-role remapping, marks, supported source/display settings, timeline payload/audio/artwork changes and virtual joins.

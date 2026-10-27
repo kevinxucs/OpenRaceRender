@@ -316,6 +316,9 @@ struct RaceRenderApp: App {
             Button("Add \(kind.title)") { model.addObject(kind) }
           }
           Divider()
+          Button("Select all displays", action: model.selectAllDisplays).keyboardShortcut("a")
+          Button("Group selected displays", action: model.groupSelection).keyboardShortcut("g").disabled(model.selectedIDs.count < 2)
+          Button("Ungroup selected groups", action: model.ungroupSelection).keyboardShortcut("g", modifiers: [.command, .shift])
           Button("Duplicate", action: model.duplicate).keyboardShortcut("d")
           Button("Delete display", action: model.deleteSelected)
         }

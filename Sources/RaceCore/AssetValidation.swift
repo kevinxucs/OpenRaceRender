@@ -17,10 +17,10 @@ extension RaceProject {
     for object in objects where object.kind != .group {
       let a = max(start, object.start), b = min(end, object.end)
       guard a < b else { continue }
-      let boundaries = Set([a, b] + (object.segments ?? []).map(\.time).filter { $0 > a && $0 < b }).sorted()
+      let boundaries = Set([a, b] + timelineBoundaries.filter { $0 > a && $0 < b }).sorted()
       for (lo, hi) in zip(boundaries, boundaries.dropFirst()) {
-        let display = object.resolved(at: lo)
-        guard display.visible, display.opacity > 0 else { continue }
+        guard let display = resolvedObjects(at: lo).first(where: { $0.id == object.id }),
+          display.visible, lo >= display.start, lo < display.end, display.opacity > 0 else { continue }
         if display.kind == .image {
           if display.artwork == nil && display.embeddedImage == nil { require(display.text, label: display.name) }
         } else if ![.shape, .text].contains(display.kind) {

@@ -25,16 +25,30 @@ struct Preview: NSViewRepresentable {
   weak var model: EditorModel?
   var showSelection = true
   var dropPoint: CGPoint?
+  var marquee: CGRect?
   override var isOpaque: Bool { false }
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
   override func draw(_ dirtyRect: NSRect) {
     guard let m = model, let c = NSGraphicsContext.current?.cgContext else { return }
     if m.previewPlayer == nil {
-      OverlayRenderer.draw(c, scene: m.designScene, time: m.time, size: bounds.size, selection: showSelection ? m.selected : nil)
-    } else if showSelection, let base = m.project.objects.first(where: { $0.id == m.selected }) {
-      let r = OverlayRenderer.rect(base.resolved(at: m.time), size: bounds.size)
-      c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1.5); c.stroke(r)
+      OverlayRenderer.draw(c, scene: m.designScene, time: m.time, size: bounds.size)
+    }
+    if showSelection, let box = m.project.selectionBounds(m.selectedIDs, at: m.time) {
+      func canvas(_ r: CGRect) -> CGRect {
+        CGRect(x: r.minX*bounds.width/100, y: r.minY*bounds.height/100,
+          width: r.width*bounds.width/100, height: r.height*bounds.height/100)
+      }
+      c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1)
+      for id in m.project.selectionRoots(m.selectedIDs) {
+        if let r = m.project.selectionBounds([id], at: m.time) { c.stroke(canvas(r)) }
+      }
+      let r = canvas(box)
+      c.setLineWidth(1.5); c.stroke(r)
       c.setFillColor(OverlayRenderer.color("#5EE0B5")); c.fill(CGRect(x: r.maxX-4, y: r.maxY-4, width: 8, height: 8))
+    }
+    if let r = marquee {
+      c.setFillColor(OverlayRenderer.color("#5EE0B5", alpha: 0.12)); c.fill(r)
+      c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.stroke(r)
     }
     if let point = dropPoint {
       c.setFillColor(OverlayRenderer.color("#5EE0B5", alpha: 0.25))
@@ -70,7 +84,10 @@ struct Preview: NSViewRepresentable {
   var dragCheckpoint = false
   var dragging: UUID?
   var initialPoint = CGPoint.zero
-  var initialObject: DisplayObject?
+  var initialProject: RaceProject?
+  var initialBounds: CGRect?
+  var initialSelection: Set<UUID> = []
+  var selectingArea = false
   var resizing = false
   override init(frame: NSRect) {
     super.init(frame: frame)
@@ -115,69 +132,67 @@ struct Preview: NSViewRepresentable {
     model = nil
   }
   override func mouseDown(with event: NSEvent) {
-    guard interactive, let m = model else { return }
+    guard interactive, let m = model, bounds.width > 0, bounds.height > 0 else { return }
     window?.makeFirstResponder(self)
     let p = convert(event.locationInWindow, from: nil)
-    dragCheckpoint = false
-    if let selected = m.project.objects.first(where: { $0.id == m.selected }) {
-      let r = OverlayRenderer.rect(selected.resolved(at: m.time), size: bounds.size)
-      if hypot(p.x - r.maxX, p.y - r.maxY) < 10 {
-        dragging = selected.id
-        initialObject = selected.resolved(at: m.time)
-        initialPoint = p
-        resizing = true
-        return
-      }
+    dragCheckpoint = false; initialPoint = p; resizing = false; selectingArea = false
+    initialProject = nil; initialBounds = nil; dragging = nil
+    if let box = m.project.selectionBounds(m.selectedIDs, at: m.time),
+      hypot(p.x-box.maxX*bounds.width/100, p.y-box.maxY*bounds.height/100) < 10 {
+      resizing = true
+    } else if let o = m.project.resolvedObjects(at: m.time).reversed().first(where: {
+      $0.visible && m.time >= $0.start && m.time < $0.end && ![.audio, .group].contains($0.kind)
+        && ($0.kind != .video || m.selectedIDs.contains($0.id) || event.modifierFlags.contains(.option))
+        && OverlayRenderer.rect($0, size: bounds.size).contains(p)
+    }) {
+      let id = m.canvasSelectionID(o.id, individual: event.modifierFlags.contains(.option))
+      if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.shift) {
+        m.selectDisplay(id, modifiers: [.command])
+      } else if !m.selectedIDs.contains(id) { m.selected = id; m.selectedInput = nil }
+      if !m.selectedIDs.contains(id) { refresh(); return }
+    } else {
+      initialSelection = event.modifierFlags.intersection([.command, .shift]).isEmpty ? [] : m.selectedIDs
+      m.setSelection(initialSelection); selectingArea = true; return
     }
-    guard
-      let o = m.project.objects.map({ $0.resolved(at: m.time) }).reversed().first(where: {
-        $0.visible && m.time >= $0.start && m.time < $0.end && ![.audio, .group].contains($0.kind)
-          && OverlayRenderer.rect($0, size: bounds.size).contains(p)
-      })
-    else {
-      m.selected = nil
-      return
-    }
-    m.selected = o.id
-    m.selectedInput = nil
-    dragging = o.id
-    initialPoint = p
-    initialObject = o
-    resizing = false
+    dragging = m.selected
+    initialProject = m.project
+    initialBounds = m.project.selectionBounds(m.selectedIDs, at: m.time)
   }
   override func mouseDragged(with event: NSEvent) {
-    guard let m = model, let id = dragging, var o = initialObject,
-      let i = m.project.objects.firstIndex(where: { $0.id == id })
-    else { return }
-    if !dragCheckpoint { m.checkpoint(); dragCheckpoint = true }
+    guard let m = model else { return }
     let p = convert(event.locationInWindow, from: nil)
-    let dx = (p.x - initialPoint.x) / bounds.width * 100
-    let dy = (p.y - initialPoint.y) / bounds.height * 100
+    if selectingArea {
+      let area = CGRect(x: min(p.x,initialPoint.x), y: min(p.y,initialPoint.y),
+        width: abs(p.x-initialPoint.x), height: abs(p.y-initialPoint.y))
+      overlay.marquee = area
+      let ids = m.project.resolvedObjects(at: m.time).filter {
+        $0.visible && m.time >= $0.start && m.time < $0.end && ![.audio,.group].contains($0.kind)
+          && ($0.kind != .video || event.modifierFlags.contains(.option))
+          && area.intersects(OverlayRenderer.rect($0, size: bounds.size))
+      }.map { m.canvasSelectionID($0.id, individual: event.modifierFlags.contains(.option)) }
+      m.setSelection(initialSelection.union(ids)); refresh(); return
+    }
+    guard dragging != nil, var project = initialProject, let from = initialBounds else { return }
+    if !dragCheckpoint { m.checkpoint(); dragCheckpoint = true }
+    let dx = (p.x-initialPoint.x)/bounds.width*100, dy = (p.y-initialPoint.y)/bounds.height*100
+    var to = from
     if resizing {
-      if m.lockWidgetAspect, o.width > 0, o.height > 0 {
-        let change = abs(dx/o.width) > abs(dy/o.height) ? dx/o.width : dy/o.height
-        let scale = max(max(1/o.width, 1/o.height), 1+change)
-        o.width *= scale; o.height *= scale
-      } else {
-        o.width = max(1, o.width + dx)
-        o.height = max(1, o.height + dy)
-      }
-    } else {
-      o.x += dx
-      o.y += dy
-    }
+      if m.lockWidgetAspect, from.width > 0, from.height > 0 {
+        let change = abs(dx/from.width) > abs(dy/from.height) ? dx/from.width : dy/from.height
+        let scale = max(max(0.1/from.width,0.1/from.height),1+change)
+        to.size = CGSize(width: from.width*scale, height: from.height*scale)
+      } else { to.size = CGSize(width: max(0.1,from.width+dx), height: max(0.1,from.height+dy)) }
+    } else { to = from.offsetBy(dx: dx, dy: dy) }
     if event.modifierFlags.contains(.shift) {
-      o.x = round(o.x)
-      o.y = round(o.y)
-      o.width = round(o.width)
-      o.height = round(o.height)
+      to.origin = CGPoint(x: round(to.minX), y: round(to.minY))
+      if resizing { to.size = CGSize(width: max(1,round(to.width)), height: max(1,round(to.height))) }
     }
-    m.updateObject(at: i, value: o)
-    refresh()
+    project.transformDisplays(m.selectedIDs, from: from, to: to, at: m.editingSegment)
+    m.project = project; refresh()
   }
   override func mouseUp(with event: NSEvent) {
-    dragging = nil
-    initialObject = nil
+    dragging = nil; initialProject = nil; initialBounds = nil
+    selectingArea = false; overlay.marquee = nil; refresh()
   }
   override func keyDown(with event: NSEvent) {
     guard let m = model else { return }

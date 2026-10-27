@@ -14,7 +14,12 @@ import UniformTypeIdentifiers
     if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) { scheduleTelemetry() }
   } }
   @Published var telemetry: [Int: Telemetry] = [:]
-  @Published var selected: UUID? { didSet { if oldValue != selected { editingSegment = nil } } }
+  @Published var selected: UUID? { didSet {
+    if !changingSelection { selectedIDs = selected.map { [$0] } ?? [] }
+    if oldValue != selected { editingSegment = nil }
+  } }
+  @Published var selectedIDs: Set<UUID> = []
+  var changingSelection = false
   @Published var editingSegment: Double?
   @Published var previewPlayer: AVPlayer?
   weak var canvasView: PreviewView?
@@ -127,8 +132,7 @@ import UniformTypeIdentifiers
   func objectBinding(_ id: UUID) -> Binding<DisplayObject> {
     Binding(
       get: {
-        let object = self.project.objects.first { $0.id == id } ?? DisplayObject(name: "", kind: .text)
-        return self.editingSegment.map { object.resolved(at: $0) } ?? object
+        self.project.displayForEditing(id, at: self.editingSegment) ?? DisplayObject(name: "", kind: .text)
       },
       set: { value in
         guard let i = self.project.objects.firstIndex(where: { $0.id == id }) else { return }
@@ -239,12 +243,7 @@ import UniformTypeIdentifiers
     }
   }
   func updateObject(at index: Int, value: DisplayObject) {
-    if let time = editingSegment {
-      let old = project.objects[index].resolved(at: time)
-      project.objects[index].editSegment(at: time, from: old, to: value)
-      // These controls configure the whole object, independent of segment overrides.
-      project.objects[index].name = value.name
-    } else { project.objects[index] = value }
+    project.updateDisplay(value, at: editingSegment)
   }
   func addSegment() {
     guard let index = project.objects.firstIndex(where: { $0.id == selected }), time > 0 else { return }
@@ -256,7 +255,7 @@ import UniformTypeIdentifiers
   }
   func removeSegment() {
     guard let index = project.objects.firstIndex(where: { $0.id == selected }), let t = editingSegment else { return }
-    checkpoint(); project.objects[index].segments?.removeAll { $0.time == t }; editingSegment = nil
+    checkpoint(); project.removeDisplaySegment(project.objects[index].id, at: t); editingSegment = nil
   }
   func joinPrevious(_ id: UUID) {
     guard let i = project.inputs.firstIndex(where: { $0.id == id }), i > 0,
@@ -446,7 +445,8 @@ import UniformTypeIdentifiers
       var layout = try source.reusableLayout(selected: templateSelectedOnly ? selected : nil)
       layout.name = templateName.trimmingCharacters(in: .whitespacesAndNewlines)
       if layout.name.isEmpty { layout.name = "Custom Layout" }
-      let legacyFormat: LegacyWriter.Format = templateSelectedOnly ? .rro : .rrt
+      let singleStyle = templateSelectedOnly && layout.objects.count == 1 && layout.objects.first?.kind != .group
+      let legacyFormat: LegacyWriter.Format = singleStyle ? .rro : .rrt
       let legacyBytes = templateLegacyFormat ? try LegacyWriter.data(layout,format:legacyFormat) : nil
       let panel = NSSavePanel()
       panel.allowedContentTypes = templateLegacyFormat
@@ -454,7 +454,7 @@ import UniformTypeIdentifiers
         : [UTType(exportedAs: "org.openracerender.template", conformingTo: .json)]
       panel.nameFieldStringValue = layout.name + (templateLegacyFormat ? "."+legacyFormat.rawValue : ".orrt")
       panel.isExtensionHidden = false
-      let category = templateSelectedOnly ? "Styles" : "Templates"
+      let category = singleStyle ? "Styles" : "Templates"
       let folder = LayoutLibrary.userRoot().appendingPathComponent(category)
       try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
       panel.directoryURL = folder
@@ -646,7 +646,7 @@ import UniformTypeIdentifiers
   func addWidget(_ style: WidgetStyle, at point: CGPoint? = nil) {
     checkpoint()
     var o = style.object
-    o.id = UUID(); o.legacyOffset = nil; o.legacyIndex = nil; o.parentIndex = -1
+    o.id = UUID(); o.legacyOffset = nil; o.legacyIndex = nil; o.parentIndex = -1; o.parentID = nil
     o.start = 0; o.end = 1_000_000; o.segments = nil; o.visible = true
     o.inputIndex = project.inputs.first { $0.kind == (o.kind == .image ? "image" : "data") && $0.joinedTo == nil }?.legacyIndex ?? -1
     if let point { o = o.placed(at: point) }
@@ -654,6 +654,19 @@ import UniformTypeIdentifiers
     status = "Added " + style.name
   }
   func alignWidget(_ alignment: String) {
+    if selectedIDs.count > 1, let from = project.selectionBounds(selectedIDs, at: editingSegment) {
+      var to = from
+      switch alignment {
+      case "Left": to.origin.x = 0
+      case "Right": to.origin.x = 100-from.width
+      case "Top": to.origin.y = 100-from.height
+      case "Bottom": to.origin.y = 0
+      case "Horizontal center": to.origin.x = (100-from.width)/2
+      case "Vertical center": to.origin.y = (100-from.height)/2
+      default: return
+      }
+      checkpoint(); project.transformDisplays(selectedIDs, from: from, to: to, at: editingSegment); return
+    }
     guard let id = selected else { return }
     let binding = objectBinding(id)
     var o = binding.wrappedValue
@@ -669,6 +682,12 @@ import UniformTypeIdentifiers
     binding.wrappedValue = o
   }
   func nudgeWidget(x: Double, y: Double) {
+    if selectedIDs.count > 1, let from = project.selectionBounds(selectedIDs, at: editingSegment) {
+      checkpoint()
+      project.transformDisplays(selectedIDs, from: from,
+        to: from.offsetBy(dx: x/Double(project.width)*100, dy: y/Double(project.height)*100), at: editingSegment)
+      return
+    }
     guard let id = selected else { return }
     let binding = objectBinding(id)
     var o = binding.wrappedValue
@@ -676,28 +695,20 @@ import UniformTypeIdentifiers
     binding.wrappedValue = o
   }
   func deleteSelected() {
-    guard let id = selected else { return }
+    guard !selectedIDs.isEmpty else { return }
     checkpoint()
-    project.objects.removeAll { $0.id == id }
+    project.deleteDisplays(selectedIDs)
     selected = nil
   }
   func duplicate() {
-    guard var o = project.objects.first(where: { $0.id == selected }) else { return }
+    guard !selectedIDs.isEmpty else { return }
     checkpoint()
-    o.id = UUID()
-    o.name += " Copy"
-    o.x += 2
-    o.y += 2
-    o.legacyOffset = nil
-    project.objects.append(o)
-    selected = o.id
+    setSelection(project.duplicateDisplays(selectedIDs))
   }
   func move(_ direction: Int) {
-    guard let i = project.objects.firstIndex(where: { $0.id == selected }),
-      project.objects.indices.contains(i + direction)
-    else { return }
+    guard !selectedIDs.isEmpty else { return }
     checkpoint()
-    project.objects.swapAt(i, i + direction)
+    project.moveDisplays(selectedIDs, direction: direction)
   }
   func importLayout(_ url: URL) {
     busy = true

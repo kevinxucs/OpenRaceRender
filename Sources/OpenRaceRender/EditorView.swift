@@ -141,7 +141,7 @@ struct EditorView: View {
           ForEach(Array(model.project.objects.reversed())) { o in
             HStack(spacing: 8) {
               Image(systemName: o.kind.symbol).frame(width: 18).foregroundStyle(
-                o.id == model.selected ? mint : muted)
+                model.selectedIDs.contains(o.id) ? mint : muted)
               VStack(alignment: .leading, spacing: 3) {
                 Text(o.name).font(.system(size: 11, weight: .medium)).lineLimit(1)
                 Text(o.style.isEmpty ? o.kind.title : o.style).font(.system(size: 9))
@@ -159,29 +159,31 @@ struct EditorView: View {
                 Image(systemName: o.visible ? "eye" : "eye.slash").font(.system(size: 10))
                   .foregroundStyle(o.visible ? muted : muted.opacity(0.35))
               }.buttonStyle(.plain)
-            }.padding(.horizontal, 10).padding(.vertical, 8).background(
-              o.id == model.selected ? mint.opacity(0.09) : .clear
+            }.padding(.leading, CGFloat(min(8, model.project.ancestors(of: o.id).count))*12)
+            .padding(.horizontal, 10).padding(.vertical, 8).background(
+              model.selectedIDs.contains(o.id) ? mint.opacity(0.09) : .clear
             ).overlay(alignment: .leading) {
-              if o.id == model.selected { Rectangle().fill(mint).frame(width: 2) }
+              if model.selectedIDs.contains(o.id) { Rectangle().fill(mint).frame(width: 2) }
             }.contentShape(Rectangle()).onTapGesture {
-              model.selected = o.id
-              model.selectedInput = nil
+              model.selectDisplay(o.id, modifiers: NSEvent.modifierFlags)
             }
             .contextMenu {
+              Button("Group selection", action: model.groupSelection).disabled(model.selectedIDs.count < 2)
+              Button("Ungroup selection", action: model.ungroupSelection)
               Button("Duplicate") {
-                model.selected = o.id
+                if !model.selectedIDs.contains(o.id) { model.selected = o.id }
                 model.duplicate()
               }
               Button("Bring forward") {
-                model.selected = o.id
+                if !model.selectedIDs.contains(o.id) { model.selected = o.id }
                 model.move(1)
               }
               Button("Send backward") {
-                model.selected = o.id
+                if !model.selectedIDs.contains(o.id) { model.selected = o.id }
                 model.move(-1)
               }
               Button("Delete", role: .destructive) {
-                model.selected = o.id
+                if !model.selectedIDs.contains(o.id) { model.selected = o.id }
                 model.deleteSelected()
               }
             }
@@ -321,7 +323,9 @@ struct EditorView: View {
       }.padding(16)
       Divider()
       ScrollView {
-        if let id = model.selected, model.project.objects.contains(where: { $0.id == id }) {
+        if model.selectedIDs.count > 1 {
+          MultipleSelectionInspector(model: model)
+        } else if let id = model.selected, model.project.objects.contains(where: { $0.id == id }) {
           ObjectInspector(object: model.objectBinding(id), model: model)
         } else if let id = model.selectedInput,
           model.project.inputs.contains(where: { $0.id == id })
@@ -519,6 +523,10 @@ struct ObjectInspector: View {
       }
       SegmentControls(model: model, object: model.project.objects.first { $0.id == object.id } ?? object)
       TextField("Display label", text: $object.name)
+      if object.kind == .group {
+        Text("Group edits move and resize all members, including their timeline geometry.").font(.caption).foregroundStyle(.secondary)
+        Button("Ungroup displays", action: model.ungroupSelection)
+      }
       if ![.video, .audio, .group].contains(object.kind) {
         Button("Choose widget style…") { model.showWidgetStyles = true }
         Text(object.style.isEmpty ? "Native style" : object.style).font(.system(size: 10)).foregroundStyle(muted).lineLimit(2)

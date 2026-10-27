@@ -204,7 +204,7 @@ struct SaveTemplateSheet: View {
   @Environment(\.dismiss) var dismiss
   var count: Int {
     model.project.objects.filter { object in
-      model.templateSelectedOnly ? object.id == model.selected : model.templateIncludesVideo || ![.video, .audio].contains(object.kind)
+      model.templateSelectedOnly ? model.project.descendants(of: model.selected.map { [$0] } ?? []).contains(object.id) : model.templateIncludesVideo || ![.video, .audio].contains(object.kind)
     }.count
   }
   var body: some View {
@@ -213,7 +213,7 @@ struct SaveTemplateSheet: View {
       TextField("Template name", text: $model.templateName).textFieldStyle(.roundedBorder)
       Picker("File format",selection:$model.templateLegacyFormat) {
         Text("OpenRaceRender (.orrt)").tag(false)
-        Text(model.templateSelectedOnly ? "RaceRender style (.rro)" : "RaceRender template (.rrt)").tag(true)
+        Text(model.templateSelectedOnly && !model.selectedLayoutIsGroup ? "RaceRender style (.rro)" : "RaceRender template (.rrt)").tag(true)
       }
       if !model.templateSelectedOnly { Toggle("Include video and audio display positions", isOn: $model.templateIncludesVideo) }
       Text("\(count) displays. Media files, synchronization, export marks and session settings are removed. Images and gauge backgrounds are embedded.")

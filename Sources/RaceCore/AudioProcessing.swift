@@ -32,11 +32,10 @@ private final class AudioTapState {
   let spans: [Span]
   var format = AudioStreamBasicDescription()
   init(project: RaceProject, placement: InputPlacement) {
-    let objects = project.objects.filter { [.video, .audio].contains($0.kind) }
-    let boundaries = Set([0, placement.start, placement.end] + objects.flatMap { [$0.start, $0.end] + ($0.segments ?? []).map(\.time) }).sorted()
+    let boundaries = Set([placement.start, placement.end] + project.timelineBoundaries).sorted()
     spans = boundaries.map { time in
-      let displays = objects.map { $0.resolved(at: time) }.filter {
-        $0.visible && time >= $0.start && time < $0.end && $0.inputIndex == placement.rootIndex && placement.contains(time)
+      let displays = project.resolvedObjects(at: time).filter {
+        [.video, .audio].contains($0.kind) && $0.visible && time >= $0.start && time < $0.end && $0.inputIndex == placement.rootIndex && placement.contains(time)
       }
       return Span(time: time, matrix: StereoMatrix.make(source: placement.input, displays: displays))
     }

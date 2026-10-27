@@ -9,6 +9,8 @@ An MIT-licensed, native macOS telemetry video editor, with independent readers a
 
 This is an evolving implementation. It does **not** have full RaceRender feature or rendering parity. The [feature audit](docs/racerender-feature-audit.md) distinguishes working features from remaining gaps, including limitations of legacy imports.
 
+[Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
+
 ## Build and run
 
 Requires macOS 14 or newer and an installed Xcode toolchain with Swift 5.9 or newer. Builds natively for the host architecture, including Apple silicon.

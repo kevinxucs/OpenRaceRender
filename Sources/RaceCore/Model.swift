@@ -87,6 +87,8 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var start: Double = 0
   public var end: Double = 1_000_000
   public var parentIndex: Int = -1
+  /// Stable native identity. Legacy indexes are resolved before inserting or copying objects.
+  public var parentID: UUID?
   public var legacyIndex: Int?
   public var legacyOffset: Int?
   public var legacyType: Int?
@@ -160,6 +162,10 @@ public struct RaceProject: Codable, Equatable, Sendable {
     guard p.formatVersion == 1, p.width > 0, p.height > 0, p.width <= 16384, p.height <= 16384,
       p.fps.isFinite, p.fps > 0, p.fps <= 240
     else { throw RaceError.invalid("Unsupported or invalid OpenRaceRender project.") }
+    // Older native copies and externally authored projects can reuse an identity.
+    // Keep the first identity (and its parent references), repair subsequent copies in memory.
+    var seen = Set<UUID>()
+    for i in p.objects.indices where !seen.insert(p.objects[i].id).inserted { p.objects[i].id = UUID() }
     let base = url.deletingLastPathComponent()
     for i in p.inputs.indices { p.inputs[i].path = resolvePath(p.inputs[i].path, base: base) }
     for i in p.objects.indices {

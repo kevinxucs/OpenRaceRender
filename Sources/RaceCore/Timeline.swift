@@ -84,6 +84,8 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var maximum: Double?
   public var artwork: Data?
   public var embeddedImage: Data?
+  /// Undo a group event independently of a member's pre-existing event at the same time.
+  public var groupChildrenBefore: [UUID: [ObjectSegment]]?
   public init(time: Double) { self.time = time }
   public func apply(to object: inout DisplayObject) {
     if let v = visible { object.visible = v }
