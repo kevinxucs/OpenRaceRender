@@ -15,16 +15,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F09: shared background editor, transform/key baking, external file draft workflow, whole-widget preview and explicit background clear implemented; see [validation limits](background-editor.md).
 - F10: timeline zoom/navigation, retime/shift, field inheritance, explicit parameter clears and group event restoration implemented; see [timeline controls](timeline-editing.md).
 - F11: paired source trim previews and graphical pixel crop/zoom, physical joined-clip playhead capture, input image picture rendering and portable adjusted artwork implemented; see [source tools](source-tools.md).
-- Validation: 212 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
-- F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
+- F12: guided setup, selected-data template mapping, dynamic length policies, notes and saved new-session preferences implemented; see [project setup](project-setup.md).
+- Validation: 219 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F12 — guided project setup and primary-input length binding**, after committing/pushing F11. F10 is pushed as `55456fc`; its CI exposed compiler type-check timeouts. The extent expression was simplified in `3141737`; a second marker-view expression is extracted in F11. Both fixes pass locally; verify the next CI run.
+Next feature: **F13 — side-by-side camera synchronization**, after committing/pushing F12. F11 is pushed as `ae3da8d`; CI40483460279 succeeded, including both F10 compiler fixes.
 
 ## Remaining queue
 
-F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F12 handoff — implementation validated, live UI limited
+
+- `RaceCore/ProjectSetup.swift` validates exclusive automatic/matched/manual length changes and lists independent timed stream roots. Existing duration/placement model follows primary trims/rate/delay/joins/loops. Bound source removal clears the reference and Undo restores it. Length changes now trigger preview rebuilds; shortening beyond the playhead pauses and seeks to the last project frame.
+- `OpenRaceRender/ProjectSetup.swift` adds the three-step setup sheet with input import, primary trimming/binding, per-data event synchronization, timing/data inspector navigation, template selection and palette access. Notes/length/settings are available together. Applied project edits remain undoable; nested trim retains private Apply/Cancel drafts.
+- Preferred speed unit and use-setup-on-new options persist in injected UserDefaults. Launch/new-session defaults use the preferred unit; opened projects keep their saved value. Setup/transport unit pickers update the default. Notes now ignore unchanged writes. Transport duration color/help identifies the active length policy.
+- TemplateBrowser resolves displayed default role choices into the actual apply mapping, honors explicit None and uses the setup's selected data input. SyncSheet accepts an initial data index. Nested setup sync has a separate preview-ownership flag so the main canvas returns after dismissal; main and nested sync share the same ownership resolver.
+- 219 tests pass (182 core/37 editor), including three core/four editor setup tests. Coverage includes dynamic trim/rate/delay/join/loop length, bad-policy transactionality, native/RRP notes/binding persistence and template isolation, saved preferences, undo/removal, data-role selection and nested player handoff. `validate-project-setup.py` checks actual encoded duration after primary trim changes against longer telemetry and frames against snapshots. Logs under `build/validation/project-setup`.
+- Mirrored ProjectSettings guide read. Live setup/native operation remains unavailable (cgWindowNotFound). Independent camera synchronization belongs to F13 and is not claimed by F12. No private/vendor assets committed; local library release bundle remains authorized.
+- F11 CI40483460279 succeeded onae3da8d, including both F10 compiler fixes. Commit/push F12 and verify CI before continuing. User waived compaction waits; continue sequentially.
 
 ## F11 handoff — implementation validated, live UI limited
 

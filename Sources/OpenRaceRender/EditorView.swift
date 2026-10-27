@@ -59,9 +59,10 @@ struct EditorView: View {
     .sheet(isPresented: $model.showExport) { ExportSheet(model: model) }
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
+    .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
     .alert(
       "OpenRaceRender",
-      isPresented: Binding(get: { model.error != nil && !model.showExport }, set: { if !$0 { model.error = nil } })
+      isPresented: Binding(get: { model.error != nil && !model.showExport && !model.showProjectSetup }, set: { if !$0 { model.error = nil } })
     ) {
       Button("OK") { model.error = nil }
     } message: {
@@ -98,6 +99,7 @@ struct EditorView: View {
       Spacer()
       tool("Open", icon: "folder", action: model.chooseOpen)
       tool("Add input", icon: "plus.rectangle.on.folder", action: model.chooseInputs)
+      tool("Setup", icon: "list.number", action: model.beginProjectSetup)
       tool("Templates", icon: "square.grid.2x2") { model.showTemplates = true }
       tool("Save", icon: "square.and.arrow.down") { model.save() }
       Rectangle().fill(muted.opacity(0.25)).frame(width: 1, height: 24)
@@ -295,7 +297,8 @@ struct EditorView: View {
           }.padding(18).frame(width: 240)
         }
       Text("/  " + clockText(model.project.duration)).font(.system(size: 10, design: .monospaced))
-        .foregroundStyle(muted)
+        .foregroundStyle(model.project.explicitDuration != nil ? Color.blue : model.project.lengthInputIndex != nil ? mint : muted)
+        .help(model.project.lengthSummary)
       Spacer()
       Button { model.previewMuted.toggle() } label: { Image(systemName: model.previewMuted ? "speaker.slash" : "speaker.wave.2") }.help("Mute preview audio")
       Button("In", action: model.markStart).help("Mark export start at playhead (I)")
@@ -305,7 +308,7 @@ struct EditorView: View {
         Button("Mark export end here", action: model.markEnd)
         Button("Clear export marks", action: model.clearMarks)
       } label: { Image(systemName: "flag.checkered") }.frame(width: 24)
-      Picker("Speed units", selection: model.projectBinding(\.speedUnit)) {
+      Picker("Speed units", selection: model.speedUnitBinding) {
         Text("MPH").tag("mph")
         Text("km/h").tag("km/h")
         Text("m/s").tag("m/s")
@@ -341,7 +344,8 @@ struct EditorView: View {
     VStack(alignment: .leading, spacing: 18) {
       Text("Session settings").font(.system(size: 16, weight: .semibold))
       TextField("Session name", text: model.projectBinding(\.name))
-      TextField("Project notes", text: Binding(get: { model.project.notes ?? "" }, set: { model.checkpoint(); model.project.notes = $0 }), axis: .vertical).lineLimit(2...6)
+      Button("Project setup…",action:model.beginProjectSetup)
+      TextField("Project notes", text: Binding(get: { model.project.notes ?? "" }, set: { model.setProjectNotes($0) }), axis: .vertical).lineLimit(2...6)
       HStack {
         TextField("Width", value: model.projectBinding(\.width), format: .number)
         Text("×").foregroundStyle(muted)
@@ -350,18 +354,7 @@ struct EditorView: View {
       Picker("Frame rate", selection: model.projectBinding(\.fps)) {
         ForEach([24.0, 25, 29.97, 30, 50, 59.94, 60], id: \.self) { Text($0.formatted()).tag($0) }
       }
-      Toggle("Set project length", isOn: Binding(get: { model.project.explicitDuration != nil }, set: { enabled in
-        model.checkpoint(); model.project.explicitDuration = enabled ? model.project.duration : nil
-      }))
-      if model.project.explicitDuration != nil {
-        TextField("Project seconds", value: Binding(get: { model.project.explicitDuration ?? 60 }, set: { model.checkpoint(); model.project.explicitDuration = max(0.1, $0) }), format: .number)
-      }
-      Picker("Match length to input", selection: Binding(get: { model.project.lengthInputIndex ?? -1 }, set: { value in
-        model.checkpoint(); model.project.lengthInputIndex = value < 0 ? nil : value; model.project.explicitDuration = nil
-      })) {
-        Text("Longest input").tag(-1)
-        ForEach(model.project.inputs.filter { $0.joinedTo == nil }) { Text($0.name).tag($0.legacyIndex) }
-      }
+      ProjectLengthControls(model:model)
       Divider()
       Text(
         "Click a display to edit its position and data source. Drag it in the preview; drag its upper right handle to resize. Hold Shift to snap to whole percentages."

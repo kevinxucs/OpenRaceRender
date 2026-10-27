@@ -1,5 +1,10 @@
 # Changelog
 
+## F12 — Guided project setup
+
+- Three-step setup connects file import, primary trim/length, per-data synchronization, selected-source template mapping and widget/data configuration.
+- Exclusive automatic/input/manual length controls, remembered new-session units and setup preference, project notes, bound-source removal/undo and nested synchronization preview handoff. See [workflow and validation](docs/project-setup.md).
+
 ## F11 — Visual source trimming and crop
 
 - Private source-bound trim drafts with first/last previews, frame steps, playhead capture and data visualization. Preserve synchronization, playback settings and export marks.

@@ -120,6 +120,7 @@ struct InputTimingControls: View {
 
 struct SyncSheet: View {
   @ObservedObject var model: EditorModel
+  var initialInputIndex: Int?
   @State var index = -1
   @State var eventID = ""
   @State var sourceTime = 0.0
@@ -186,7 +187,7 @@ struct SyncSheet: View {
     }.padding(24).frame(width: 925).background(bg).preferredColorScheme(.dark).tint(mint)
     .onAppear {
       model.pause()
-      index = model.project.inputs.first(where: { $0.id == model.selectedInput && $0.kind == "data" })?.legacyIndex ?? model.dataIndex ?? -1
+      index = initialInputIndex ?? model.project.inputs.first(where: { $0.id == model.selectedInput && $0.kind == "data" })?.legacyIndex ?? model.dataIndex ?? -1
       loadEvents()
     }
     .onDisappear { model.pause() }

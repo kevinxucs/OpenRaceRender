@@ -4,6 +4,7 @@ import SwiftUI
 
 struct TemplateBrowser: View {
   @ObservedObject var model: EditorModel
+  var preferredDataIndex: Int?
   @Environment(\.dismiss) var dismiss
   @State var files: [LayoutLibrary.Entry] = []
   @State var search = ""
@@ -127,9 +128,7 @@ struct TemplateBrowser: View {
                 input.name,
                 selection: Binding(
                   get: {
-                    mapping[input.legacyIndex] ?? model.project.inputs.first {
-                      $0.kind == input.kind
-                    }?.legacyIndex ?? -1
+                    mapping[input.legacyIndex] ?? defaultInput(for:input)
                   }, set: { mapping[input.legacyIndex] = $0 })
               ) {
                 Text("None").tag(-1)
@@ -181,7 +180,7 @@ struct TemplateBrowser: View {
           if let p = layout {
             if isStyle { model.applyStyle(p, preservePlacement: category != .videoPositions) }
             else if p.name == "Blank" && p.objects.isEmpty { model.blankLayout() }
-            else { model.apply(p, replace: replace, mapping: mapping) }
+            else { model.apply(p, replace: replace, mapping: resolvedMapping(p)) }
             dismiss()
           }
         }.buttonStyle(.borderedProminent).foregroundStyle(bg).disabled(layout == nil || loading)
@@ -194,6 +193,14 @@ struct TemplateBrowser: View {
   func displayName(_ u: URL) -> String {
     u.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "Data - ", with: "")
       .replacingOccurrences(of: "Project - ", with: "").replacingOccurrences(of: "_", with: "")
+  }
+  func defaultInput(for input:MediaInput) -> Int {
+    if input.kind == "data", let preferredDataIndex,
+      model.project.inputs.contains(where:{$0.legacyIndex == preferredDataIndex && $0.kind == "data" && $0.joinedTo == nil}) { return preferredDataIndex }
+    return model.project.inputs.first(where:{$0.kind == input.kind && $0.joinedTo == nil})?.legacyIndex ?? -1
+  }
+  func resolvedMapping(_ layout:RaceProject) -> [Int:Int] {
+    Dictionary(uniqueKeysWithValues:layout.inputs.map { ($0.legacyIndex,mapping[$0.legacyIndex] ?? defaultInput(for:$0)) })
   }
   func chooseFolder() {
     let p = NSOpenPanel()

@@ -117,7 +117,7 @@ struct Preview: NSViewRepresentable {
     CATransaction.setDisableActions(true)
     // Only the active preview owns video output. Opening the sync wizard must
     // detach the canvas, and dismissing it must explicitly return ownership.
-    let player = interactive != m.showSync ? m.previewPlayer : nil
+    let player = interactive != m.synchronizationPreviewActive ? m.previewPlayer : nil
     if compositionLayer.player !== player {
       compositionLayer.player = player
       m.syncPlayers(play: m.playing)

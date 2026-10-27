@@ -8,7 +8,13 @@ import UniformTypeIdentifiers
   @Published var project = RaceProject() { didSet {
     guard oldValue != project else { return }
     dirty = true
-    if oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration { schedulePreview() }
+    if oldValue.inputs != project.inputs || oldValue.explicitDuration != project.explicitDuration || oldValue.lengthInputIndex != project.lengthInputIndex {
+      let duration = project.duration
+      if duration < oldValue.duration && time >= duration {
+        pause(); seek(max(0,duration-1/max(1,project.fps)))
+      }
+    }
+    if oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration || oldValue.lengthInputIndex != project.lengthInputIndex { schedulePreview() }
     let oldData = oldValue.inputs.filter { $0.kind == "data" }
     let newData = project.inputs.filter { $0.kind == "data" }
     if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) { scheduleTelemetry() }
@@ -27,6 +33,11 @@ import UniformTypeIdentifiers
   weak var canvasView: PreviewView?
   @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
   @Published var showSync = false
+  @Published var showProjectSetup = false
+  @Published var setupSyncActive = false
+  let preferences: UserDefaults
+  @Published var preferredSpeedUnit: String { didSet { preferences.set(preferredSpeedUnit,forKey:"preferredSpeedUnit") } }
+  @Published var setupOnNewProjects: Bool { didSet { preferences.set(setupOnNewProjects,forKey:"setupOnNewProjects") } }
   @Published var selectedInput: UUID?
   @Published var time: Double = 0
   @Published var playing = false
@@ -81,7 +92,13 @@ import UniformTypeIdentifiers
   func projectTime(for source: Double, inputIndex: Int? = nil) -> Double {
     project.placements.first { $0.input.legacyIndex == (inputIndex ?? dataIndex) }?.projectTime(for: source) ?? source
   }
-  init() {
+  init(preferences: UserDefaults = .standard) {
+    self.preferences = preferences
+    let saved = preferences.string(forKey:"preferredSpeedUnit") ?? "mph"
+    preferredSpeedUnit = RaceProject.speedUnits.contains(saved) ? saved : "mph"
+    setupOnNewProjects = preferences.bool(forKey:"setupOnNewProjects")
+    project.speedUnit = preferredSpeedUnit
+    dirty = false
     timer = Timer.scheduledTimer(withTimeInterval: 1 / 30, repeats: true) { [weak self] _ in
       Task { @MainActor in self?.tick() }
     }
@@ -290,6 +307,7 @@ import UniformTypeIdentifiers
     checkpoint()
     let ids = Set(project.inputs.filter { $0.id == id || $0.joinedTo == input.legacyIndex }.map(\.legacyIndex))
     project.inputs.removeAll { ids.contains($0.legacyIndex) }
+    if let length = project.lengthInputIndex, ids.contains(length) { project.lengthInputIndex = nil }
     project.objects.removeAll { ids.contains($0.inputIndex) }
     for i in project.objects.indices {
       project.objects[i].segments = project.objects[i].segments?.map { segment in
@@ -335,6 +353,7 @@ import UniformTypeIdentifiers
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
     project = RaceProject()
+    project.speedUnit = preferredSpeedUnit
     telemetry = [:]
     selected = nil
     selectedInput = nil
@@ -345,6 +364,7 @@ import UniformTypeIdentifiers
     redoStack = []
     configurePlayers()
     status = "New session"
+    showProjectSetup = setupOnNewProjects
   }
   func chooseOpen() {
     let panel = NSOpenPanel()
