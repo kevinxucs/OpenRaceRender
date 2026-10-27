@@ -1,5 +1,10 @@
 # Changelog
 
+## F27 — Camera-free preview and export
+
+- Telemetry/still/graphics/audio or blank projects now render without a camera, with a reusable internal timing source and no saved fake dependency. Still-only designs use the same 60-second default as graphics-only projects.
+- Timed graphics continue throughout the project and marked/chunk exports; broken camera inputs remain errors. See [workflow and validation](docs/camera-free.md).
+
 ## F26 — Output profiles and independent workspace
 
 - Local/internet/television presets, saved custom profiles, output aspect/dimensions/FPS independent of the canvas, fit/reshape layout choices and whole-composition outer border.

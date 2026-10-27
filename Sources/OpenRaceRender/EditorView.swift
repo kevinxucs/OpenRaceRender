@@ -117,7 +117,7 @@ struct EditorView: View {
           .system(size: 12, weight: .semibold)
         ).padding(.horizontal, 10).padding(.vertical, 7)
       }.buttonStyle(.borderedProminent).foregroundStyle(bg).disabled(
-        model.project.inputs.allSatisfy { $0.kind != "video" })
+        model.exportProgress != nil)
     }.padding(.horizontal, 20).frame(height: 66).background(panelColor)
   }
   func tool(_ title: String, icon: String, action: @escaping () -> Void) -> some View {

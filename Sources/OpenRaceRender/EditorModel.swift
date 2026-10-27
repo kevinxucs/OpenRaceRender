@@ -163,9 +163,6 @@ import UniformTypeIdentifiers
   }
   func prepareExport() {
     guard exportProgress == nil else { status = "An export is already running"; return }
-    guard project.inputs.contains(where: { $0.kind == "video" && !$0.path.isEmpty }) else {
-      error = "Add or link a video file before exporting. Templates can be saved without media."; return
-    }
     let range = project.defaultExportRange
     useExportRange(range)
     showExport = true
@@ -258,7 +255,7 @@ import UniformTypeIdentifiers
         try await Task.sleep(nanoseconds: 200_000_000)
         guard let self else { return }
         let scene = self.designScene
-        guard scene.project.inputs.contains(where: { $0.kind == "video" && $0.exists }) else {
+        guard !scene.project.objects.isEmpty || scene.project.inputs.contains(where: { ["video","audio"].contains($0.kind) && $0.exists }) else {
           self.previewPlayer?.pause(); self.previewPlayer = nil; return
         }
         let prepared = try await VideoExporter.prepare(scene: scene,options:self.previewOptions)

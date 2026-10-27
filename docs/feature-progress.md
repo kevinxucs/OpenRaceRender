@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 326 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 330 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -35,13 +35,22 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F26: distribution/custom output profiles, independent fit/reshape output size/FPS, whole-composition border/scaling and mono/stereo/disabled 44.1/48 kHz audio implemented; see [output settings](output-settings.md).
 
-Next feature: **F27 — camera-free exports with a generated clock**, after committing/pushing F26. F25 `39fd4d3` passed CI40564268327.
+- F27: source-free/telemetry/still/graphics/audio video preview/export with an internal generated clock and still-only default duration implemented; see [camera-free videos](camera-free.md).
+
+Next feature: **F28 — Enhanced script authoring UI**, after committing/pushing F27. F26 `b72edbe` passed CI40565915528.
 
 ## Remaining queue
 
-F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F27 handoff — composed media validated, live playback limited
+
+- GeneratedVideoClock actor creates/reuses a tiny original32x32/two-frame H264 MOV in system temp. prepare stretches hidden clock track to project length when no real camera tracks exist; requiredSourceTrackIDs includes it but scene.tracks/model.inputs do not. Actual timed graphics continuous across source-sample holds. Assets retained through insertion. Pending conversion shared and missing/corrupt temp source retried once. Internal file never saved as project/template dependency.
+- Removed camera-only export toolbar/model/preview guards. Preview now prepares graphics/audio with same player pipeline; empty no-object/no-media editor retains direct fallback. Camera-free export note explains black background/full-canvas art. Image-only/source-free designs use60s default; explicit/input-bound/data/audio lengths win. Broken declared cameras with no readable video track now throw; existing missing-file preflight retained.
+- 330 tests pass (265core/65editor), no skips with authorized library/graphics. Three new core/one editor cover duration defaults/override/data, clock reuse/temp removal recovery, actual continuous2s/15FPS red→green frame output, unchanged saved project/no fake dependency, marked export setup and ready-to-play editor item. Logs build/validation/camera-free. validate-camera-free passes telemetry/still/text/shape/audio, marked full/chunk encoded snapshots, advancing telemetry/timeline, audible audio, blank no-input clip and invalid-camera refusal. validate-output-settings regression passes. Snapshot visually inspected; signed local library app/ZIP verified. Do not claim live GUI/audio audition or native parity (CUA still cgWindowNotFound).
+- Mirrored Basics/Display Toolbox read, prior CreateVideo guidance reused; no dedicated native data-only chapter, scope is independent composition functionality. F26 pushedb72edbe CI40565915528 succeeded. Acceptance/package complete; commit/push F27 before F28. Continue sequentially without manual compaction waits. No private/vendor fixtures committed.
 
 ## F26 handoff — encoded output validated, live UI/native preferences limited
 

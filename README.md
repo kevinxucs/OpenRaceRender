@@ -58,6 +58,8 @@ python3 scripts/validate-designer.py
 
 ## Editing a session
 
+Telemetry, still images, text/shapes and optional audio can export without a camera file. Set project length and marks, then render normally; see [camera-free videos](docs/camera-free.md).
+
 Export offers local/internet/television profiles, reusable custom profiles, independent output aspect/size/FPS, whole-composition borders, scaling choices and mono/stereo 44.1/48 kHz AAC. See [output settings](docs/output-settings.md).
 
 **Preview → Preview settings…** controls preview size/FPS, scaling, seek quality and audio independently of export. **Full-screen composition** (Command-Shift-F) offers a dedicated playback view; see [preview controls and limits](docs/preview-settings.md).

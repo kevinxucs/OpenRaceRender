@@ -371,6 +371,9 @@ struct ExportSheet: View {
     VStack(alignment:.leading,spacing:16) {
       Text("Export telemetry video").font(.system(size:24,weight:.semibold))
       Text("H.264 MP4 · AAC · independent output configuration").font(.caption).foregroundStyle(muted)
+      if !model.project.inputs.contains(where:{$0.kind == "video" && $0.isTimeFiller != true}) {
+        Text("Camera-free video: graphics and audio render over black. Use a full-canvas image or shape for a background.").font(.caption).foregroundStyle(muted)
+      }
       Divider()
       ScrollView {
         VStack(alignment:.leading,spacing:18) {

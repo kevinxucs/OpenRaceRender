@@ -214,8 +214,9 @@ public final class VideoExporter: @unchecked Sendable {
       let destination = CMTime(seconds: placement.start, preferredTimescale: 60000)
       let inserted = CMTimeRange(start: destination, duration: range.duration)
       let scaled = CMTime(seconds: sourceLength / placement.rate, preferredTimescale: 60000)
-      if input.kind == "video", let source = try await asset.loadTracks(withMediaType: .video).first,
-        let track = tracks[input.legacyIndex].flatMap({ composition.track(withTrackID: $0) }) ?? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) {
+      if input.kind == "video" {
+        guard let source = try await asset.loadTracks(withMediaType:.video).first else {throw RaceError.invalid("‘\(input.name)’ has no readable video track. Relink or remove that camera input.")}
+        guard let track = tracks[input.legacyIndex].flatMap({ composition.track(withTrackID: $0) }) ?? composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {throw RaceError.invalid("Cannot allocate a camera video track.")}
         try track.insertTimeRange(range, of: source, at: destination)
         track.scaleTimeRange(inserted, toDuration: scaled)
         tracks[input.legacyIndex] = track.trackID
@@ -236,11 +237,22 @@ public final class VideoExporter: @unchecked Sendable {
         audioParameters.append(parameter)
       }
     }
-    guard !tracks.isEmpty else { throw RaceError.invalid("Preview and export need at least one readable video input.") }
+    var generatedClockID:CMPersistentTrackID?
+    if tracks.isEmpty {
+      let (asset,source,range) = try await GeneratedVideoClock.shared.source()
+      guard let clock = composition.addMutableTrack(withMediaType:.video,preferredTrackID:kCMPersistentTrackID_Invalid) else {throw RaceError.invalid("Cannot allocate the generated render clock.")}
+      let length = min(range.duration.seconds,p.duration)
+      let frame = CMTimeRange(start:range.start,duration:CMTime(seconds:length,preferredTimescale:60000))
+      try withExtendedLifetime(asset) {
+        try clock.insertTimeRange(frame,of:source,at:.zero)
+        clock.scaleTimeRange(CMTimeRange(start:.zero,duration:frame.duration),toDuration:CMTime(seconds:p.duration,preferredTimescale:60000))
+      }
+      generatedClockID = clock.trackID
+    }
     // AVAssetReader stops video composition at the last real video sample, even
     // when the composition has an empty tail. A hidden source-frame track at the
     // requested end keeps the compositor clock alive for trailing gaps/overlays.
-    var clockTrackID:CMPersistentTrackID?
+    var clockTrackID:CMPersistentTrackID? = generatedClockID
     if videoEnd+1e-8 < p.duration, let (asset,source,range) = clockSource,
       let clock = composition.addMutableTrack(withMediaType:.video,preferredTrackID:kCMPersistentTrackID_Invalid) {
       let length = min(1/p.fps,range.duration.seconds,p.duration)
