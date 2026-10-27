@@ -37,6 +37,10 @@ F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
 
+## F23 CI follow-up
+
+CI40540820591 on fcefa0f hit an older Swift compiler type-check timeout in the cache sample-difference test (nested indexed map/max). Replaced the two expressions with explicit typed Float loops; behavior/coverage unchanged. The F24 effects work remains uncommitted while this CI correction is committed/pushed separately.
+
 ## F23 handoff — implementation validated, live audition limited
 
 - Existing F01 source/per-display gain/pan UI and sample gates reviewed against InputFileEdit/DispObjEdit audio guide. Explicit Mute, normalized percentage + slider, center balance and per-display/source routing now exposed. Source controls use MediaInput.volume, display controls AudioSettings.volume; views keyed by source/object to isolate mute restore state. Images no longer show unused audio controls. Input source additional AudioSettings.volume now honored.

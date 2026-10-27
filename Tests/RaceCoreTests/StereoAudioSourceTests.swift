@@ -23,10 +23,15 @@ final class StereoAudioSourceTests:XCTestCase {
     XCTAssertEqual(passthrough.asset.url,first.asset.url)
     let mono = try samples(asset:asset,track:track,channels:1),stereo = try samples(asset:first.asset,track:first.track,channels:2)
     let count = min(mono.count,stereo.count/2); XCTAssertGreaterThan(count,1000)
-    let leftDifference = (0..<count).map{abs(stereo[$0*2]-mono[$0])}.max() ?? 1
-    let rightDifference = (0..<count).map{abs(stereo[$0*2+1]-mono[$0])}.max() ?? 1
+    var leftDifference:Float = 0,rightDifference:Float = 0
+    for i in 0..<count {
+      let leftIndex = i*2,rightIndex = leftIndex+1
+      let original:Float = mono[i],left:Float = stereo[leftIndex],right:Float = stereo[rightIndex]
+      let leftError:Float = abs(left-original),rightError:Float = abs(right-original)
+      leftDifference = max(leftDifference,leftError); rightDifference = max(rightDifference,rightError)
+    }
     XCTAssertLessThan(leftDifference,1e-6); XCTAssertLessThan(rightDifference,1e-6)
-    let cachedDuration = try await first.asset.load(.duration).seconds; XCTAssertEqual(cachedDuration,0.1,accuracy:1/44100)
+    let cachedDuration = try await first.asset.load(.duration).seconds; XCTAssertEqual(cachedDuration,0.1,accuracy:1.0/44100.0)
     try Data().write(to:first.asset.url)
     let recovered = try await cache.source(asset:asset,track:track,url:url)
     XCTAssertFalse(try samples(asset:recovered.asset,track:recovered.track,channels:2).isEmpty)
