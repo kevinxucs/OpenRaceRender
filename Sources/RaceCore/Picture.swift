@@ -77,8 +77,8 @@ public enum PictureProcessor {
   public static func png(_ data: Data, settings: PictureSettings) throws -> Data {
     let bytes = LegacyArtwork.png(data) ?? data
     guard let cg = NSImage(data:bytes)?.cgImage(forProposedRect:nil,context:nil,hints:nil) else { throw RaceError.invalid("Cannot decode source artwork.") }
-    let result = apply(CIImage(cgImage:cg),settings:settings)
-    guard let image = CIContext().createCGImage(result,from:result.extent,format:.RGBA8,colorSpace:OverlayRenderer.colorSpace),
+    let result = apply(source(cg,settings:settings),settings:settings)
+    guard let image = context().createCGImage(result,from:result.extent,format:.RGBA8,colorSpace:OverlayRenderer.colorSpace),
       let png = NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else { throw RaceError.invalid("Cannot embed the adjusted source artwork.") }
     return png
   }
@@ -88,7 +88,8 @@ public enum PictureProcessor {
     let bottom = max(0, min(0.95, s.bottom)), top = max(0, min(0.95-bottom, s.top))
     let crop = CGRect(x: b.minX+b.width*left, y: b.minY+b.height*bottom,
       width: b.width*(1-left-right), height: b.height*(1-top-bottom))
-    var image = original.cropped(to: crop).transformed(by: CGAffineTransform(translationX: -crop.minX, y: -crop.minY))
+    let keyed = PictureEffects.apply(original,settings:s)
+    var image = keyed.cropped(to: crop).transformed(by: CGAffineTransform(translationX: -crop.minX, y: -crop.minY))
     if s.flipX { image = image.transformed(by: CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: crop.width, ty: 0)) }
     if s.flipY { image = image.transformed(by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: crop.height)) }
     if s.rotation.isFinite && s.rotation != 0 {

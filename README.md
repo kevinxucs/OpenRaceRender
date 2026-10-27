@@ -58,6 +58,8 @@ python3 scripts/validate-designer.py
 
 ## Editing a session
 
+Video and image picture controls include chroma key (screen/RGB color, separate color/brightness ranges and soft edges) and tint/full-spectrum colorization. Source and display effects share preview/export and portable-artwork processing; see [picture effects and compatibility limits](docs/picture-effects.md).
+
 **Setup** in the toolbar guides primary trimming, input synchronization and template selection. It also offers input-bound project length, notes and remembered new-session preferences; see [project setup](docs/project-setup.md).
 
 For multiple cameras, **Sync → Cameras side by side…** offers independent source players and shared-event alignment; see [camera synchronization](docs/source-synchronization.md).

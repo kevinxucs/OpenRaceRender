@@ -26,6 +26,8 @@ public struct PictureSettings: Codable, Equatable, Sendable {
   // Optional so native projects saved before sharpness support remain readable.
   public var sharpness: Double?
   public var hue: Double?
+  public var chromaKey:ChromaKeySettings?
+  public var colorize:ColorizeSettings?
   public var legacyColorInterpretation: Bool?
   public init() {}
 

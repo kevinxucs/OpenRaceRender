@@ -1,5 +1,10 @@
 # Changelog
 
+## F24 — Chroma key and colorize
+
+- Source/display video and image keying with RGB/hex/screen sampling, independent color/brightness tolerances and edge softness; tint and full-spectrum colorization with adjustable amount.
+- Key-before-adjustment processing, preserved alpha and consistent encoded RGB across images, video and portable artwork. Timeline/Undo/native persistence and export validation are covered; unverified legacy encodings are refused. See [workflow and limits](docs/picture-effects.md).
+
 ## F23 — Independent display audio and channel routing
 
 - Explicit mute, percentage gain, balance and routing controls for inputs/displays. Source and per-display routing/gain now compose correctly, including the stored source gain multiplier.

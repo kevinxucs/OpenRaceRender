@@ -42,6 +42,7 @@ struct PictureControls: View {
           Text("Crop from edges (0–0.95)").foregroundStyle(muted)
           HStack { value("Left", $settings.left); value("Right", $settings.right) }
           HStack { value("Top", $settings.top); value("Bottom", $settings.bottom) }
+          PictureEffectControls(settings:$settings)
           Text("Adjustments: −100 to +100 · 0 is neutral").foregroundStyle(muted)
           adjustment("Brightness", $settings.brightnessAdjustment)
           adjustment("Contrast", $settings.contrastAdjustment)

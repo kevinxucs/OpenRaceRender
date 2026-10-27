@@ -290,6 +290,7 @@ public enum LegacyWriter {
       else if o.channel != decoded.channel { throw unsupported("This legacy display's data-channel override is not supported.") }
     }
     if let picture = o.picture {
+      guard picture.chromaKey == nil,picture.colorize == nil else { throw unsupported("Chroma key/colorize edits require .orrp; their display encoding is unverified.") }
       var extra = picture; extra.maintainAspect = true; extra.flipX = false; extra.flipY = false
       guard extra == PictureSettings() else { throw unsupported("Display-level crop, rotation and color adjustments must be applied to the video input for RaceRender export.") }
     }
@@ -331,6 +332,7 @@ public enum LegacyWriter {
 
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {
     let s = source, root = s.isJoinRoot == true
+    guard s.picture?.chromaKey == nil,s.picture?.colorize == nil else { throw RaceError.invalid("Source chroma key/colorize edits require .orrp; native encoding is unverified.") }
     guard ["video","audio","data"].contains(s.kind) else { throw RaceError.invalid("‘\(s.name)’: unsupported RaceRender input type \(s.kind).") }
     // RCZ has no verified native RR3 reader. A future CSV sidecar exporter can represent it.
     if s.kind == "data", URL(fileURLWithPath:s.path).pathExtension.lowercased() == "rcz" {

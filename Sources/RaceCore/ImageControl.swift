@@ -91,7 +91,7 @@ public struct ImageControlState: Equatable, Sendable {
 public enum ImageRenderer {
   private static let images = NSCache<NSData, ImageBox>()
   private static let fileImages = NSCache<NSString, ImageBox>()
-  private static let context = CIContext(options:[.cacheIntermediates:false])
+  private static let context = PictureProcessor.context()
   private final class ImageBox: NSObject { let image: CGImage; init(_ image: CGImage) { self.image = image } }
   private static func image(_ data: Data) -> CGImage? {
     let key = data as NSData
@@ -125,7 +125,7 @@ public enum ImageRenderer {
     picture.hue = hue > 180 ? hue-360 : hue < -180 ? hue+360 : hue
     c.saveGState()
     if state.rotation != 0 { c.translateBy(x:rect.midX,y:rect.midY); c.rotate(by:state.rotation * .pi/180); c.translateBy(x:-rect.midX,y:-rect.midY) }
-    PictureProcessor.draw(c,image:CIImage(cgImage:cg),in:rect,opacity:o.opacity*state.opacity,input:inputPicture,object:picture,context:context)
+    PictureProcessor.draw(c,image:PictureProcessor.source(cg,settings:inputPicture),in:rect,opacity:o.opacity*state.opacity,input:inputPicture,object:picture,context:context)
     c.restoreGState(); return true
   }
 }

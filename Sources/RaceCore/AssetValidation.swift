@@ -21,6 +21,7 @@ extension RaceProject {
       for (lo, hi) in zip(boundaries, boundaries.dropFirst()) {
         guard let display = resolvedObjects(at: lo).first(where: { $0.id == object.id }),
           display.visible, lo >= display.start, lo < display.end, display.opacity > 0 else { continue }
+        try display.picture?.validateEffects()
         if let timer = display.timerSettings {
           try timer.validate()
           if timer.mode == .timeOfDay,timer.clock == .source,timer.epoch == nil,let telemetry,telemetry[display.inputIndex]?.firstSampleUnixTime == nil {
@@ -40,6 +41,7 @@ extension RaceProject {
               let ranges = placements.filter { $0.input.id == input.id }
               if !ranges.isEmpty && !ranges.contains(where: { $0.end > lo && $0.start < hi }) { continue }
             }
+            try input.picture?.validateEffects()
             require(input.path, label: input.name)
           }
         }

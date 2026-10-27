@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 305 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 313 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -29,13 +29,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F22: native manual/lap timers and explicit RCZ/project/source UTC wall clocks, formatting/timezone/anchor/preflight/template controls implemented; see [timers](timers.md).
 - F23: input/display mute/gain/balance/routing, corrected gain composition and cached stereo normalization implemented; see [audio controls](audio.md).
 
-Next feature: **F24 — chroma key and colorize**, after committing/pushing F23. F22 is pushed as `5c585ef`; CI40535362028 succeeded.
+- F24: source/display chroma key, color/brightness tolerances, screen/RGB sampling, soft edges and tint/spectrum implemented; see [picture effects](picture-effects.md).
+
+Next feature: **F25 — independent preview controls and full-screen composition**, after committing/pushing F24. F23 CI correction `acd5495` passed CI40544038142.
 
 ## Remaining queue
 
-F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F24 handoff — rendering validated, native encoding/live sampler limited
+
+- ChromaKeySettings/ColorizeSettings added to existing PictureSettings, retaining source/display timeline/Undo/template handling. CI effects run before each layer's other adjustments, key original chromaticity/value with independent tolerances and soft alpha, then tint/HSV-spectrum by value while retaining alpha. UI exposes toggles, color/hex/RGB/screen sampler, percentages and validation. Invalid effects block output; native rewritten settings are conservatively refused because encoding is unverified. Untouched opaque native operations remain retained with warnings rather than newly decoded.
+- Real acceptance exposed image widgets using linear RGB instead of the encoded RGB path used by video; ImageRenderer now uses PictureProcessor source/context. Portable PNG baking uses the same path. Added an exact display-versus-bake spectrum regression. One synthetic ProRes4444 fixture decodes differently between Apple and FFmpeg; camera-style H.264 is used for independent effect acceptance. Do not claim universal codec color equivalence/native algorithm parity.
+- 313 tests (253 core/60 editor) pass, including six core/two editor additions. validate-picture-effects passes independent keyed/tinted rectangle references, transparency, source/display equality, timeline key removal, marked encoded video and Python HSV spectrum reference. validate-image-controls and validate-source-tools regressions pass. Spectrum output visually inspected. Logs under build/validation/picture-effects. Local app/library ZIP signed/verified; no private/vendor assets committed.
+- Mirrored input picture guide read. CUA retried this turn and still cgWindowNotFound for RaceRender; live UI/eyedropper/native record sampling remain unverified. Optional native key/spectrum project path request pending; do not wait to continue independent work. User previously confirmed no native data profile sample.
+- F23 CI40540820591 compiler timeout fixed by acd5495 typed loops; CI40544038142 succeeded. Commit/push F24 before F25. Continue sequential feature commits/pushes without manual compaction waits.
 
 ## F23 CI follow-up
 
