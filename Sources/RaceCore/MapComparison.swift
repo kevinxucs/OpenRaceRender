@@ -32,7 +32,7 @@ extension RaceProject {
     guard let source = inputs.first(where:{$0.id == id}),source.kind == "data",source.joinedTo == nil,source.isJoinRoot != true else { throw RaceError.invalid("Choose an independent data input to duplicate.") }
     var copy = source; copy.id = UUID(); copy.name += " copy"
     copy.legacyIndex = (inputs.map(\.legacyIndex).max() ?? -1)+1
-    copy.legacyOffset = nil; copy.legacyTrackIndex = nil
+    copy.legacyOffset = nil; copy.dataSession = source.dataSession ?? source.legacyTrackIndex; copy.legacyTrackIndex = nil
     inputs.append(copy); return copy.id
   }
   @discardableResult public mutating func alignDataLaps(primary:SourceSyncAnchor,reference:SourceSyncAnchor) throws -> Double {

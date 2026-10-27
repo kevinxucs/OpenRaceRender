@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 349 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 358 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -43,13 +43,24 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F30: bounded GoPro GPS5/GPS9/ACCL/GYRO extraction, optional import offers, camera-linked timing/sequence identities, saved sources and manual sync implemented; see [camera telemetry](camera-telemetry.md).
 
-Next feature: **F31 — additional logger formats and multi-session selection**, after committing/pushing F30. F29 `cc39cf8` passed CI40574555783.
+- F31: documented MSL/GUTMA imports and saved CSV/GPX/TCX/concatenated-FIT/RCZ session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
+
+Next feature: **F32 — network receiving**, after committing/pushing F31’s verified scope. F30 `c998d0d` passed CI40579493246. Keep the unverified F31 binary-format subfeatures outstanding; do not claim all of F31 complete.
 
 ## Remaining queue
 
-F31, F32, F33, F34, F35, F36.
+F32, F33, F34, F35, F36; F31 binary formats/vendor-specific layouts remain pending verifiable fixtures.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F31 handoff — documented subset validated; closed formats explicitly outstanding
+
+- LoggerText supports MSL comma/tab text, preamble/units, seconds/ms, RPM/TPS/gear/GPS/VSS assignments and explicit F→C temperatures; binaryMS3/MLG/FRD conversion diagnostics. GUTMA Metric flight_logging JSON supports declared keys, GPS/speed/drone velocity/battery, timezoneUTC and explicit missing entries. New literal nan in normalized CSV clears missing values instead of forward-filling. No camera/drone axes autoassigned as vehicleG. Public primary docs and GUTMA example inspected, original tests only committed.
+- Saved one-based MediaInput.dataSession, source-cache selection key, legacyTrackIndex fallback, duplicate source retention, reusable template stripping and native-writer conservative refusal. Session boundaries cover repeated text headers or clock restartat/beforefirst (small out-of-order rows preserved for skip/warn), GPXtrk versussegments, TCXActivity, complete concatenatedFIT containers, nestedRCZsession.json/channel isolation. Per-file session infos/names/UTC retained. Other FITsession messages/Alfano-specific export layouts unverified.
+- DataSetup offers picker/private preview before Apply, immutable previewselection/staleguards, timing/marks retained, Undo/saved reload. Multi-session Add opens configuration automatically. CLIinspect-data --session listsoptions/validatesindex. MSLFinder metadataadded. Known unsupported logger extensions go to actionable export diagnostics instead of video/AVFoundation. ExistingJSON format detection is strictGUTMA.
+- 358tests pass (286core/72editor) with authorized library/graphics;7core+2editor additions. Corecovers units/restarts/nulls/UTC/GPXTCX/FITRCZ/cache/legacy/template/duplicate/diagnostics;editor importoffer/selectionApply/Undo/persistence/timing andunsupportedrouting. Logs build/validation/logger-formats. Real .gtr/.gts/.prr/.sa/.moff/.sns/.snslog andAlfano samples requested asynchronously; none received at implementation checkpoint. These closed layouts remain outstanding, not implemented by renaming extensions. OlympusGPS-only NMEA .log alreadyworks, SNScompanionmerging absent.
+- validate-logger-formats passed independent CSV exactpixels for selected MSLsession2, explicit unit conversions, marked full/chunk media and GUTMA gaps/UTC/invalid session. Published GUTMAexample loads. validate-camera-telemetry regression passed; logger snapshot visually inspected. Signed release/library package verified.
+- F30CI40579493246 succeeded. CUA stillcgWindowNotFound, no native/editorUI parityclaim. Commit/push verifiedF31 scope beforeF32, continue other useful work while rare-format fixtures unavailable. No private telemetry/originals touched.
 
 ## F30 handoff — extraction and media validated, native UI limited
 

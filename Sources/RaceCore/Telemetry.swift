@@ -10,11 +10,12 @@ public struct TelemetryLap: Identifiable, Sendable {
 }
 
 public final class Telemetry: @unchecked Sendable {
-  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz"]
+  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz", "msl", "json"]
   public internal(set) var firstSampleUnixTime: Double?
   public internal(set) var locationName:String?
   var recordedLocationName:String?
   public internal(set) var warnings: [String] = []
+  public internal(set) var fileSessions:[TelemetrySessionInfo] = []
   let graphCache = GraphSampleCache()
   private let boundsLock = NSLock()
   private var cachedBounds: [Int:(Double,Double)] = [:]
@@ -47,48 +48,46 @@ public final class Telemetry: @unchecked Sendable {
   /// Inputs may have independent clocks while sharing one immutable recorded/configured table.
   public static func loadSources(_ inputs:[MediaInput]) throws -> [Int:Telemetry] {
     var result:[Int:Telemetry] = [:]
-    var tables:[(path:String,settings:DataSettings?,data:Telemetry)] = []
+    var tables:[(path:String,settings:DataSettings?,session:Int?,data:Telemetry)] = []
     for input in inputs where input.kind == "data" && input.exists {
       let url = URL(fileURLWithPath:input.path).standardizedFileURL
       let data:Telemetry
-      if let cached = tables.first(where:{$0.path == url.path && $0.settings == input.dataSettings}) { data = cached.data }
+      if let cached = tables.first(where:{$0.path == url.path && $0.settings == input.dataSettings && $0.session == (input.dataSession ?? input.legacyTrackIndex)}) { data = cached.data }
       else {
-        data = try Telemetry(url:url,settings:input.dataSettings)
-        tables.append((url.path,input.dataSettings,data))
+        data = try Telemetry(url:url,settings:input.dataSettings,session:input.dataSession ?? input.legacyTrackIndex)
+        tables.append((url.path,input.dataSettings,input.dataSession ?? input.legacyTrackIndex,data))
       }
       result[input.legacyIndex] = data
     }
     return result
   }
 
-  public convenience init(url: URL, settings: DataSettings? = nil) throws {
+  public convenience init(url: URL, settings: DataSettings? = nil, session:Int? = nil) throws {
+    let selected = session ?? 1
+    guard selected >= 1 else {throw RaceError.invalid("Data session numbers start at one.")}
     if CameraTelemetry.extensions.contains(url.pathExtension.lowercased()) {
+      guard selected == 1 else {throw RaceError.invalid("This movie contains one camera-data session.")}
       try self.init(camera: CameraTelemetry.read(url), title: url.deletingPathExtension().lastPathComponent)
       if let settings { try configureValidated(settings) }
       return
     }
-    let d = try Data(contentsOf: url)
-    guard d.count <= 512 * 1024 * 1024 else {
-      throw RaceError.invalid("Telemetry file is larger than 512 MB.")
-    }
+    let d = try Self.boundedData(url)
     if url.pathExtension.lowercased() == "rcz" {
-      try self.init(rcz: RCZReader.read(d, title: url.deletingPathExtension().lastPathComponent))
+      try self.init(rcz: RCZReader.read(d, title: url.deletingPathExtension().lastPathComponent,session:selected))
+      fileSessions = try RCZReader.sessionNames(d).enumerated().map {TelemetrySessionInfo(id:$0.offset+1,name:$0.element,samples:0)}
       if let settings { try configureValidated(settings) }
       return
     }
-    if url.pathExtension.lowercased() == "fit" || (d.count >= 12 && String(data: d[8..<12], encoding: .ascii) == ".FIT") {
-      try self.init(text: FITReader.csv(d), title: url.deletingPathExtension().lastPathComponent)
-      if let settings { try configureValidated(settings) }
-      return
-    }
-    guard
-      let text = String(data: d, encoding: .utf8) ?? String(data: d, encoding: .utf16)
-        ?? String(data: d, encoding: .isoLatin1)
-    else { throw RaceError.invalid("Could not decode telemetry text.") }
-    let normalized = try TelemetryFormats.csv(from: d, text: text, extension: url.pathExtension.lowercased())
-    try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent, timeColumn: settings?.assignments["time"])
-    if let settings { try configureValidated(settings) }
+    let sessions = try Self.textSessions(d,url:url,timeColumn:settings?.assignments["time"])
+    guard selected <= sessions.count else {throw RaceError.invalid("This file has \(sessions.count) data sessions; choose one of them in data configuration.")}
+    let document = sessions[selected-1]
+    try self.init(text:document.text,title:url.deletingPathExtension().lastPathComponent,timeColumn:settings?.assignments["time"])
+    firstSampleUnixTime = document.epoch
+    fileSessions = sessions.enumerated().map {TelemetrySessionInfo(id:$0.offset+1,name:$0.element.name,samples:$0.element.count)}
+    if sessions.count > 1 {warnings.append("Using data session \(selected) of \(sessions.count): \(document.name). Change it in data configuration.")}
+    if let settings {try configureValidated(settings)}
   }
+
   private init(camera table:CameraTelemetry.Table,title:String) {
     self.title = title;headers = table.headers;times = table.times;columns = table.columns
     aliases = table.aliases;firstSampleUnixTime = table.epoch;warnings = table.warnings;laps = [];mapPoints = []
@@ -160,7 +159,8 @@ public final class Telemetry: @unchecked Sendable {
       // Duplicate timestamps are merged, keeping the last sample for correct binary search.
       let duplicate = ts.last == time
       for j in header.indices {
-        if j < cells.count, let v = Double(cells[j]), v.isFinite { previous[j] = v }
+        if j < cells.count,cells[j].trimmingCharacters(in:.whitespaces).lowercased() == "nan" {previous[j] = .nan}
+        else if j < cells.count, let v = Double(cells[j]), v.isFinite { previous[j] = v }
         if j == timeColumn { previous[j] = absolute }
         if duplicate {
           cols[j][cols[j].count - 1] = previous[j]

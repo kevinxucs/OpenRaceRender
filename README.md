@@ -11,6 +11,8 @@ This is an evolving implementation. It does **not** have full RaceRender feature
 
 [Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
 
+[MSL/GUTMA imports and saved data-session selection](docs/logger-formats.md) extend the logger workflow.
+
 [Embedded GoPro data](docs/camera-telemetry.md) can be added from MP4/MOV recordings alongside external logger data, with camera-linked timing and manual synchronization.
 
 ## Build and run

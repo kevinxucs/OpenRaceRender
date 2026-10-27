@@ -332,6 +332,7 @@ public enum LegacyWriter {
 
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {
     let s = source, root = s.isJoinRoot == true
+    if s.dataSession != nil || (s.kind == "data" && URL(fileURLWithPath:s.path).pathExtension.lowercased() == "json") {throw RaceError.invalid("Data-session selections require .orrp; native logger track numbering has not been verified.")}
     if s.cameraVideoID != nil || (s.kind == "data" && CameraTelemetry.extensions.contains(URL(fileURLWithPath:s.path).pathExtension.lowercased())) {
       throw RaceError.invalid("Embedded camera data requires .orrp; native camera-data encoding is unverified.")
     }

@@ -16,8 +16,9 @@ struct DataSetupPreview {
   var url:URL
   var settings:DataSettings
   var data:Telemetry
-  static func load(_ url:URL,settings:DataSettings) async throws -> Self {
-    try await Task.detached { Self(url:url,settings:settings,data:try Telemetry(url:url,settings:settings)) }.value
+  var session:Int? = nil
+  static func load(_ url:URL,settings:DataSettings,session:Int? = nil) async throws -> Self {
+    try await Task.detached { Self(url:url,settings:settings,data:try Telemetry(url:url,settings:settings,session:session),session:session) }.value
   }
 }
 
@@ -44,12 +45,14 @@ extension EditorModel {
     if let original = request.original {
       guard let index = project.inputs.firstIndex(where:{$0.id == original.id}),project.inputs[index] == original else { return false }
       checkpoint()
+      project.inputs[index].dataSession = preview.session.flatMap{$0 > 1 ? $0 : nil}
+      project.inputs[index].legacyTrackIndex = nil
       project.inputs[index].dataSettings = preview.settings
       project.inputs[index].duration = preview.data.duration
       telemetry[original.legacyIndex] = preview.data
     } else {
       var input = MediaInput(name:request.url.deletingPathExtension().lastPathComponent,path:request.url.path,kind:"data")
-      input.duration = preview.data.duration; input.dataSettings = preview.settings
+      input.duration = preview.data.duration; input.dataSettings = preview.settings; input.dataSession = preview.session.flatMap{$0 > 1 ? $0 : nil}
       installInput(input,data:preview.data)
     }
     project.warnings += preview.data.warnings.filter{!project.warnings.contains($0)}
@@ -94,6 +97,8 @@ struct DataSetupSheet:View {
   @ObservedObject var model:EditorModel
   var request:DataSetupRequest
   @Environment(\.dismiss) private var dismiss
+  @State private var selectedSession:Int = 1
+  @State private var sessions:[TelemetrySessionInfo] = []
   @State private var settings:DataSettings
   @State private var preview:DataSetupPreview?
   @State private var loading = false
@@ -113,9 +118,15 @@ struct DataSetupSheet:View {
       HStack(alignment:.top,spacing:20) {
         ScrollView {
           Form {
+            if sessions.count > 1 {
+              Picker("Data session",selection:$selectedSession) {
+                ForEach(sessions) {session in Text("\(session.id): \(session.name)"+(session.samples > 0 ? " · \(session.samples) samples" : "")).tag(session.id)}
+              }
+              Text("Each session has its own time zero. Preview and verify synchronization after changing it.").font(.caption)
+            }
             SourceLocationControls(settings:$settings)
             DataSmoothingControls(settings:$settings)
-            DataAssignmentControls(settings:$settings,headers:request.headers)
+            DataAssignmentControls(settings:$settings,headers:preview?.data.recordedHeaders ?? request.headers)
           }.padding(8)
         }.frame(width:380)
         ScrollView { VStack(alignment:.leading,spacing:12) {
@@ -154,7 +165,12 @@ struct DataSetupSheet:View {
       }
     }.padding(20).frame(width:840,height:690)
       .onChange(of:settings) { _ in preview = nil; failure = nil; position = 0 }
-      .task { if request.original != nil { await loadPreview() } }
+      .onChange(of:selectedSession) { _ in preview = nil;failure = nil;position = 0 }
+      .task {
+        selectedSession = max(1,request.original?.dataSession ?? request.original?.legacyTrackIndex ?? 1)
+        sessions = (try? await Task.detached {try Telemetry.sessions(in:request.url,timeColumn:request.settings.assignments["time"])}.value) ?? []
+        if request.original != nil {await loadPreview()}
+      }
   }
   func valuePreview(_ data:Telemetry) -> some View {
     VStack(alignment:.leading,spacing:5) {
@@ -167,13 +183,13 @@ struct DataSetupSheet:View {
   }
   func loadPreview() async {
     loading = true; failure = nil; preview = nil
-    let snapshot = settings
+    let snapshot = settings,session = selectedSession
     defer { loading = false }
     do {
-      let result = try await DataSetupPreview.load(request.url,settings:snapshot)
-      guard !Task.isCancelled,settings == snapshot else { return }
+      let result = try await DataSetupPreview.load(request.url,settings:snapshot,session:session)
+      guard !Task.isCancelled,settings == snapshot,selectedSession == session else { return }
       preview = result
-    } catch { if settings == snapshot { failure = error.localizedDescription } }
+    } catch { if settings == snapshot,selectedSession == session { failure = error.localizedDescription } }
   }
   func importProfile() {
     let panel = NSOpenPanel(); panel.allowedContentTypes = [.json,.data]

@@ -55,6 +55,8 @@ public struct MediaInput: Identifiable, Codable, Equatable, Sendable {
   public var isTimeFiller: Bool?
   /// Embedded camera data follows this physical movie’s placements; offset is residual synchronization.
   public var cameraVideoID: UUID?
+  /// One-based selection of an independent data session in a multi-session file.
+  public var dataSession: Int?
   public var legacyTrackIndex: Int?
   public init(name: String, path: String, kind: String, legacyIndex: Int = 0) {
     self.name = name

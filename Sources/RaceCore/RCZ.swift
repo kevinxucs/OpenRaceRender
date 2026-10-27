@@ -62,20 +62,23 @@ enum RCZReader {
     var scale = 1.0; var raw = false
   }
 
-  static func read(_ data: Data, title fallbackTitle: String) throws -> Table {
+  static func sessionNames(_ data:Data) throws -> [String] {
+    let zip = try ZIPArchive(data)
+    return zip.entries.keys.filter{($0 as NSString).lastPathComponent == "session.json" && !$0.hasPrefix("__MACOSX/")}.sorted()
+  }
+  static func read(_ data: Data, title fallbackTitle: String,session selected:Int = 1) throws -> Table {
     let zip = try ZIPArchive(data)
     let names = zip.entries.keys.filter { !$0.hasPrefix("__MACOSX/") && !($0 as NSString).lastPathComponent.hasPrefix("._") }.sorted()
     let sessions = names.filter { ($0 as NSString).lastPathComponent == "session.json" }
-    guard sessions.count == 1 else {
-      throw RaceError.invalid(sessions.isEmpty
-        ? "RCZ contains no recorded session. Vehicle and track profiles cannot be imported as telemetry."
-        : "RCZ contains multiple sessions. Share or export one RaceChrono session as an RCZ file first.")
+    guard selected >= 1,selected <= sessions.count else {
+      throw RaceError.invalid(sessions.isEmpty ? "RCZ contains no recorded session. Vehicle and track profiles cannot be imported as telemetry." : "RCZ contains \(sessions.count) sessions; choose a valid data session.")
     }
-    let sessionName = sessions[0], prefix = String(sessionName.dropLast("session.json".count))
+    let sessionName = sessions[selected-1], prefix = String(sessionName.dropLast("session.json".count))
+    let nested = sessions.filter{$0 != sessionName && $0.hasPrefix(prefix)}.map{String($0.dropLast("session.json".count))}
     let session = try json(zip.read(sessionName))
-    let channelFiles = names.filter { $0.hasPrefix(prefix) }.compactMap(File.init)
+    let channelFiles = names.filter {name in name.hasPrefix(prefix) && !nested.contains(where:{name.hasPrefix($0)})}.compactMap(File.init)
     let folders = Set(channelFiles.map { ($0.name as NSString).deletingLastPathComponent })
-    var fragments: [Fragment] = [], allTimes = Set<Int64>(), warnings: [String] = []
+    var fragments: [Fragment] = [], allTimes = Set<Int64>(), warnings: [String] = sessions.count > 1 ? ["Using RCZ session \(selected) of \(sessions.count). Change it in data configuration."] : []
     for folder in folders.sorted() {
       let files = channelFiles.filter { ($0.name as NSString).deletingLastPathComponent == folder }
       let fragmentName = folder.isEmpty ? "sessionfragment.json" : folder + "/sessionfragment.json"

@@ -568,6 +568,7 @@ import UniformTypeIdentifiers
           continue
         }
         let ext = url.pathExtension.lowercased()
+        if Telemetry.unsupportedLoggerExtensions.contains(ext) {self.error = Telemetry.loggerConversionMessage(for:ext);continue}
         let kind =
           Telemetry.supportedExtensions.contains(ext)
           ? "data"
@@ -585,6 +586,9 @@ import UniformTypeIdentifiers
           }
           guard documentRevision == revision else { return }
           let installed = installInput(input,data:loadedData)
+          if let data = loadedData,data.fileSessions.count > 1 {
+            enqueueDataSetup(DataSetupRequest(url:url,headers:data.recordedHeaders,revision:revision,original:installed))
+          }
           if kind == "video",CameraTelemetry.extensions.contains(ext) {
             let found = (try? await Task.detached {try CameraTelemetry.isAvailable(in:url)}.value) ?? false
             if documentRevision == revision,found {cameraDataCandidates.insert(installed.id)}
@@ -665,7 +669,7 @@ import UniformTypeIdentifiers
       var data: Telemetry?
       switch original.kind {
       case "data":
-        data = try await Task.detached { try Telemetry(url: url, settings: original.dataSettings) }.value
+        data = try await Task.detached { try Telemetry(url: url, settings: original.dataSettings,session:original.dataSession ?? original.legacyTrackIndex) }.value
         replacement.duration = data!.duration
       case "video", "audio":
         let asset = AVURLAsset(url: url)

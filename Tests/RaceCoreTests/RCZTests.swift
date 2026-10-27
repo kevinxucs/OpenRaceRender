@@ -35,6 +35,20 @@ final class RCZTests: XCTestCase {
     try archive(files).write(to: url)
     return try Telemetry(url: url)
   }
+  func testSelectsIndependentNestedArchiveSessions() throws {
+    var files:[(String,Data)] = []
+    for (folder,speeds) in [("first",[Int32(10000),20000]),("second",[Int32(30000),40000])] {
+      files.append((folder+"/session.json",try json(["title":folder])))
+      files.append((folder+"/channel_1_42_0_1_1",longs([epoch,epoch+1000])))
+      files.append((folder+"/channel_1_42_0_4_0",ints(speeds)))
+    }
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".rcz")
+    try archive(files).write(to:url);defer {try? FileManager.default.removeItem(at:url)}
+    XCTAssertEqual(try Telemetry.sessions(in:url).count,2)
+    XCTAssertEqual(try Telemetry(url:url).speed(at:0,unit:"m/s"),10)
+    XCTAssertEqual(try Telemetry(url:url,session:2).speed(at:0,unit:"m/s"),30)
+    XCTAssertThrowsError(try Telemetry(url:url,session:3))
+  }
   func testIndependentClocksUnitsDeviceRolesAndMissingValues() throws {
     let t = [epoch, epoch + 1000, epoch + 2000]
     let d = try read([

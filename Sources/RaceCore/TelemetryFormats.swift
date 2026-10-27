@@ -4,17 +4,17 @@ import FoundationXML
 #endif
 
 enum TelemetryFormats {
+  static func xmlSessions(_ data:Data) throws -> [LoggerTextSession] {
+    let reader = GPSTrackReader(),parser = XMLParser(data:data)
+    parser.shouldProcessNamespaces = true;parser.shouldResolveExternalEntities = false;parser.delegate = reader
+    guard parser.parse() else {throw RaceError.invalid("Invalid GPX/TCX document.")}
+    reader.finish()
+    guard !reader.sessions.isEmpty else {throw RaceError.invalid("No timestamped GPX/TCX track points found.")}
+    return reader.sessions
+  }
   static func csv(from data: Data, text: String, extension ext: String) throws -> String {
     if ["gpx", "tcx"].contains(ext) || text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("<?xml") {
-      let reader = GPSTrackReader()
-      let parser = XMLParser(data: data)
-      parser.shouldProcessNamespaces = true
-      parser.shouldResolveExternalEntities = false
-      parser.delegate = reader
-      guard parser.parse(), !reader.rows.isEmpty else {
-        throw RaceError.invalid("No timestamped GPX/TCX track points found.")
-      }
-      return reader.csv
+      return try xmlSessions(data)[0].text
     }
     if ext == "vbo" || text.lowercased().contains("[column names]") { return try vbo(text) }
     if ext == "nmea" || text.contains("$GPRMC") || text.contains("$GNRMC") || text.contains("$GPGGA") || text.contains("$GNGGA") || text.contains("$GPGLL") {
@@ -95,6 +95,13 @@ enum TelemetryFormats {
 
 private final class GPSTrackReader: NSObject, XMLParserDelegate {
   var rows: [[String: Double]] = []
+  var sessions:[LoggerTextSession] = []
+  var sessionName = ""
+  func finish() {
+    guard !rows.isEmpty else {sessionName = "";return}
+    sessions.append(LoggerTextSession(name:sessionName.isEmpty ? "Track \(sessions.count+1)" : sessionName,text:csv,epoch:rows.first?["Time"],count:rows.count))
+    rows = [];sessionName = ""
+  }
   var point: [String: Double]?
   var content = ""
   let iso = ISO8601DateFormatter()
@@ -102,6 +109,7 @@ private final class GPSTrackReader: NSObject, XMLParserDelegate {
   override init() { super.init(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds] }
   func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes: [String: String]) {
     content = ""
+    if ["trk","activity"].contains(name.lowercased()) {finish()}
     if name.lowercased() == "trkpt" {
       point = [:]; point?["Latitude"] = attributes["lat"].flatMap(Double.init); point?["Longitude"] = attributes["lon"].flatMap(Double.init)
     } else if name.lowercased() == "trackpoint" { point = [:] }
@@ -110,6 +118,8 @@ private final class GPSTrackReader: NSObject, XMLParserDelegate {
   func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
     let value = content.trimmingCharacters(in: .whitespacesAndNewlines)
     switch name.lowercased() {
+    case "trk","activity":finish()
+    case "name","id":if point == nil {sessionName = String(value.prefix(256))}
     case "time": point?["Time"] = (fractional.date(from: value) ?? iso.date(from: value))?.timeIntervalSince1970
     case "latitudedegrees": point?["Latitude"] = Double(value)
     case "longitudedegrees": point?["Longitude"] = Double(value)
@@ -128,7 +138,7 @@ private final class GPSTrackReader: NSObject, XMLParserDelegate {
   }
   var csv: String {
     let headers = ["Time"] + Set(rows.flatMap(\.keys)).subtracting(["Time"]).sorted()
-    return ([headers.joined(separator: ",")] + rows.map { row in headers.map { row[$0].map { String($0) } ?? "" }.joined(separator: ",") }).joined(separator: "\n")
+    return ([headers.joined(separator: ",")] + rows.map { row in headers.map { row[$0].map { String($0) } ?? "nan" }.joined(separator: ",") }).joined(separator: "\n")
   }
 }
 

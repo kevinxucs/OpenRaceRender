@@ -167,6 +167,16 @@ final class FeatureTests: XCTestCase {
     let crc = FITReader.crc(header); header.append(UInt8(truncatingIfNeeded: crc)); header.append(UInt8(truncatingIfNeeded: crc >> 8))
     return header
   }
+  func testConcatenatedFITActivitiesHaveIndependentSelections() throws {
+    var a = Data([0x40,0,0,20,0,2,253,4,0x86,6,2,0x84])
+    a.append(contentsOf:[0,31,0,0,0,0x10,0x27,0,33,0,0,0,0x20,0x4e])
+    var b = a;b[b.count-1] = 0x75;b[b.count-2] = 0x30
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".fit")
+    try (makeFIT(a)+makeFIT(b)).write(to:url);defer {try? FileManager.default.removeItem(at:url)}
+    XCTAssertEqual(try Telemetry.sessions(in:url).count,2)
+    XCTAssertEqual(try Telemetry(url:url).speed(at:2,unit:"m/s"),20)
+    XCTAssertEqual(try Telemetry(url:url,session:2).speed(at:2,unit:"m/s"),30)
+  }
   func testFITDefinitionsEndianScalingAndCompressedTimestamps() throws {
     // Local 0: timestamp + speed. Local 1: speed, for compressed timestamps.
     var records = Data([0x40,0,0,20,0,2, 253,4,0x86, 6,2,0x84])

@@ -10,7 +10,7 @@ enum CLI {
 
       OpenRaceRender [--open] PROJECT
       OpenRaceRender inspect PROJECT
-      OpenRaceRender inspect-data DATAFILE [--time SECONDS]
+      OpenRaceRender inspect-data DATAFILE [--time SECONDS] [--session NUMBER]
       OpenRaceRender validate-library DIRECTORY
       OpenRaceRender list-library [DIRECTORY]
       OpenRaceRender import-library DIRECTORY [--out LIBRARY_DIRECTORY]
@@ -102,9 +102,11 @@ enum CLI {
         return failures == 0 && !files.isEmpty ? 0 : 1
       }
       if a[1] == "inspect-data" {
-        let d = try Telemetry(url: url)
+        let selection = option("--session").flatMap(Int.init)
+        if option("--session") != nil,selection == nil || selection! < 1 {throw RaceError.invalid("Choose a positive one-based data session.")}
+        let d = try Telemetry(url: url,session:selection)
         var out: [String: Any] = ["samples": d.count, "duration": d.duration, "channels": d.headers, "title": d.title, "warnings": d.warnings,
-          "laps": d.laps.count, "mapPoints": d.mapPoints.count,
+          "sessions": d.fileSessions.map {["number":$0.id,"name":$0.name,"samples":$0.samples] as [String:Any]}, "laps": d.laps.count, "mapPoints": d.mapPoints.count,
           "events": d.syncEvents.map { ["name": $0.name, "time": $0.time] as [String: Any] }]
         if let epoch = d.firstSampleUnixTime { out["firstSampleUnixTime"] = epoch }
         if let value = option("--time") {
@@ -328,7 +330,7 @@ enum CLI {
   }
   private func requestOpen(_ url: URL) {
     if let model {
-      if Telemetry.supportedExtensions.contains(url.pathExtension.lowercased()) { model.addInputs([url]) }
+      if (Telemetry.supportedExtensions+Telemetry.unsupportedLoggerExtensions).contains(url.pathExtension.lowercased()) { model.addInputs([url]) }
       else { model.open(url) }
     }
     else { pendingOpenURL = url }
@@ -346,7 +348,7 @@ enum CLI {
     // macOS may append options such as -NSDocumentRevisionsDebugMode YES.
     // Only a positional project path is a launch document, not an option value.
     guard arguments.count > 1, !arguments[1].hasPrefix("-"),
-      (["rrp", "rrt", "rro", "orrp", "orrt"] + Telemetry.supportedExtensions).contains((arguments[1] as NSString).pathExtension.lowercased()) else { return nil }
+      (["rrp", "rrt", "rro", "orrp", "orrt"] + Telemetry.supportedExtensions + Telemetry.unsupportedLoggerExtensions).contains((arguments[1] as NSString).pathExtension.lowercased()) else { return nil }
     return URL(fileURLWithPath: arguments[1])
   }
 }
