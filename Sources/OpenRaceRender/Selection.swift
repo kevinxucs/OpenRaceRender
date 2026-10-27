@@ -24,6 +24,15 @@ extension EditorModel {
     } else { selected = id; selectedInput = nil }
   }
   func selectAllDisplays() { setSelection(Set(project.objects.map(\.id))) }
+  /// The Display menu's Command-A must preserve normal field-editor selection in sheets.
+  func selectAllInFocusedEditor() {
+    selectAll(focusedResponder: NSApp.keyWindow?.firstResponder)
+  }
+  func selectAll(focusedResponder: NSResponder?) {
+    if let text = focusedResponder as? NSTextView, text.isSelectable {
+      text.selectAll(nil)
+    } else { selectAllDisplays() }
+  }
   func groupSelection() {
     do {
       var changed = project
@@ -40,7 +49,6 @@ extension EditorModel {
   func canvasSelectionID(_ id: UUID, individual: Bool) -> UUID {
     individual ? id : project.ancestors(of: id).last ?? id
   }
-  var selectedLayoutIsGroup: Bool { project.objects.first { $0.id == selected }?.kind == .group }
   func selectionGeometry(_ keyPath: WritableKeyPath<CGRect, CGFloat>) -> Binding<Double> {
     Binding(get: { Double(self.project.selectionBounds(self.selectedIDs, at: self.editingSegment)?[keyPath: keyPath] ?? 0) },
       set: { value in

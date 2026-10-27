@@ -202,32 +202,79 @@ struct SyncSheet: View {
 struct SaveTemplateSheet: View {
   @ObservedObject var model: EditorModel
   @Environment(\.dismiss) var dismiss
-  var count: Int {
-    model.project.objects.filter { object in
-      model.templateSelectedOnly ? model.project.descendants(of: model.selected.map { [$0] } ?? []).contains(object.id) : model.templateIncludesVideo || ![.video, .audio].contains(object.kind)
-    }.count
-  }
   var body: some View {
-    VStack(alignment: .leading, spacing: 18) {
-      Text(model.templateSelectedOnly ? "Save reusable style" : "Save reusable template").font(.title2)
+    let included = model.templateIncludedIDs
+    let usedInputs = model.templateUsedInputs
+    VStack(alignment: .leading, spacing: 16) {
+      Text(model.templateIsSingleStyle ? "Save reusable style" : "Save reusable template").font(.title2)
       TextField("Template name", text: $model.templateName).textFieldStyle(.roundedBorder)
       Picker("File format",selection:$model.templateLegacyFormat) {
         Text("OpenRaceRender (.orrt)").tag(false)
-        Text(model.templateSelectedOnly && !model.selectedLayoutIsGroup ? "RaceRender style (.rro)" : "RaceRender template (.rrt)").tag(true)
+        Text(model.templateIsSingleStyle ? "RaceRender style (.rro)" : "RaceRender template (.rrt)").tag(true)
       }
-      if !model.templateSelectedOnly { Toggle("Include video and audio display positions", isOn: $model.templateIncludesVideo) }
-      Text("\(count) displays. Media files, synchronization, export marks and session settings are removed. Images and gauge backgrounds are embedded.")
+      HStack {
+        Text("Include:").foregroundStyle(muted)
+        Button("All") { model.templateObjectIDs = Set(model.project.objects.map(\.id)) }
+        Button("Widgets only") { model.templateObjectIDs = Set(model.project.objects.filter { ![.video, .audio].contains($0.kind) }.map(\.id)) }
+        Button("Current selection") { model.templateObjectIDs = model.project.descendants(of: model.selectedIDs) }.disabled(model.selectedIDs.isEmpty)
+        Button("None") { model.templateObjectIDs = [] }
+      }.font(.caption)
+      HStack(alignment: .top, spacing: 20) {
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Display objects · template names").font(.headline)
+          ScrollView {
+            LazyVStack(alignment: .leading, spacing: 8) {
+              ForEach(model.project.objects) { object in
+                HStack {
+                  Toggle(object.name, isOn: model.templateChecked(object.id)).labelsHidden()
+                    .accessibilityLabel("Include " + object.name)
+                    .help(object.kind == .group ? "Select or deselect the entire group" : "Include this display")
+                  VStack(alignment: .leading, spacing: 2) {
+                    TextField(object.name, text: model.templateObjectName(object)).textFieldStyle(.roundedBorder)
+                      .accessibilityLabel("Template object name: " + object.name)
+                    Text(object.name + " · " + object.kind.title).font(.caption2).foregroundStyle(muted)
+                  }
+                }.padding(.leading, CGFloat(model.project.ancestors(of: object.id).count) * 10)
+                  .opacity(included.contains(object.id) ? 1 : 0.55)
+              }
+            }.padding(.trailing, 6)
+          }.frame(height: 260)
+        }.frame(maxWidth: .infinity)
+        VStack(alignment: .leading, spacing: 8) {
+          Text("Input roles · template names").font(.headline)
+          Text("Included inputs follow your display choices. These names appear when loading the template.")
+            .font(.caption).foregroundStyle(muted)
+          ScrollView {
+            LazyVStack(alignment: .leading, spacing: 10) {
+              ForEach(model.project.inputs) { input in
+                let used = usedInputs.contains(input.legacyIndex)
+                HStack {
+                  Image(systemName: used ? "checkmark.circle.fill" : "circle").foregroundStyle(used ? mint : muted)
+                    .accessibilityLabel((used ? "Included input: " : "Unused input: ") + input.name)
+                  VStack(alignment: .leading, spacing: 2) {
+                    TextField(input.name, text: model.templateInputName(input)).textFieldStyle(.roundedBorder)
+                      .accessibilityLabel("Template input role: " + input.name).disabled(!used)
+                    Text(input.name + " · " + input.kind).font(.caption2).foregroundStyle(muted)
+                  }
+                }.opacity(used ? 1 : 0.5)
+              }
+            }
+          }
+        }.frame(width: 245)
+      }
+      Text("\(included.count) displays · \(usedInputs.count) input \(usedInputs.count == 1 ? "role" : "roles"). Parent groups are retained; unselected siblings are excluded. Group checkboxes select all members.")
         .font(.callout).foregroundStyle(muted)
-      Text("Save in the suggested folder to find it in the layout library next time.").font(.caption).foregroundStyle(muted)
+      Text("Names change only in this template. Media paths, synchronization, export marks and session settings are removed; artwork is embedded. Save in the suggested folder to find it in the library.")
+        .font(.caption).foregroundStyle(muted)
       if model.templateLegacyFormat {
         Text("RaceRender formats support a smaller set of settings. Incompatible widgets or timeline events are reported before choosing a file.").font(.caption).foregroundStyle(muted)
       }
       HStack {
         Button("Cancel") { dismiss() }
         Spacer()
-        Button("Choose file & save…", action: model.saveLayout).buttonStyle(.borderedProminent).disabled(count == 0)
+        Button("Choose file & save…", action: model.saveLayout).buttonStyle(.borderedProminent).disabled(included.isEmpty)
       }
-    }.padding(26).frame(width: 470).background(bg).preferredColorScheme(.dark).tint(mint)
+    }.padding(26).frame(width: 740).background(bg).preferredColorScheme(.dark).tint(mint)
   }
 }
 

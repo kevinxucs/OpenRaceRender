@@ -77,21 +77,29 @@ extension RaceProject {
   }
   /// A layout carries artwork and source roles, never session paths, synchronization or export state.
   public func reusableLayout(selected: UUID? = nil) throws -> RaceProject {
+    try reusableLayout(objectIDs: selected.map { descendants(of: [$0]) })
+  }
+  /// Include just these displays and the group containers needed to preserve their state.
+  /// Ancestors do not bring along unselected siblings. Names affect only the exported copy.
+  public func reusableLayout(objectIDs: Set<UUID>?, objectNames: [UUID: String] = [:], inputNames: [Int: String] = [:]) throws -> RaceProject {
     var p = self
     p.legacyData = nil; p.sourcePath = nil; p.warnings = []
     p.explicitDuration = nil; p.rangeStart = nil; p.rangeEnd = nil
     p.exportSettings = nil; p.lastExport = nil
     p.notes = nil; p.lengthInputIndex = nil; p.legacyImportVersion = nil
     p.stabilizeHierarchy()
-    if let selected {
-      let ids = p.descendants(of: [selected])
+    if let objectIDs {
+      let ids = p.layoutObjectIDs(objectIDs)
       p.objects = p.objects.filter { ids.contains($0.id) }
-      for i in p.objects.indices where p.objects[i].id == selected { p.objects[i].parentID = nil }
     }
     guard !p.objects.isEmpty else { throw RaceError.invalid("Add a display before saving a template.") }
-    let used = Set(p.objects.flatMap { [$0.inputIndex] + ($0.segments ?? []).compactMap(\.inputIndex) })
+    for i in p.objects.indices {
+      if let name = objectNames[p.objects[i].id]?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { p.objects[i].name = name }
+    }
+    let used = p.layoutInputIndices(Set(p.objects.map(\.id)))
     p.inputs = p.inputs.filter { used.contains($0.legacyIndex) }
     for i in p.inputs.indices {
+      if let name = inputNames[p.inputs[i].legacyIndex]?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { p.inputs[i].name = name }
       p.inputs[i].path = ""; p.inputs[i].duration = 0; p.inputs[i].offset = 0
       p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
       p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1

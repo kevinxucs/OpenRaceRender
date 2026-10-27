@@ -1,5 +1,11 @@
 # Changelog
 
+## F04 — Subset template export
+
+- Per-display checkboxes, group branch selection, All / Widgets only / Current selection / None presets, and editable exported object and input-role names. Draft edits leave the session unchanged.
+- Preserve Command-A text selection in template name fields.
+- Retain required ancestor groups without unselected siblings, include input switches and saved group-event history, and preserve portable artwork. Selected reusable styles support multiple objects and choose RRT for grouped subsets. See [workflow](docs/template-export.md).
+
 ## F03 — Groups and multiple selection
 
 - Command/Shift selection, canvas marquee, group/ungroup, nested groups, combined move/resize, numeric selection geometry, subtree copy/delete/order and one-step drag undo.

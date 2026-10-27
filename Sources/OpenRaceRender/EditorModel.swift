@@ -40,7 +40,9 @@ import UniformTypeIdentifiers
   let widgetCatalog = WidgetCatalog()
   @Published var showSaveTemplate = false
   @Published var templateSelectedOnly = false
-  @Published var templateIncludesVideo = false
+  @Published var templateObjectIDs: Set<UUID> = []
+  @Published var templateObjectNames: [UUID: String] = [:]
+  @Published var templateInputNames: [Int: String] = [:]
   @Published var templateLegacyFormat = false
   @Published var templateName = ""
   @Published var exportProgress: Float?
@@ -430,22 +432,17 @@ import UniformTypeIdentifiers
     } catch { self.error = error.localizedDescription }
   }
   func saveTemplate() {
-    templateSelectedOnly = false; templateIncludesVideo = false; templateLegacyFormat = false
-    templateName = project.name + " Layout"; showSaveTemplate = true
+    beginTemplateDraft(style: false)
   }
   func saveSelectedStyle() {
     guard let object = project.objects.first(where: { $0.id == selected }) else { return }
-    templateSelectedOnly = true; templateIncludesVideo = true; templateLegacyFormat = false
-    templateName = object.name; showSaveTemplate = true
+    beginTemplateDraft(style: true)
+    templateName = object.name
   }
   func saveLayout() {
     do {
-      var source = project
-      if !templateIncludesVideo && !templateSelectedOnly { source.objects.removeAll { [.video, .audio].contains($0.kind) } }
-      var layout = try source.reusableLayout(selected: templateSelectedOnly ? selected : nil)
-      layout.name = templateName.trimmingCharacters(in: .whitespacesAndNewlines)
-      if layout.name.isEmpty { layout.name = "Custom Layout" }
-      let singleStyle = templateSelectedOnly && layout.objects.count == 1 && layout.objects.first?.kind != .group
+      let layout = try templateDraft()
+      let singleStyle = templateIsSingleStyle
       let legacyFormat: LegacyWriter.Format = singleStyle ? .rro : .rrt
       let legacyBytes = templateLegacyFormat ? try LegacyWriter.data(layout,format:legacyFormat) : nil
       let panel = NSSavePanel()
@@ -463,7 +460,7 @@ import UniformTypeIdentifiers
       else { try layout.save(url) }
       widgetLibraryRevision += 1
       showSaveTemplate = false
-      status = "Saved reusable " + (templateSelectedOnly ? "style" : "template") + " · " + url.lastPathComponent
+      status = "Saved reusable " + (singleStyle ? "style" : "template") + " · " + url.lastPathComponent
     } catch { self.error = error.localizedDescription }
   }
   func exportRRP() {
