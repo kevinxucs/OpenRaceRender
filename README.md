@@ -80,6 +80,8 @@ The [map display editor](docs/map-display.md) controls lap traces, icons, visibi
 
 [Timer controls](docs/timers.md) provide lap elapsed time, telemetry-free manual delay/offset/hold and UTC-anchored time-of-day displays with explicit timezones.
 
+[Audio controls](docs/audio.md) offer input/per-display mute, gain, balance and routing, with sample-accurate timeline mixing and cached stereo normalization for mono sources.
+
 1. Open an `.rrp` or `.orrp`, or add video and telemetry files, including native RaceChrono `.rcz` sessions. Additional cameras start as picture-in-picture displays.
 2. Browse templates, styles, images and video-position presets from the bundled or installed library; native `.orrt` layouts also work. Map template inputs to your sources before applying.
 3. Select an input to relink it, set its synchronization offset, trim it, change playback rate, delay its start, or join it after the previous media input. **Visual trim…** offers paired frame previews; **Crop / zoom…** offers a draggable pixel rectangle and result preview. Set rotation, mirroring, brightness, contrast, and color here. See [source tools](docs/source-tools.md).

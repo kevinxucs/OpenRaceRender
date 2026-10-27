@@ -89,26 +89,34 @@ struct HexColorControl: View {
 }
 
 struct AudioControls: View {
-  @Binding var settings: AudioSettings
+  @Binding var settings:AudioSettings
   var source = false
-  var body: some View {
-    DisclosureGroup(source ? "Audio channels & balance" : "Display audio") {
-      VStack(spacing: 10) {
-        if !source {
-          NumberSetting("Volume (0–2)", value: $settings.volume)
+  var sourceVolume:Binding<Double>?
+  @State private var unmutedGain:Double = 1
+  var gain:Binding<Double> { sourceVolume ?? $settings.volume }
+  var percent:Binding<Double> { Binding(get:{gain.wrappedValue*100},set:{if $0.isFinite {gain.wrappedValue = max(0,min(200,$0))/100}}) }
+  var body:some View {
+    DisclosureGroup(source ? "Input audio" : "Display audio") {
+      VStack(alignment:.leading,spacing:10) {
+        Toggle("Mute",isOn:Binding(get:{gain.wrappedValue == 0},set:{mute in
+          if mute { if gain.wrappedValue > 0 {unmutedGain = gain.wrappedValue}; gain.wrappedValue = 0 }
+          else { gain.wrappedValue = max(0.01,min(2,unmutedGain)) }
+        }))
+        NumberSetting("Volume (0–200%)",value:percent)
+        Slider(value:gain,in:0...2).accessibilityLabel(source ? "Input volume" : "Display volume")
+        Slider(value:$settings.balance,in:-1...1).accessibilityLabel("Audio balance")
+        HStack {
+          Text(settings.balance == 0 ? "Center" : String(format:"%.0f%% %@",abs(settings.balance)*100,settings.balance < 0 ? "left" : "right")).font(.caption2)
+          Spacer(); Button("Center") { settings.balance = 0 }
         }
-        Slider(value: $settings.balance, in: -1...1).accessibilityLabel("Audio balance")
-        Text(settings.balance == 0 ? "Center" : String(format: "%.0f%% %@", abs(settings.balance) * 100, settings.balance < 0 ? "left" : "right")).font(.caption2)
-        if source {
-          Picker("Channels", selection: $settings.routing) {
-            Text("Stereo").tag(AudioSettings.Routing.stereo)
-            Text("Swap left/right").tag(AudioSettings.Routing.swap)
-            Text("Left to both speakers").tag(AudioSettings.Routing.left)
-            Text("Right to both speakers").tag(AudioSettings.Routing.right)
-            Text("Mix to mono").tag(AudioSettings.Routing.mono)
-          }
+        Picker("Channels",selection:$settings.routing) {
+          Text("Stereo").tag(AudioSettings.Routing.stereo); Text("Swap left/right").tag(AudioSettings.Routing.swap)
+          Text("Left to both speakers").tag(AudioSettings.Routing.left); Text("Right to both speakers").tag(AudioSettings.Routing.right)
+          Text("Mix to mono").tag(AudioSettings.Routing.mono)
         }
-      }.padding(.top, 8)
-    }.font(.system(size: 11))
+        Text(source ? "Input routing and gain run before display audio. Visible displays mix additively; duplicating a camera display can increase the level." : "This display has its own routing, gain and pan. Other displays using the same input retain their settings. Hidden displays contribute silence.")
+          .font(.caption2).foregroundStyle(muted)
+      }.padding(.top,8)
+    }.font(.system(size:11))
   }
 }

@@ -4,27 +4,36 @@ import MediaToolbox
 struct StereoMatrix: Equatable {
   var ll: Double = 0, lr: Double = 0, rl: Double = 0, rr: Double = 0
   func apply(_ left: Double, _ right: Double) -> (Double, Double) { (left * ll + right * lr, left * rl + right * rr) }
-  static func make(source: MediaInput, displays: [DisplayObject]) -> StereoMatrix {
-    let settings = source.audio ?? AudioSettings()
-    let balance = settings.balance.isFinite ? max(-1, min(1, settings.balance)) : 0
-    let sourceLeft = min(1, 1 - balance), sourceRight = min(1, 1 + balance)
-    var left = 0.0, right = 0.0
-    for display in displays {
-      let audio = display.audio ?? AudioSettings()
-      let pan = audio.balance.isFinite ? max(-1, min(1, audio.balance)) : 0
-      let gain = audio.volume.isFinite ? max(0, min(2, audio.volume)) : 1
-      left += gain * min(1, 1 - pan); right += gain * min(1, 1 + pan)
-    }
-    let volume = source.volume.isFinite ? max(0, min(2, source.volume)) : 1
-    left *= sourceLeft * volume; right *= sourceRight * volume
-    switch settings.routing {
-    case .stereo: return StereoMatrix(ll: left, rr: right)
-    case .swap: return StereoMatrix(lr: left, rl: right)
-    case .left: return StereoMatrix(ll: left, rl: right)
-    case .right: return StereoMatrix(lr: left, rr: right)
-    case .mono: return StereoMatrix(ll: left / 2, lr: left / 2, rl: right / 2, rr: right / 2)
+  func followed(by next:StereoMatrix) -> StereoMatrix {
+    StereoMatrix(ll:next.ll*ll+next.lr*rl,lr:next.ll*lr+next.lr*rr,
+      rl:next.rl*ll+next.rr*rl,rr:next.rl*lr+next.rr*rr)
+  }
+  static func routing(_ route:AudioSettings.Routing) -> StereoMatrix {
+    switch route {
+    case .stereo:return StereoMatrix(ll:1,rr:1)
+    case .swap:return StereoMatrix(lr:1,rl:1)
+    case .left:return StereoMatrix(ll:1,rl:1)
+    case .right:return StereoMatrix(lr:1,rr:1)
+    case .mono:return StereoMatrix(ll:0.5,lr:0.5,rl:0.5,rr:0.5)
     }
   }
+  static func make(source:MediaInput,displays:[DisplayObject]) -> StereoMatrix {
+    func gain(_ value:Double) -> Double { value.isFinite ? min(2,max(0,value)) : 1 }
+    func balanced(_ volume:Double,_ pan:Double) -> StereoMatrix {
+      let balance = pan.isFinite ? min(1,max(-1,pan)) : 0
+      return StereoMatrix(ll:volume*min(1,1-balance),rr:volume*min(1,1+balance))
+    }
+    let audio = source.audio ?? AudioSettings()
+    let input = routing(audio.routing).followed(by:balanced(gain(source.volume)*gain(audio.volume),audio.balance))
+    var result = StereoMatrix()
+    for display in displays {
+      let audio = display.audio ?? AudioSettings()
+      let matrix = input.followed(by:routing(audio.routing)).followed(by:balanced(gain(audio.volume),audio.balance))
+      result.ll += matrix.ll; result.lr += matrix.lr; result.rl += matrix.rl; result.rr += matrix.rr
+    }
+    return result
+  }
+
 }
 
 private final class AudioTapState {

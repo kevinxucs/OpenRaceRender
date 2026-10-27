@@ -213,7 +213,8 @@ public final class VideoExporter: @unchecked Sendable {
       }
       if let source = try await asset.loadTracks(withMediaType: .audio).first,
         let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
-        try track.insertTimeRange(range, of: source, at: destination)
+        let stereo = try await StereoAudioSource.shared.source(asset:asset,track:source,url:URL(fileURLWithPath:input.path))
+        try withExtendedLifetime(stereo.asset) { try track.insertTimeRange(range,of:stereo.track,at:destination) }
         track.scaleTimeRange(inserted, toDuration: scaled)
         let parameter = AVMutableAudioMixInputParameters(track: track)
         // Use the same sample-accurate gate for ordinary and routed audio. Discrete

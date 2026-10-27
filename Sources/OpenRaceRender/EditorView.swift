@@ -608,7 +608,7 @@ struct ObjectInspector: View {
         ShapeControls(settings: Binding(get: { object.shape ?? ShapeSettings() }, set: { object.shape = $0 }), color: $object.color)
       }
       if [.video, .audio].contains(object.kind) {
-        AudioControls(settings: Binding(get: { object.audio ?? AudioSettings() }, set: { object.audio = $0 }))
+        AudioControls(settings: Binding(get: { object.audio ?? AudioSettings() }, set: { object.audio = $0 })).id(object.id)
       }
       Divider()
       if [.video, .image].contains(object.kind),
@@ -698,11 +698,9 @@ struct InputInspector: View {
       Text("Source at playhead: " + clockText(model.project.sourceTime(for: input.legacyIndex, at: model.time) ?? -1)).font(
         .system(size: 10, design: .monospaced)
       ).foregroundStyle(mint)
-      if input.kind != "data" && input.isJoinRoot != true {
+      if ["video","audio"].contains(input.kind) && input.isJoinRoot != true {
         Divider()
-        Text("Audio volume").font(.system(size: 11))
-        Slider(value: $input.volume, in: 0...2)
-        AudioControls(settings: Binding(get: { input.audio ?? AudioSettings() }, set: { input.audio = $0 }), source: true)
+        AudioControls(settings: Binding(get: { input.audio ?? AudioSettings() }, set: { input.audio = $0 }), source: true, sourceVolume:$input.volume).id(input.id)
       }
       InputTimingControls(input: $input, model: model)
       if let d = model.telemetry[input.legacyIndex] {

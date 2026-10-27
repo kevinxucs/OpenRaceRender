@@ -20,22 +20,30 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 299 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 305 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
 - F20: shared two-run GPS maps, independent data duplication/alignment and elapsed-time lap ghosts implemented; see [map comparison](map-comparison.md).
 - F21: trace/visibility/icon/detail/zoom/rotation/follow controls and aligned embedded map backgrounds implemented; see [map display](map-display.md).
 - F22: native manual/lap timers and explicit RCZ/project/source UTC wall clocks, formatting/timezone/anchor/preflight/template controls implemented; see [timers](timers.md).
-- F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
+- F23: input/display mute/gain/balance/routing, corrected gain composition and cached stereo normalization implemented; see [audio controls](audio.md).
 
-Next feature: **F23 — per-display audio, balance and channel routing**, after committing/pushing F22. F21 is pushed as `6922742`; CI40532786023 succeeded. F20 CI40530327929 also succeeded.
+Next feature: **F24 — chroma key and colorize**, after committing/pushing F23. F22 is pushed as `5c585ef`; CI40535362028 succeeded.
 
 ## Remaining queue
 
-F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F23 handoff — implementation validated, live audition limited
+
+- Existing F01 source/per-display gain/pan UI and sample gates reviewed against InputFileEdit/DispObjEdit audio guide. Explicit Mute, normalized percentage + slider, center balance and per-display/source routing now exposed. Source controls use MediaInput.volume, display controls AudioSettings.volume; views keyed by source/object to isolate mute restore state. Images no longer show unused audio controls. Input source additional AudioSettings.volume now honored.
+- StereoMatrix composes source route -> source gain/pan -> each display route -> display gain/pan, sums visible contributions. New per-display routing had previously been ignored; default stereo behavior remains. Source volume*additional gain matches native serialization. Native input routes/display gain/pan supported, per-display routing extension conservatively refused by RRP writer. Existing timeline/group/source-placement gates retained.
+- Actual encoded test found mono hard pan produced half-volume dual-mono because one-channel tap output averaged L/R. StereoAudioSource actor now normalizes nonstereo and unsupported PCM layouts (24bit/endianness/padding etc) to stereo Float32 at original rate before composition/tap. Supported compressed/stereo PCM bypass. Cache under Library/Caches or validation override OPENRACERENDER_AUDIO_CACHE; hash path+size+mtime+trackID, detached shared conversions, atomic CAF, safe concurrent publication, corruption/missing recovery. Original files unchanged. First preparation decodes audio once and uses PCM disk; no native mono speed parity claim. Assets retained through track insertion. No undocumented/new-only tap API used; Mac14 compatibility retained.
+- 305 tests (247 core/58 editor) pass. Three matrix/legacy tests, two binding/Undo tests and actual mono WAV -> CAF sample/duration equality, cache reuse/pass-through/recovery test added. validate-audio passes independent 440/880Hz channel spectra for source product, separate display route/pan/gain, timed mute/mono, group gates, nonzero chunks, hard-panned mono and 24bit stereo. Existing validate-grouping media regression passes. Logs/artifacts under build/validation/audio; cache redirected there for media validation. Local app/ZIP signed/verified with authorized library only. Live native/editor audio audition still cgWindowNotFound; no GUI/native pan-law parity claim.
+- Apple primary tap format/AVAssetReader docs checked alongside local SDK header after mono failure; docs/audio.md links primary reference. User confirms no native profile sample. F22 CI40535362028 succeeded. Commit/push F23 before F24; continue sequentially without compaction wait. No private/vendor fixtures committed.
 
 ## F22 handoff — implementation validated, live UI limited
 

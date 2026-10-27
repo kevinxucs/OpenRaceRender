@@ -1,5 +1,10 @@
 # Changelog
 
+## F23 — Independent display audio and channel routing
+
+- Explicit mute, percentage gain, balance and routing controls for inputs/displays. Source and per-display routing/gain now compose correctly, including the stored source gain multiplier.
+- Uncompressed cached stereo backing fixes mono panning and unsupported PCM processing for preview/export; channel-spectrum tests cover independent mixes, timeline/group gates and chunks. See [workflow and limits](docs/audio.md).
+
 ## F22 — Manual timers and wall clocks
 
 - Manual project timers with delay, initial offset, explicit anchor and displayed-value stop/hold; configurable duration components, decimals and compact output.
