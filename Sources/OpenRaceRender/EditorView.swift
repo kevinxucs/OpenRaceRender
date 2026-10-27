@@ -594,7 +594,10 @@ struct ObjectInspector: View {
         GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 }))
         GaugeDesignControls(object: $object)
       }
-      if object.kind == .map { MapComparisonControls(model:model,object:$object) }
+      if object.kind == .map {
+        MapDisplayControls(object:$object,data:model.telemetry[object.inputIndex])
+        MapComparisonControls(model:model,object:$object)
+      }
       if object.kind == .graph { GraphControls(object: $object, headers: model.telemetry[object.inputIndex]?.headers ?? []) }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)

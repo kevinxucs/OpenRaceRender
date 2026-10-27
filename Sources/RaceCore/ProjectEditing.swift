@@ -144,6 +144,8 @@ extension RaceProject {
       return segment
     }
     for i in p.objects.indices {
+      p.objects[i].mapSettings?.lapStart = nil
+      if p.objects[i].mapSettings?.trace == .lap { p.objects[i].mapSettings?.trace = .all }
       p.objects[i].mapComparison?.primaryLapStart = nil; p.objects[i].mapComparison?.referenceLapStart = nil
       p.objects[i].legacyOffset = nil
       if p.objects[i].kind == .image, p.objects[i].embeddedImage == nil, p.objects[i].artwork == nil, !p.objects[i].text.isEmpty {

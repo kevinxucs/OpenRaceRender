@@ -1,5 +1,10 @@
 # Changelog
 
+## F21 — Map display editor
+
+- Course/position visibility, whole/best/current/selected-lap traces, vector vehicle icons, colors/widths, detail budgets and start markers.
+- Zoom/rotation, heading-up/following and embedded artwork sharing the exact map transform, including two-run maps. Original imported rendering stays available through Reset; timeline, templates and Undo retain edits. See [workflow and limits](docs/map-display.md).
+
 ## F20 — Two-run map comparison and lap ghosts
 
 - Shared GPS projection/bounds, filled/hollow markers, optional reference course, source labels, synchronized clocks or equal-elapsed lap ghosts that retain recorded pace.

@@ -76,6 +76,8 @@ The [GPS start/finish editor](docs/finish-line.md) offers map/coordinate gates, 
 
 Maps can show [two synchronized runs or a lap ghost](docs/map-comparison.md), with shared bounds, independent source duplication and lap-start alignment.
 
+The [map display editor](docs/map-display.md) controls lap traces, icons, visibility, detail, zoom/rotation/heading-up and aligned embedded backgrounds.
+
 1. Open an `.rrp` or `.orrp`, or add video and telemetry files, including native RaceChrono `.rcz` sessions. Additional cameras start as picture-in-picture displays.
 2. Browse templates, styles, images and video-position presets from the bundled or installed library; native `.orrt` layouts also work. Map template inputs to your sources before applying.
 3. Select an input to relink it, set its synchronization offset, trim it, change playback rate, delay its start, or join it after the previous media input. **Visual trim…** offers paired frame previews; **Crop / zoom…** offers a draggable pixel rectangle and result preview. Set rotation, mirroring, brightness, contrast, and color here. See [source tools](docs/source-tools.md).

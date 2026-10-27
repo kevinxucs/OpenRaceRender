@@ -44,7 +44,8 @@ extension RaceProject {
 
 extension ObjectSegment {
   func portableMapComparison() -> Self {
-    var copy = self; copy.mapComparison?.primaryLapStart = nil; copy.mapComparison?.referenceLapStart = nil
+    var copy = self; copy.mapSettings?.lapStart = nil
+    if copy.mapSettings?.trace == .lap { copy.mapSettings?.trace = .all }; copy.mapComparison?.primaryLapStart = nil; copy.mapComparison?.referenceLapStart = nil
     copy.groupChildrenBefore = copy.groupChildrenBefore?.mapValues{$0.map{$0.portableMapComparison()}}
     return copy
   }

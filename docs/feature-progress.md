@@ -20,20 +20,29 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 286 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 292 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
 - F20: shared two-run GPS maps, independent data duplication/alignment and elapsed-time lap ghosts implemented; see [map comparison](map-comparison.md).
+- F21: trace/visibility/icon/detail/zoom/rotation/follow controls and aligned embedded map backgrounds implemented; see [map display](map-display.md).
 - F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F21 — editable map display options**, after committing/pushing F20. F19 is pushed as `833f6fc`; CI40527712020 succeeded.
+Next feature: **F22 — configurable manual timer and time-of-day display**, after committing/pushing F21. F20 is pushed as `f7f41d3`; CI40530327929 was queued at last check. F19 CI40527712020 succeeded.
 
 ## Remaining queue
 
-F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F21 handoff — implementation validated, live UI limited
+
+- MapDisplaySettings optional per-widget vector editor covers whole/best/current/fixed-lap trace, course/position/start visibility, dot/ring/arrow/vector-car icon, sizes/colors/widths, normal/high/extreme ~1000/4000/16000 point budgets, zoom, CW rotation, heading-up, follow position and background alignment. Imported known settings read lazily through editableMapSettings; unedited legacy renderer/payload retained. Any edit uses vector renderer; Reset nil restores original/default. Newly edited native export conservatively refused.
+- MapViewport computes one world-to-widget transform and derives the embedded-image transform from the unzoomed map. Marker/trace/artwork remain aligned under zoom/rotation/follow; icons/widths stay fixed in screen size. Background can stay fixed instead. Standalone maps cache selected trace geometry with exact endpoints. Comparison maps honor map style/transform/detail/primary trace while keeping shared bounds and independent fixed legends. Existing F20 settings nil path remains unchanged. No-map-position status avoids silent blank.
+- Optional model/timeline parameter supports inheritance/explicit clears and SegmentField. Templates clear fixed lapStart and switch explicit session-lap trace to all; nested group history included. Existing background editor handles image preparation; Renderer avoids drawing map artwork twice. Telemetry.trackPoints accepts sampling budget with existing default preserved.
+- 292 tests (237 core/55 editor) pass: five new core/one editor cases cover transforms/follow/heading-up/background equivalence, traces/detail/endpoints, icons/visibility/flags/missing-position status, legacy read/persistence/clear, template cleanup and Undo/reset. validate-map-display checks independently calculated rotated/zoomed/follow marker positions and colored background fixed/aligned pixels, encoded output; it reruns F20 marker/full/chunk comparisons. Local app/library ZIP signed/verified; output image inspected. Artifacts under build/validation/map-display.
+- Mirrored HowTo-MapBackground and earlier two-vehicle map guidance reviewed. F20 pushed f7f41d3; CI40530327929 still queued at last check (not a failure); monitor latest CI. Commit/push F21 before F22; no manual compaction wait. Native/editor UI remains cgWindowNotFound, no live/native pixel parity claim. No private/vendor fixtures committed.
 
 ## F20 handoff — implementation validated, live UI limited
 

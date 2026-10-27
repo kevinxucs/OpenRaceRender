@@ -61,7 +61,7 @@ public enum OverlayRenderer {
         c.scaleBy(x: p.flipX ? -1 : 1, y: p.flipY ? -1 : 1)
         c.translateBy(x: -r.midX, y: -r.midY)
       }
-      if let artwork = o.artwork, o.kind != .image, let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
+      if let artwork = o.artwork, o.kind != .image,!(o.kind == .map && o.mapSettings != nil), let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
       if o.kind == .text, o.typography != nil {
         DrawingRenderer.text(c, object: o, rect: r, height: size.height)
         c.restoreGState(); continue
@@ -74,6 +74,7 @@ public enum OverlayRenderer {
         c.restoreGState(); continue
       }
       if MapComparisonRenderer.draw(c,object:o,rect:r,scene:scene,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
+      if MapDisplayRenderer.draw(c,object:o,rect:r,data:data,time:t) { c.restoreGState(); continue }
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }

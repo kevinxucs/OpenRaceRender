@@ -361,17 +361,17 @@ public final class Telemetry: @unchecked Sendable {
     guard let (xi,yi,_) = mapColumns, let x = value(headers[xi],at:t), let y = value(headers[yi],at:t) else { return nil }
     return (x*mapLongitudeFactor,y)
   }
-  public func trackPoints(from start: Double,to end: Double) -> [(Double,Double)] {
-    guard start.isFinite,end.isFinite,start <= end else { return [] }
+  public func trackPoints(from start: Double,to end: Double,maximum:Int = 4000) -> [(Double,Double)] {
+    guard start.isFinite,end.isFinite,start <= end,maximum > 1 else { return [] }
     let first = index(at:max(0,start)),last = index(at:min(duration,end))
     guard first <= last else { return [] }
     if !positionSlopes.isEmpty {
       let a = max(0,start),b = min(duration,end)
       guard b >= a else { return [] }
-      let samples = min(4000,max(1,(last-first)*8))
+      let samples = min(maximum,max(1,(last-first)*8))
       return (0...samples).compactMap { trackPosition(at:a+(b-a)*Double($0)/Double(samples)) }
     }
-    let step = max(1,(last-first)/4000)
+    let step = max(1,(last-first)/maximum)
     return stride(from:first,through:last,by:step).compactMap { trackPosition(at:times[$0]) }
   }
   public func bestLap(at t: Double) -> TelemetryLap? {
