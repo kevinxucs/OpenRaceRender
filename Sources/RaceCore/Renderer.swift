@@ -310,24 +310,7 @@ public enum OverlayRenderer {
         in: CGRect(x: base.x - radius, y: base.y - radius, width: radius * 2, height: radius * 2))
       text(c, number(v) + "°", x: cx, y: r.minY, size: min(w * 0.33, h * 0.1))
     case .graph:
-      panel(c, r)
-      if let d = data, let column = d.channelIndex(o.resolvedChannel) {
-        c.setStrokeColor(color(accent))
-        c.setLineWidth(max(1, h * 0.015))
-        c.beginPath()
-        let start = max(0, time - 10)
-        for i in 0..<120 {
-          let t = start + Double(i) * 10 / 119
-          let idx = d.index(at: t)
-          let v = d.columns[column][idx]
-          guard v.isFinite else { continue }
-          let q = CGPoint(
-            x: r.minX + Double(i) * w / 119,
-            y: r.minY + max(0, min(1, (v - o.minimum) / max(1, o.maximum - o.minimum))) * h)
-          if i == 0 { c.move(to: q) } else { c.addLine(to: q) }
-        }
-        c.strokePath()
-      }
+      GraphRenderer.draw(c, object: o, rect: r, data: data, time: time)
     case .text:
       let str = o.text.isEmpty ? o.name : o.text
       text(

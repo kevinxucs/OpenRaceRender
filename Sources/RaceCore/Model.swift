@@ -100,6 +100,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var segments: [ObjectSegment]?
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
+  public var graph: GraphSettings?
   public var hud: HUDSettings?
   public var typography: TextSettings?
   public var shape: ShapeSettings?
@@ -180,6 +181,17 @@ public struct RaceProject: Codable, Equatable, Sendable {
         }
       }
       LegacyReader.repairOldChannelDecode(&p.objects[i])
+      if p.objects[i].legacyType == 35 {
+        p.objects[i].kind = .graph
+        if p.objects[i].graph == nil { LegacyReader.inferDetails(&p.objects[i]) }
+        for j in (p.objects[i].segments ?? []).indices {
+          if let raw = p.objects[i].segments?[j].legacyPayload, p.objects[i].segments?[j].graph == nil {
+            var value = p.objects[i]; value.legacyPayload = raw; LegacyReader.inferDetails(&value)
+            p.objects[i].segments?[j].graph = value.graph
+            p.objects[i].segments?[j].minimum = value.minimum; p.objects[i].segments?[j].maximum = value.maximum
+          }
+        }
+      }
     }
     // Earlier native imports omitted the original camera's picture adjustments.
     if let legacy = p.legacyData,let original = try? LegacyReader.project(legacy,base:base) {
@@ -307,7 +319,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
         o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture,
-        o.typography == old.typography, o.shape == old.shape, o.audio == old.audio
+        o.typography == old.typography, o.shape == old.shape, o.audio == old.audio, o.graph == old.graph
       else {
         throw RaceError.invalid(
           "RRP copy export supports labels, visibility, opacity, geometry and synchronization. Save other edits in .orrp format."

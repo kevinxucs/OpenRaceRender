@@ -178,6 +178,7 @@ public enum LegacyWriter {
       case .shape: type = 12
       case .image: type = 14
       case .speed, .rpm, .gauge: type = 30
+      case .graph: type = 35
       case .group: type = 0
       default: throw unsupported("This native widget does not yet have a compatible legacy encoding.")
       }
@@ -207,6 +208,44 @@ public enum LegacyWriter {
       payload.putU32(try rgb(s.gradientColor,enabled:s.gradient),12)
     } else if type == 30 {
       try gauge(o,common:&common,payload:&payload)
+    } else if type == 35 {
+      let g = o.graph ?? GraphSettings()
+      guard g.lap == nil, !g.flipSides else { throw unsupported("Graph lap selection and alternate number placement have no verified legacy encoding.") }
+      guard (!g.axes && !g.numbers) || (g.interval.isFinite && g.interval > 0) else {
+        throw unsupported("Choose a positive graph axis interval before legacy export; RaceRender stores one fixed interval for both axes.")
+      }
+      if payload.count < 624 { payload.append(Data(repeating:0,count:624-payload.count)) }
+      try string(o.channel,into:&payload,at:0,size:128,field:"Y channel")
+      try string(g.axis == .time ? "" : g.axis == .distance ? "(Distance)" : g.resolvedHorizontalChannel,into:&payload,at:472,size:128,field:"X channel")
+      payload.putDouble(g.automaticMinimum ? 100_000_000 : try finite(o.minimum,"Y minimum"),256)
+      payload.putDouble(g.automaticMaximum ? -100_000_000 : try finite(o.maximum,"Y maximum"),264)
+      payload.putDouble(g.xMinimum ?? 100_000_000,600); payload.putDouble(g.xMaximum ?? -100_000_000,608)
+      payload.putFloat(g.safeSpan,272)
+      payload[429] = (payload[429] & ~UInt8(79)) | g.mode.legacyBits | (g.reverse ? 1 : 0) | (g.vertical ? 64 : 0)
+      if g.timeStart != nil || g.timeEnd != nil {
+        let start = try finite(g.timeStart ?? 0,"Graph start"), end = try finite(g.timeEnd ?? 60,"Graph end")
+        guard start >= 0, end > start else { throw unsupported("Graph end must follow its start.") }
+        payload.putFloat(start,448); payload.putFloat(end,452)
+      } else { payload.putFloat(0,448); payload.putFloat(-1,452) }
+      payload[616] = (g.connect ? 1 : 0) | (g.sortX ? 2 : 0)
+      payload.putU32(try rgb(g.markerColor),276); payload[428] = try byte(g.markerSize,"Graph marker size")
+      payload.putU32(try rgb(g.backgroundColor,enabled:g.background),280)
+      payload.putU32(try rgb(g.trimColor,enabled:g.trim),284); payload[430] = try byte(g.trimWidth,"Graph border width")
+      payload.putU32(try rgb(g.lineColor),288); payload[431] = try byte(g.lineWidth,"Graph line width")
+      payload.putU32(try rgb(g.axisColor,enabled:g.axes),432); payload[440] = try byte(g.axisWidth,"Graph axis width")
+      payload.putFloat(try finite(g.interval,"Axis interval"),436)
+      payload.putU32(try rgb(g.lineGradient ?? "#000000",enabled:g.lineGradient != nil),444)
+      payload.putU32(try rgb(g.fillColor,enabled:g.fill),456)
+      payload.putU32(try rgb(g.fillGradient ?? "#000000",enabled:g.fillGradient != nil),460)
+      payload.putU32(try rgb(g.numberColor,enabled:g.numbers),464); payload.putFloat(try finite(g.numberSize,"Graph number size"),468)
+      try string(g.label,into:&payload,at:128,size:128,field:"Graph label")
+      payload.putU32(try rgb(g.labelColor,enabled:!g.label.isEmpty),292); payload.putFloat(try finite(g.labelSize,"Graph label size"),424)
+      if o.legacyPayload == nil { payload[441] = 50; try string("Helvetica",into:&payload,at:296,size:128,field:"Graph font") }
+      let designWidth = try finite(g.referenceWidth,"Graph design width")
+      guard designWidth > 0, designWidth <= 4096 else { throw unsupported("Graph design width must be between 1 and 4096.") }
+      let height = max(1,Int((Double(common.u32(296) >> 16) > 0 ? Double(common.u32(296) >> 16) : designWidth/2)))
+      common.putU32(UInt32(designWidth) | (UInt32(height) << 16),296)
+
     } else if ![0,10,11,14].contains(type) {
       guard o.legacyCommon != nil, o.legacyPayload != nil else { throw unsupported("Missing original settings for this display type.") }
       var decoded = LegacyReader.decodeCommon(common,at:0,legacyIndex:0); decoded.legacyPayload = payload

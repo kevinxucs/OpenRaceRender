@@ -1,5 +1,10 @@
 # Changelog
 
+## F06 — Configurable 2D graphs
+
+- Time, distance and channel axes; moving, centered, fixed cursor and progress modes; automatic/manual ranges, lap/source ranges, points/lines and saved appearance controls.
+- Shared cached graph rendering across preview and export, peak/gap preservation, timeline/template persistence, type-35 import migration and verified graph legacy writing. See [controls and validation](docs/graphs.md).
+
 ## F04 — Subset template export
 
 - Per-display checkboxes, group branch selection, All / Widgets only / Current selection / None presets, and editable exported object and input-role names. Draft edits leave the session unchanged.

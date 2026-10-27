@@ -632,6 +632,7 @@ import UniformTypeIdentifiers
       o.width = 20
       o.height = 8
     }
+    if kind == .graph { o.graph = GraphSettings(); o.width = 38; o.height = 20 }
     if kind == .text { o.text = "Your text"; o.typography = TextSettings() }
     if kind == .shape { o.shape = ShapeSettings() }
     if kind == .gauge { var g = GaugeSettings(); g.design = GaugeDesign(); o.gauge = g }

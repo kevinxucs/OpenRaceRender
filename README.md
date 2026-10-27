@@ -143,3 +143,5 @@ Please follow the [code of conduct](CODE_OF_CONDUCT.md). For vulnerabilities, fo
 OpenRaceRender's source is available under the [MIT license](LICENSE). Imported third-party files and assets retain their owners' licenses; importing them does not grant redistribution rights.
 
 RaceRender is a product of HP Tuners/RaceRender LLC. OpenRaceRender is an independent project with no affiliation or endorsement.
+
+Graph axes, time windows and saved styles: [2D graph controls](docs/graphs.md).

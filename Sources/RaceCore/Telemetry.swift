@@ -13,6 +13,7 @@ public final class Telemetry: @unchecked Sendable {
   public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz"]
   public internal(set) var firstSampleUnixTime: Double?
   public internal(set) var warnings: [String] = []
+  let graphCache = GraphSampleCache()
   private let boundsLock = NSLock()
   private var cachedBounds: [Int:(Double,Double)] = [:]
   var renderRevision = 0

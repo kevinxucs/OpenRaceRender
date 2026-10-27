@@ -581,7 +581,7 @@ struct ObjectInspector: View {
           field("Min", $object.minimum)
           field("Max", $object.maximum)
         } }
-        if !object.hasScriptStyleSettings && object.legacyType != 31 {
+        if !object.hasScriptStyleSettings && object.legacyType != 31 && object.kind != .graph {
         ColorPicker(
           "Accent",
           selection: Binding(
@@ -603,6 +603,7 @@ struct ObjectInspector: View {
         GaugeControls(settings: Binding(get: { object.gauge ?? GaugeSettings() }, set: { object.gauge = $0 }))
         GaugeDesignControls(object: $object)
       }
+      if object.kind == .graph { GraphControls(object: $object, headers: model.telemetry[object.inputIndex]?.headers ?? []) }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)
         TypographyControls(settings: Binding(get: { object.typography ?? TextSettings() }, set: { object.typography = $0 }), color: $object.color)

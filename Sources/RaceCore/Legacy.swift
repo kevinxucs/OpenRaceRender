@@ -192,6 +192,7 @@ public enum LegacyReader {
   }
 
   static func kind(_ type: Int, name: String) -> ObjectKind {
+    if type == 35 { return .graph }
     if type == 10 { return .video }; if type == 11 { return .audio }
     if type == 12 { return .shape }; if type == 13 { return .text }; if type == 14 { return .image }
     let s = name.lowercased()
@@ -271,6 +272,13 @@ public enum LegacyReader {
       if o.hasStyleRange {
         if let minimum = o.styleMinimum { o.minimum = minimum }
         if let maximum = o.styleMaximum { o.maximum = maximum }
+      }
+    }
+    if o.legacyType == 35 {
+      o.kind = .graph; o.graph = GraphSettings.legacy(o)
+      if d.count >= 272 {
+        if d.f64(256).isFinite && abs(d.f64(256)) < 9e7 { o.minimum = d.f64(256) }
+        if d.f64(264).isFinite && abs(d.f64(264)) < 9e7 { o.maximum = d.f64(264) }
       }
     }
     if o.kind == .temperature && o.channel.isEmpty { o.channel = o.name }
@@ -438,7 +446,8 @@ public enum LegacyReader {
             o.embeddedImage = Data(b[imageStart..<n])
             cursor = n
           } else {
-            o.embeddedImage = Data(b[imageStart..<b.count])
+            let rawImage = Data(b[imageStart..<b.count])
+      o.embeddedImage = rawImage == Data(repeating:0,count:4) ? nil : rawImage
             cursor = b.count
           }
           o.artwork = o.embeddedImage.flatMap { LegacyArtwork.png($0) }
@@ -495,7 +504,8 @@ public enum LegacyReader {
     o.legacyPayload = LegacyCodec.transform(Data(b[start..<start + n]), key: key)
     let imageStart = start+n+(n > 0 ? 8 : 0)
     if imageStart < b.count {
-      o.embeddedImage = Data(b[imageStart..<b.count])
+      let rawImage = Data(b[imageStart..<b.count])
+      o.embeddedImage = rawImage == Data(repeating:0,count:4) ? nil : rawImage
       o.artwork = o.embeddedImage.flatMap { LegacyArtwork.png($0) }
     }
     inferDetails(&o)

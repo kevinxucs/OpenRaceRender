@@ -1,6 +1,6 @@
 # Guide feature implementation progress
 
-User authorization: implement F01/F05/F07 first, then all remaining guide gaps individually. Keep IDs from [guide-gap-review.md](guide-gap-review.md). The user explicitly requires `/compact` before each feature. The agent has no manual conversation-compaction API or slash-command execution tool. Do not claim a durable handoff is actual compaction. F04 began immediately after actual automatic context compaction. The user also requires a separate commit and push for every feature before proceeding. Wait for another actual compaction before starting F06.
+User authorization: implement all remaining guide gaps individually. The latest user instruction explicitly waives waiting for manual compaction. Continue sequentially, validating and committing/pushing each feature before starting the next. No manual compaction API is available; do not claim otherwise.
 
 ## Current checkpoint
 
@@ -10,16 +10,26 @@ User authorization: implement F01/F05/F07 first, then all remaining guide gaps i
 - F02: rebuilt RRP3 projects and RRT2/RRO2 export implemented for representable settings, with compatibility checks; see [supported scope and native validation](legacy-export.md).
 - F03: grouping/multiple selection, nested subtree operations, group timeline edits, stable template identities and group visibility/audio behavior implemented; see [controls, native findings and validation limits](grouping.md).
 - F04: arbitrary subset template export, editable object/input-role names, required group ancestors, source-switch/history roles, draft isolation and text-selection shortcut routing implemented; see [template export](template-export.md).
-- Validation: 170 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F06: configurable graph axes, seven time modes, ranges, style controls, persistence/migration, cached sampling and legacy graph writing implemented; see [graph controls and limits](graphs.md).
+- Validation: 179 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F06 — graph axes and time windows**. F04 has a durable checkpoint below. Commit and push F04, then wait for actual context compaction before F06.
+Next feature: **F08 — data-controlled embedded images**. F06 is validated and ready to commit/push; do that before starting F08.
 
 ## Remaining queue
 
-F06, F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F06 handoff — implementation validated
+
+- `Graph.swift` adds saved settings, source-clock windows, channel/distance axes, range/lap checks, extrema/gap-preserving sampling and a bounded revision-aware cache. `GraphRenderer.swift` is shared by composition, snapshots and encoded video; graph controls participate in undo, templates and inherited timeline events.
+- Type 35 takes precedence over names containing Speed/RPM. Old native imports recover graph settings from original payloads. RRO's empty four-byte image container no longer causes a false artwork-export failure.
+- Native RR3 inspector/modes/ranges and isolated fill/gradient/reverse records were inspected using synthetic fixtures. New graph RRP opens in RR3. Native distance needs `(Distance)` rather than lowercase `distance`; native interval zero does not mean our automatic intervals. Legacy writing uses the verified identifier and requires an explicit positive shared interval for axes/numbers. Native lap/alternate-side numbering are refused; intrinsic native geometry and label metrics differ. These limits are explicit in `docs/graphs.md`.
+- 179 tests (153 core/26 editor) pass without skips using the local library and macOS graphics access. Eight new core tests plus an editor workflow cover axes, windows, seek/cache/peak behavior, old imports, persistence, all modes in RRP/RRT/RRO and settings/undo/segments/template drafts. `scripts/validate-graphs.py` passes six configurations with exact ORR/RRP-reopened snapshots and advancing encoded video. Match source picture settings for this comparison; legacy picture defaults otherwise introduce a small unrelated color difference. Acceptance uses fresh video filenames so it can be repeated.
+- Live ORR changed the first graph to distance/centered/1.25s and saved separate `build/validation/graphs/acceptance/live-graph-edits.orrp`; actual bytes checked. Numeric AX clicks plus Command-A did not reliably focus/select the field; AX setValue + Return/Tab committed and saved correctly. Do not claim regular keyboard focus was validated. Native text shortcut logic is unchanged by F06. ORR quit normally after save.
+- Logs: `build/validation/graphs/{tests,build,acceptance}.log`; original synthetic fixtures only. RR3 remains on saved synthetic graph acceptance (native geometry/channel probes), no user originals edited. F08 is next after commit/push. Latest user explicitly says continue without waiting for compaction.
 
 ## F04 handoff — implementation validated
 
