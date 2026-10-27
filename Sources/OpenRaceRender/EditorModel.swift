@@ -34,6 +34,7 @@ import UniformTypeIdentifiers
   @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
   @Published var showSync = false
   @Published var showSourceSync = false
+  @Published var sequenceInput:MediaInput?
   @Published var showProjectSetup = false
   @Published var setupSyncActive = false
   let preferences: UserDefaults
@@ -176,7 +177,7 @@ import UniformTypeIdentifiers
         guard let i = self.project.inputs.firstIndex(where: { $0.id == id }) else { return }
         guard self.project.inputs[i] != value else { return }
         self.checkpoint()
-        self.project.inputs[i] = value
+        var updated = self.project; updated.inputs[i] = value; updated.refreshSequenceDurations(); self.project = updated
         self.seek(self.time)
       })
   }
@@ -287,21 +288,18 @@ import UniformTypeIdentifiers
     } catch { self.error = error.localizedDescription }
   }
   func joinPrevious(_ id: UUID) {
-    guard let i = project.inputs.firstIndex(where: { $0.id == id }), i > 0,
-      ["video", "audio"].contains(project.inputs[i].kind), project.inputs[i-1].kind == project.inputs[i].kind else { return }
-    checkpoint()
-    let root = project.inputs[i-1].joinedTo ?? project.inputs[i-1].legacyIndex
-    let child = project.inputs[i].legacyIndex
-    project.inputs[i].joinedTo = root
-    for j in project.inputs.indices where project.inputs[j].joinedTo == child { project.inputs[j].joinedTo = root }
-    project.objects.removeAll { $0.inputIndex == child && [.video, .audio].contains($0.kind) }
+    do {
+      var updated = project; try updated.joinInputAfterPrevious(id)
+      if updated != project { checkpoint(); project = updated }
+    } catch { self.error = error.localizedDescription }
   }
   func unjoin(_ id: UUID) {
-    guard let i = project.inputs.firstIndex(where: { $0.id == id }), project.inputs[i].joinedTo != nil else { return }
+    guard let i = project.inputs.firstIndex(where: { $0.id == id }), project.inputs[i].joinedTo != nil, project.inputs[i].isTimeFiller != true else { return }
     checkpoint(); project.inputs[i].joinedTo = nil
     var o = DisplayObject(name: project.inputs[i].name, kind: project.inputs[i].kind == "video" ? .video : .audio)
     o.inputIndex = project.inputs[i].legacyIndex; o.x = 0; o.y = 0; o.width = 100; o.height = 100
     project.objects.insert(o, at: 0)
+    project.refreshSequenceDurations()
   }
   func removeInput(_ id: UUID) {
     guard let input = project.inputs.first(where: { $0.id == id }) else { return }
@@ -318,6 +316,7 @@ import UniformTypeIdentifiers
       }
     }
     for index in ids { telemetry.removeValue(forKey: index) }
+    project.refreshSequenceDurations()
     selectedInput = nil
   }
   func synchronize(inputIndex: Int, sourceTime: Double) {
@@ -537,7 +536,7 @@ import UniformTypeIdentifiers
           ? "data"
           : (["mp3", "wav", "m4a", "aac"].contains(ext)
             ? "audio" : (["png", "jpg", "jpeg", "tif", "bmp"].contains(ext) ? "image" : "video"))
-        let placeholder = project.inputs.firstIndex { $0.kind == kind && $0.path.isEmpty && $0.joinedTo == nil }
+        let placeholder = project.inputs.firstIndex { $0.kind == kind && $0.path.isEmpty && $0.joinedTo == nil && $0.isJoinRoot != true && $0.isTimeFiller != true }
         let index = placeholder.map { project.inputs[$0].legacyIndex } ?? ((project.inputs.map(\.legacyIndex).max() ?? -1) + 1)
         var input = MediaInput(
           name: url.deletingPathExtension().lastPathComponent, path: url.path, kind: kind,

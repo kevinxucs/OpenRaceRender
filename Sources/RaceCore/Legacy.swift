@@ -82,6 +82,9 @@ public enum LegacyReader {
       if !input.duration.isFinite || input.duration < 0 { input.duration = 0 }
       if !input.offset.isFinite { input.offset = 0 }
       LegacyProjectSettings.input(b, at: cursor, settings: sourceSettings, input: &input, warnings: &p.warnings)
+      if ![1,2,4,5,6].contains(type) {
+        p.warnings.append("Input ‘\(input.name)’ uses unverified native source type \(type). Verify time fillers and special sources before rendering.")
+      }
       input.dataSettings?.speedUnit = p.speedUnit
       p.inputs.append(input)
       cursor += sourceSize + settingsSize

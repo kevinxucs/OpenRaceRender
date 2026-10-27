@@ -18,6 +18,9 @@ public enum LegacyWriter {
 
   /// RRT seeds are adjusted when an encrypted source ID would collide with its raw delimiter.
   public static func data(_ sourceProject: RaceProject, format: Format, seed: UInt32 = .random(in: .min ... .max)) throws -> Data {
+    guard !sourceProject.inputs.contains(where:{$0.isTimeFiller == true}) else {
+      throw RaceError.invalid("Time filler records have no verified RaceRender encoding. Save this sequence in .orrp format.")
+    }
     guard Set(sourceProject.objects.map(\.id)).count == sourceProject.objects.count else {
       throw RaceError.invalid("Display identities must be unique before RaceRender export.")
     }

@@ -209,6 +209,9 @@ enum CLI {
       return 0
     } catch {
       FileHandle.standardError.write(Data(("Error: " + error.localizedDescription + "\n").utf8))
+      if ProcessInfo.processInfo.environment["OPENRACERENDER_DEBUG_ERRORS"] == "1" {
+        FileHandle.standardError.write(Data((String(reflecting:error)+"\n"+String(describing:(error as NSError).userInfo)+"\n").utf8))
+      }
       return 1
     }
   }

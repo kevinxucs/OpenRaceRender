@@ -108,7 +108,7 @@ extension RaceProject {
       p.inputs[i].path = ""; p.inputs[i].duration = 0; p.inputs[i].offset = 0
       p.inputs[i].timing = nil; p.inputs[i].joinedTo = nil; p.inputs[i].legacyOffset = nil
       p.inputs[i].dataSettings = nil; p.inputs[i].picture = nil; p.inputs[i].volume = 1
-      p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].legacyTrackIndex = nil
+      p.inputs[i].audio = nil; p.inputs[i].isJoinRoot = nil; p.inputs[i].isTimeFiller = nil; p.inputs[i].legacyTrackIndex = nil
     }
     let kinds = Dictionary(p.objects.map { ($0.id,$0.kind) }, uniquingKeysWith: { first, _ in first })
     let originals = Dictionary(objects.map { ($0.id,$0) },uniquingKeysWith:{first,_ in first})

@@ -107,6 +107,7 @@ struct SourceMediaTools: View {
 struct SourceTrimEditor: View {
   @ObservedObject var model:EditorModel
   @Binding var input:MediaInput
+  var playheadInputID:UUID?
   @Environment(\.dismiss) var dismiss
   @State private var draft:SourceTrimDraft?
   @State private var kind:ObjectKind = .speed
@@ -146,7 +147,7 @@ struct SourceTrimEditor: View {
       HStack {
         Button("−1 frame") { adjust(last:last,delta:-(draft?.minimumFrame ?? 0)) }
         Button("+1 frame") { adjust(last:last,delta:draft?.minimumFrame ?? 0) }
-        Button("Use playhead") { if let source = model.sourceTimeAtPlayhead(input) {
+        Button("Use playhead") { if let source = sourceAtPlayhead {
           if last { draft?.end = min(draft?.duration ?? source,source+(draft?.minimumFrame ?? 0)) } else { draft?.start = source }
         } else { error = "This physical input is inactive at the playhead. Choose a source time or move the playhead." } }
       }.controlSize(.small)
@@ -158,6 +159,10 @@ struct SourceTrimEditor: View {
     guard let value = draft else { return }
     if last { draft?.end = max(value.start+value.minimumFrame,min(value.duration,value.end+delta)) }
     else { draft?.start = max(value.synchronizationFloor,min(value.end-value.minimumFrame,value.start+delta)) }
+  }
+  var sourceAtPlayhead:Double? {
+    let original = playheadInputID.flatMap { id in model.project.inputs.first(where:{$0.id == id}) } ?? input
+    return model.sourceTimeAtPlayhead(original)
   }
   func apply() { do { if let draft { input = try draft.applying(to:input); dismiss() } } catch { self.error = error.localizedDescription } }
 }

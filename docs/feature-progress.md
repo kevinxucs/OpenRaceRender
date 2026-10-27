@@ -17,16 +17,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F11: paired source trim previews and graphical pixel crop/zoom, physical joined-clip playhead capture, input image picture rendering and portable adjusted artwork implemented; see [source tools](source-tools.md).
 - F12: guided setup, selected-data template mapping, dynamic length policies, notes and saved new-session preferences implemented; see [project setup](project-setup.md).
 - F13: independent camera players, source event alignment, target rate/offset edits and composition verification implemented; see [camera synchronization](source-synchronization.md).
-- Validation: 225 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
+- Validation: 235 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F14 — joined-clip sequence editing and time fillers**, after committing/pushing F13. F12 is pushed as `dd27ae7`; CI40484414693 succeeded.
+Next feature: **F15 — GPS-derived heading and complete derived G-force**, after committing/pushing F14. F13 is pushed as `38611c6`; CI40485629398 succeeded.
 
 ## Remaining queue
 
-F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F14 handoff — implementation validated, live UI limited
+
+- `SequenceDraft` normalizes a physical first-clip stream into a stable virtual role in a private copy. Clips can move ahead of the former first clip without breaking displays. Filler rows carry kind video/audio, joinedTo, positive duration and `isTimeFiller`; no file. Draft update/move/gap/remove/Apply validates bounds and refuses stale project replacement.
+- SequenceEditor adds clip list up/down, private labels/rates/visual trim sheets (original physical playhead IDs), fillers/duration/removal and atomic Apply/Cancel. SourceListRow labels generated streams/gaps correctly and exposes global stream-block/member moves and sequence entry. TimeFillerInspector avoids missing-file controls. Physical input-binding changes/removal/unjoin refresh root duration metadata.
+- Virtual root placement cutEnd now uses explicit trimEnd or natural child extent, not stale root.duration. New imports exclude virtual roots from empty template placeholders. Joining a neutral virtual stream removes its container, remaps source-switch history/length binding and avoids double-counting. Non-neutral overall source timing must be reset before merge; clip timing retained. Unknown native input types warn. Legacy filler encoding is unverified and export explicitly refuses it; native ORRP supports fillers.
+- Encoded acceptance found a real trailing gap bug: AVAssetReader stopped at the last actual video sample despite an empty composition tail. A hidden source-backed clock track at the requested end extends composition sampling and is never drawn. The source AVURLAsset must be retained through insertTimeRange (without it AVFoundation failed -11800/-12780). Optional `OPENRACERENDER_DEBUG_ERRORS=1` CLI output exposes underlying local errors. This still requires a readable camera; F27 remains pending.
+- 235 tests pass (193 core/42 editor): seven core and three editor tests cover draft isolation/cancel, logical identity/order, exact gap boundaries/tail, child metadata, invalid/stale drafts, native persistence/legacy refusal, missing-asset rules, stream merging/source switches, undo and importing generated WAV audio beside a join root. `validate-sequences.py` passes full encoded picture/audio/overlay/duration comparisons and middle/tail gap-only chunks. Source trim acceptance rerun passes. Logs: `build/validation/sequences/{tests,build,acceptance,trim-regression}.log`.
+- Mirrored Main join/move/time-filler instructions read. Native/live UI still inaccessible (cgWindowNotFound). No native filler import/encoding or live parity claimed. Audio may naturally end at the final real audio sample; trailing video continues silently. No vendor/private assets committed.
+- F13 CI40485629398 succeeded on38611c6. Commit/push F14 and check CI before F15. Continue sequential features with each committed/pushed, without compaction waits.
 
 ## F13 handoff — implementation validated, live UI limited
 

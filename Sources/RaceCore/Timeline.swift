@@ -214,7 +214,7 @@ extension RaceProject {
         let end = start + max(0, sourceEnd - sourceStart) / rate
         if root.isJoinRoot == true {
           let t = root.timing ?? InputTiming(), rootRate = t.safeRate
-          let cutStart = max(0, t.trimStart + root.offset), cutEnd = t.trimEnd ?? root.duration
+          let cutStart = max(0, t.trimStart + root.offset), cutEnd = t.trimEnd ?? .greatestFiniteMagnitude
           let a = max(start, cutStart), b = min(end, cutEnd)
           if b > a {
             result.append(InputPlacement(input: input, rootIndex: root.legacyIndex,

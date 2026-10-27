@@ -52,6 +52,7 @@ public struct MediaInput: Identifiable, Codable, Equatable, Sendable {
   public var dataSettings: DataSettings?
   public var audio: AudioSettings?
   public var isJoinRoot: Bool?
+  public var isTimeFiller: Bool?
   public var legacyTrackIndex: Int?
   public init(name: String, path: String, kind: String, legacyIndex: Int = 0) {
     self.name = name
@@ -170,7 +171,17 @@ public struct RaceProject: Codable, Equatable, Sendable {
     var seen = Set<UUID>()
     for i in p.objects.indices where !seen.insert(p.objects[i].id).inserted { p.objects[i].id = UUID() }
     let base = url.deletingLastPathComponent()
-    for i in p.inputs.indices { p.inputs[i].path = resolvePath(p.inputs[i].path, base: base) }
+    for i in p.inputs.indices {
+      if p.inputs[i].isTimeFiller == true {
+        let filler = p.inputs[i]
+        guard filler.path.isEmpty, filler.isJoinRoot != true, filler.duration.isFinite, filler.duration > 0,
+          let parent = filler.joinedTo,
+          p.inputs.contains(where:{$0.legacyIndex == parent && $0.joinedTo == nil && $0.kind == filler.kind && ["video","audio"].contains($0.kind)}) else {
+          throw RaceError.invalid("Invalid time filler: choose a positive duration within a media sequence.")
+        }
+      }
+      p.inputs[i].path = resolvePath(p.inputs[i].path, base: base)
+    }
     for i in p.objects.indices {
       if p.objects[i].kind == .image, !p.objects[i].text.isEmpty { p.objects[i].text = resolvePath(p.objects[i].text, base: base) }
       if let path = p.objects[i].gauge?.backgroundPath { p.objects[i].gauge?.backgroundPath = resolvePath(path, base: base) }
@@ -313,7 +324,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
     }
     guard explicitDuration == original.explicitDuration, exportSettings == original.exportSettings,
       notes == original.notes, lengthInputIndex == original.lengthInputIndex,
-      zip(inputs,original.inputs).allSatisfy({ $0.timing == $1.timing && $0.joinedTo == $1.joinedTo && $0.dataSettings == $1.dataSettings && $0.audio == $1.audio && $0.isJoinRoot == $1.isJoinRoot }),
+      zip(inputs,original.inputs).allSatisfy({ $0.timing == $1.timing && $0.joinedTo == $1.joinedTo && $0.dataSettings == $1.dataSettings && $0.audio == $1.audio && $0.isJoinRoot == $1.isJoinRoot && $0.isTimeFiller == $1.isTimeFiller }),
       zip(objects,original.objects).allSatisfy({ sameSegments($0.segments ?? [], $1.segments ?? []) }) else {
       throw RaceError.invalid("Changed timeline, trim, joins, data, audio and project settings require .orrp format.")
     }

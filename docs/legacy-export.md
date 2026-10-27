@@ -24,6 +24,8 @@ Use **Export RaceRender project…** for a separate `.rrp` copy. Adding/removing
 
 The writer refuses settings for which a verified equivalent does not exist. This includes native Apex/GT HUD instruments, native-only widget types without legacy payloads, triangle/diamond/line shapes, rotated shape gradients, adjustable text outline widths, arbitrary gauge smoothing/mark shapes/independent alert schemes, multiple native background layers on one display, custom native GPS finish-line changes, combined calculated-field operations, more than four calculations, unsupported timeline flags/record variants and RCZ project inputs. Use CSV for RaceRender data inputs. Original unchanged data records can retain their saved finish-line/settings bytes.
 
+Explicit sequence time fillers require native `.orrp`; their RaceRender source-record encoding has not been verified. Reordered media sequences without fillers remain exportable.
+
 RRT/RRO cannot store OpenRaceRender timeline events or display time bounds; export RRP or native ORRT instead. They are refused rather than silently flattened. RRO styles cannot carry a parent group. Other canvas ratios are refused until their workspace encodings are verified. RaceRender cannot represent an end flag at zero. RaceRender's application-wide video export preferences and OpenRaceRender's remembered destination are not RRP records.
 
 Compatibility does not establish identical pixels. Native fonts, glyph handling, gradients and supported renderers still have the limits described in the feature audit. RR3's macOS preview garbled a non-ASCII arrow while retaining its UTF-16 payload unchanged; the acceptance fixtures use ASCII captions for the visual check.

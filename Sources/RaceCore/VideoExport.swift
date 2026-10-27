@@ -14,14 +14,14 @@ final class SceneInstruction: NSObject, AVVideoCompositionInstructionProtocol, @
   let transforms: [Int: CGAffineTransform]
   init(
     scene: RenderScene, tracks: [Int: CMPersistentTrackID], transforms: [Int: CGAffineTransform],
-    duration: Double
+    duration: Double, clockTrackID:CMPersistentTrackID? = nil
   ) {
     self.scene = scene
     self.tracks = tracks
     self.transforms = transforms
     self.timeRange = CMTimeRange(
       start: .zero, duration: CMTime(seconds: duration, preferredTimescale: 60000))
-    self.requiredSourceTrackIDs = tracks.values.map { NSNumber(value: $0) }
+    self.requiredSourceTrackIDs = (Array(tracks.values)+(clockTrackID.map { [$0] } ?? [])).map { NSNumber(value: $0) }
   }
 }
 
@@ -190,7 +190,9 @@ public final class VideoExporter: @unchecked Sendable {
     var tracks: [Int: CMPersistentTrackID] = [:]
     var transforms: [Int: CGAffineTransform] = [:]
     var audioParameters: [AVMutableAudioMixInputParameters] = []
-    for placement in p.placements where ["video", "audio"].contains(placement.input.kind) && placement.input.exists && placement.end > placement.start {
+    var clockSource:(AVURLAsset,AVAssetTrack,CMTimeRange)?
+    var videoEnd = 0.0
+    for placement in p.placements where ["video", "audio"].contains(placement.input.kind) && placement.input.isTimeFiller != true && placement.input.exists && placement.end > placement.start {
       let input = placement.input
       let asset = AVURLAsset(url: URL(fileURLWithPath: input.path))
       let sourceDuration = try await asset.load(.duration).seconds
@@ -206,6 +208,8 @@ public final class VideoExporter: @unchecked Sendable {
         track.scaleTimeRange(inserted, toDuration: scaled)
         tracks[input.legacyIndex] = track.trackID
         transforms[input.legacyIndex] = try await source.load(.preferredTransform)
+        videoEnd = max(videoEnd,placement.start+sourceLength/placement.rate)
+        if clockSource == nil { clockSource = (asset,source,range) }
       }
       if let source = try await asset.loadTracks(withMediaType: .audio).first,
         let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
@@ -220,12 +224,25 @@ public final class VideoExporter: @unchecked Sendable {
       }
     }
     guard !tracks.isEmpty else { throw RaceError.invalid("Preview and export need at least one readable video input.") }
+    // AVAssetReader stops video composition at the last real video sample, even
+    // when the composition has an empty tail. A hidden source-frame track at the
+    // requested end keeps the compositor clock alive for trailing gaps/overlays.
+    var clockTrackID:CMPersistentTrackID?
+    if videoEnd+1e-8 < p.duration, let (asset,source,range) = clockSource,
+      let clock = composition.addMutableTrack(withMediaType:.video,preferredTrackID:kCMPersistentTrackID_Invalid) {
+      let length = min(1/p.fps,range.duration.seconds,p.duration)
+      let frame = CMTimeRange(start:range.start,duration:CMTime(seconds:length,preferredTimescale:60000))
+      try withExtendedLifetime(asset) {
+        try clock.insertTimeRange(frame,of:source,at:CMTime(seconds:p.duration-length,preferredTimescale:60000))
+      }
+      clockTrackID = clock.trackID
+    }
     if composition.duration.seconds < p.duration {
       composition.insertEmptyTimeRange(CMTimeRange(start: composition.duration, duration: CMTime(seconds: p.duration-composition.duration.seconds, preferredTimescale: 60000)))
     }
     let vc = AVMutableVideoComposition()
     vc.customVideoCompositorClass = RaceCompositor.self
-    vc.instructions = [SceneInstruction(scene: scene, tracks: tracks, transforms: transforms, duration: composition.duration.seconds)]
+    vc.instructions = [SceneInstruction(scene: scene, tracks: tracks, transforms: transforms, duration: composition.duration.seconds,clockTrackID:clockTrackID)]
     vc.renderSize = CGSize(width: p.width, height: p.height)
     vc.frameDuration = CMTime(seconds: 1/p.fps, preferredTimescale: 60000)
     let mix = AVMutableAudioMix(); mix.inputParameters = audioParameters
@@ -250,7 +267,7 @@ public final class VideoExporter: @unchecked Sendable {
     let ci = PictureProcessor.context()
     for o in p.resolvedObjects(at: time) where o.visible && time >= o.start && time < o.end {
       if o.kind == .video, let placement = p.media(for: o.inputIndex, at: time),
-        placement.input.exists
+        placement.input.exists && placement.input.isTimeFiller != true
       {
         let input = placement.input
         let sourceTime = placement.sourceTime(at: time)

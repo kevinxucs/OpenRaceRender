@@ -28,7 +28,7 @@ extension RaceProject {
           let sources = inputs.filter { $0.legacyIndex == display.inputIndex || $0.joinedTo == display.inputIndex }
           if display.imageUsesData && sources.isEmpty { missing.insert(display.name + ": choose a telemetry input") }
           for input in sources {
-            if input.isJoinRoot == true { continue }
+            if input.isJoinRoot == true || input.isTimeFiller == true { continue }
             // Media can be deliberately inactive outside its trim/delay/join span.
             if ["video", "audio"].contains(input.kind), input.duration > 0 {
               let ranges = placements.filter { $0.input.id == input.id }

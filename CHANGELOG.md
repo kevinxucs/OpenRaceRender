@@ -1,5 +1,10 @@
 # Changelog
 
+## F14 — Sequence editing and time fillers
+
+- Private clip ordering/trim/rate drafts, explicit middle/trailing time fillers, source-list move commands, generated-source labels and one-step undo.
+- Stable joined-stream roles, dynamic child duration, safe neutral-stream merges and import-placeholder protection. A retained source-backed clock keeps trailing gaps rendering; unverified legacy filler export is explicitly refused. See [workflow and limits](docs/sequences.md).
+
 ## F13 — Side-by-side camera synchronization
 
 - Independent raw-source video/audio previews with precise seek fields, frame steps, rate and mute controls. Align shared events while preserving reference timing, trims, delay and export marks; adjust target rate and offset together with Undo.

@@ -98,6 +98,7 @@ struct InputTimingControls: View {
         Button("Synchronize cameras side by side…") { model.selectedInput = input.id; model.beginSourceSync() }
       }
       if ["video", "audio"].contains(input.kind) {
+        Button("Edit joined sequence…") { model.editSequence(input.id) }
         if input.joinedTo != nil {
           Text("Joined to previous stream").foregroundStyle(mint)
           Button("Unjoin this clip") { model.unjoin(input.id) }

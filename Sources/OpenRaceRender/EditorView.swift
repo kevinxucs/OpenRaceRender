@@ -61,6 +61,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
     .sheet(isPresented: $model.showSourceSync) { SourceSyncSheet(model:model) }
+    .sheet(item:$model.sequenceInput) { SequenceEditor(model:model,inputID:$0.id) }
     .alert(
       "OpenRaceRender",
       isPresented: Binding(get: { model.error != nil && !model.showExport && !model.showProjectSetup && !model.showSourceSync }, set: { if !$0 { model.error = nil } })
@@ -206,25 +207,7 @@ struct EditorView: View {
       ScrollView {
         VStack(spacing: 4) {
           ForEach(model.project.inputs) { input in
-            HStack(spacing: 10) {
-              Image(
-                systemName: input.kind == "data"
-                  ? "waveform.path.ecg" : (input.kind == "audio" ? "speaker.wave.2" : "video")
-              ).foregroundStyle(input.kind == "data" ? mint : Color.blue)
-              VStack(alignment: .leading, spacing: 3) {
-                Text(input.name).font(.system(size: 11)).lineLimit(1)
-                Text(
-                  input.exists
-                    ? "\(input.kind.uppercased())  ·  \(clockText(input.duration))"
-                    : (input.path.isEmpty ? "TEMPLATE SOURCE · Choose file" : "MISSING · Relink file")
-                ).font(.system(size: 9)).foregroundStyle(input.exists ? muted : Color.orange)
-              }
-              Spacer(minLength: 0)
-            }.padding(10).background(model.selectedInput == input.id ? mint.opacity(0.08) : .clear)
-              .contentShape(Rectangle()).onTapGesture {
-                model.selectedInput = input.id
-                model.selected = nil
-              }
+            SourceListRow(model:model,input:input)
           }
         }
       }.frame(height: 130).padding(.horizontal, 7)
@@ -336,7 +319,9 @@ struct EditorView: View {
         } else if let id = model.selectedInput,
           model.project.inputs.contains(where: { $0.id == id })
         {
-          InputInspector(input: model.inputBinding(id), model: model)
+          if model.project.inputs.first(where:{$0.id == id})?.isTimeFiller == true {
+            TimeFillerInspector(model:model,input:model.inputBinding(id))
+          } else { InputInspector(input: model.inputBinding(id), model: model) }
         } else {
           projectInspector
         }

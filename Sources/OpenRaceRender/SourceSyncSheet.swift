@@ -25,7 +25,7 @@ struct SourceSyncSheet: View {
   @State private var rate = 1.0
   @State private var alignedTime:Double?
   @State private var failure:String?
-  var references:[MediaInput] { model.project.inputs.filter { $0.kind == "video" && $0.isJoinRoot != true } }
+  var references:[MediaInput] { model.project.inputs.filter { $0.kind == "video" && $0.isJoinRoot != true && $0.isTimeFiller != true } }
   var targets:[MediaInput] {
     let root = reference.map { $0.joinedTo ?? $0.legacyIndex }
     return references.filter { $0.joinedTo == nil && $0.legacyIndex != root }

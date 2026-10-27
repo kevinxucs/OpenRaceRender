@@ -9,7 +9,7 @@ public struct SourceSyncAnchor: Equatable, Sendable {
 extension RaceProject {
   /// Use the first active occurrence when a reference stream loops.
   public func projectTime(for anchor:SourceSyncAnchor) throws -> Double {
-    guard anchor.sourceTime.isFinite,
+    guard anchor.sourceTime.isFinite, inputs.contains(where:{$0.id == anchor.inputID && $0.isTimeFiller != true}),
       let placement = placements.first(where:{
         $0.input.id == anchor.inputID && anchor.sourceTime >= $0.sourceStart &&
         anchor.sourceTime < $0.sourceTime(at:$0.end)
