@@ -113,4 +113,23 @@ final class TemplateSelectionTests: XCTestCase {
     let layout = try p.reusableLayout(objectIDs:[p.objects[1].id])
     XCTAssertTrue(layout.inputs.isEmpty)
   }
+  func testReplacingOverlayRetainsGroupedCamerasWithoutRetainingOldWidgets() throws {
+    var p = fixture()
+    let camera = p.objects[0].id, group = p.objects[5].id, oldWidget = p.objects[2].id
+    p.objects[0].parentID = group
+    let layout = try p.reusableLayout(objectIDs:[p.objects[1].id])
+    let original = p
+    p.applyLayout(layout,replace:true,mapping:[9:9])
+    XCTAssertEqual(p.objects.count,5)
+    XCTAssertTrue(p.objects.contains { $0.id == camera })
+    XCTAssertTrue(p.objects.contains { $0.id == group })
+    XCTAssertFalse(p.objects.contains { $0.id == oldWidget })
+    XCTAssertEqual(p.ancestors(of:camera),[group])
+    for o in p.objects where o.parentID != nil { XCTAssertNotNil(p.parentID(of:o)) }
+    for time in [0.0,2.5,3.5] {
+      let before = try XCTUnwrap(original.resolvedObjects(at:time).first { $0.id == camera })
+      let after = try XCTUnwrap(p.resolvedObjects(at:time).first { $0.id == camera })
+      XCTAssertEqual(after.visible,before.visible); XCTAssertEqual(after.opacity,before.opacity)
+    }
+  }
 }

@@ -51,7 +51,12 @@ extension RaceProject {
     let identities = Dictionary(uniqueKeysWithValues: layout.objects.map { ($0.id, UUID()) })
     if replace {
       let includesVideo = layout.objects.contains { $0.kind == .video }
-      objects.removeAll { includesVideo || ![.video, .audio].contains($0.kind) }
+      // Overlay-only templates keep the cameras/audio and their structural groups.
+      // Removing those groups would orphan retained media and lose inherited gates.
+      let retained = includesVideo ? Set<UUID>() : layoutObjectIDs(Set(objects.filter {
+        [.video, .audio].contains($0.kind)
+      }.map(\.id)))
+      objects.removeAll { !retained.contains($0.id) }
     }
     for var object in layout.objects {
       func remap(_ index: Int) -> Int {
