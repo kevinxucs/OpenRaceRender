@@ -3,7 +3,7 @@
 Choose **Setup** in the toolbar or **File → Project setup…**. The same screen is available from the session inspector.
 
 1. Add your files and choose a primary video, audio or data stream. **Trim start & end…** opens the visual source tool. **Set project length to match** keeps project length tied to that stream as trims, playback rate, delay or joined clips change. Trim physical members of a virtual joined stream through the input inspector.
-2. Synchronize each other data input to a recorded event in the video. The setup screen opens the existing synchronization wizard and returns to setup afterward. **Edit input** opens its inspector for source offsets, rates and data configuration. Independent camera comparison is handled separately by F13.
+2. Synchronize each other data input to a recorded event in the video, or open **Side by side…** for another camera. These tools return to setup afterward. **Edit input** opens its inspector for source offsets, rates and data configuration. See [camera synchronization](source-synchronization.md).
 3. Choose a data input and template. That input is the default mapping for the template's data roles; each role remains adjustable in the template browser. Open the palette to add displays or open the chosen data inspector to configure channels.
 
 Settings below these steps include session name, length policy, preferred speed unit and notes. Project changes apply as you go; Undo remains available after closing setup. Nested trim edits retain their own Apply/Cancel draft behavior.
@@ -26,4 +26,4 @@ The mirrored ProjectSettings guide was read. Three core and four editor tests co
 
 `scripts/validate-project-setup.py` creates original camera/data fixtures, renders before/after changing a bound source trim, checks actual video duration against a longer logger file and compares encoded frames with snapshots. Artifacts remain in ignored `build/validation/project-setup`.
 
-Live setup-sheet and native-app interaction remain unverified because the UI connection reports `cgWindowNotFound`. F13's independent two-camera preview is still a separate pending feature.
+Live setup-sheet and native-app interaction remain unverified because the UI connection reports `cgWindowNotFound`.

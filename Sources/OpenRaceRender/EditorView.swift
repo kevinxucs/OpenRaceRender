@@ -60,9 +60,10 @@ struct EditorView: View {
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
+    .sheet(isPresented: $model.showSourceSync) { SourceSyncSheet(model:model) }
     .alert(
       "OpenRaceRender",
-      isPresented: Binding(get: { model.error != nil && !model.showExport && !model.showProjectSetup }, set: { if !$0 { model.error = nil } })
+      isPresented: Binding(get: { model.error != nil && !model.showExport && !model.showProjectSetup && !model.showSourceSync }, set: { if !$0 { model.error = nil } })
     ) {
       Button("OK") { model.error = nil }
     } message: {
@@ -103,8 +104,10 @@ struct EditorView: View {
       tool("Templates", icon: "square.grid.2x2") { model.showTemplates = true }
       tool("Save", icon: "square.and.arrow.down") { model.save() }
       Rectangle().fill(muted.opacity(0.25)).frame(width: 1, height: 24)
-      tool("Sync", icon: "arrow.left.and.right") { model.showSync = true }
-        .disabled(model.dataIndex == nil)
+      Menu {
+        Button("Data event synchronization…") { model.showSync = true }.disabled(model.dataIndex == nil)
+        Button("Cameras side by side…",action:model.beginSourceSync)
+      } label: { Label("Sync",systemImage:"arrow.left.and.right") }.fixedSize()
       Button(action: model.prepareExport) {
         Label("Export video", systemImage: "arrow.up.right").font(
           .system(size: 12, weight: .semibold)

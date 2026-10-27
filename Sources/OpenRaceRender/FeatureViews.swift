@@ -94,6 +94,9 @@ struct InputTimingControls: View {
         Button("Synchronize to a data event…") { model.showSync = true }
         DataControls(input: $input, model: model)
       }
+      if input.kind == "video" {
+        Button("Synchronize cameras side by side…") { model.selectedInput = input.id; model.beginSourceSync() }
+      }
       if ["video", "audio"].contains(input.kind) {
         if input.joinedTo != nil {
           Text("Joined to previous stream").foregroundStyle(mint)

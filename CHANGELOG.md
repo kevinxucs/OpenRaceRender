@@ -1,5 +1,10 @@
 # Changelog
 
+## F13 — Side-by-side camera synchronization
+
+- Independent raw-source video/audio previews with precise seek fields, frame steps, rate and mute controls. Align shared events while preserving reference timing, trims, delay and export marks; adjust target rate and offset together with Undo.
+- Setup, input inspector and menu entry points, stale-load/seek protection and return-to-composition verification. See [workflow and limitations](docs/source-synchronization.md).
+
 ## F12 — Guided project setup
 
 - Three-step setup connects file import, primary trim/length, per-data synchronization, selected-source template mapping and widget/data configuration.

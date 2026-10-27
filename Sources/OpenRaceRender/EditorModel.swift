@@ -33,6 +33,7 @@ import UniformTypeIdentifiers
   weak var canvasView: PreviewView?
   @Published var previewMuted = false { didSet { previewPlayer?.isMuted = previewMuted } }
   @Published var showSync = false
+  @Published var showSourceSync = false
   @Published var showProjectSetup = false
   @Published var setupSyncActive = false
   let preferences: UserDefaults

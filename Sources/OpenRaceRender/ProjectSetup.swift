@@ -64,11 +64,12 @@ struct ProjectLengthControls: View {
 }
 
 private enum SetupTool: Identifiable {
-  case trim(UUID), sync(Int), template(Int?)
+  case trim(UUID), sync(Int), sourceSync(Int), template(Int?)
   var id:String {
     switch self {
     case .trim(let id): return "trim-\(id)"
     case .sync(let index): return "sync-\(index)"
+    case .sourceSync(let index): return "source-sync-\(index)"
     case .template(let index): return "template-\(index ?? -1)"
     }
   }
@@ -116,6 +117,8 @@ struct ProjectSetupSheet: View {
           if model.project.inputs.contains(where:{ $0.id == id }) { SourceTrimEditor(model:model,input:model.inputBinding(id)) }
         case .sync(let index):
           SyncSheet(model:model,initialInputIndex:index)
+        case .sourceSync(let index):
+          SourceSyncSheet(model:model,initialTargetIndex:index)
         case .template(let index):
           TemplateBrowser(model:model,preferredDataIndex:index)
         }
@@ -151,11 +154,13 @@ struct ProjectSetupSheet: View {
           if input.kind == "data" {
             Button("Synchronize…") { model.pause(); model.setupSyncActive = true; tool = .sync(input.legacyIndex) }
               .disabled(model.busy || !model.project.inputs.contains(where:{$0.kind == "video"}))
+          } else if input.kind == "video" {
+            Button("Side by side…") { model.pause(); tool = .sourceSync(input.legacyIndex) }.disabled(model.busy)
           }
           Button("Edit input") { model.selected = nil; model.selectedInput = input.id; dismiss() }
         }
       }
-      Text("Align a recorded lap/event to the video frame. Camera offsets and rates are available in Edit input.").font(.caption).foregroundStyle(muted)
+      Text("Align a recorded data event or the same visible event in two camera files. Additional offsets and rates are available in Edit input.").font(.caption).foregroundStyle(muted)
     }
   }
   var layoutStep:some View {

@@ -305,6 +305,7 @@ struct RaceRenderApp: App {
         }
         CommandMenu("Timeline") {
           Button("Synchronize data…") { model.showSync = true }.disabled(model.dataIndex == nil)
+          Button("Synchronize cameras side by side…",action:model.beginSourceSync)
           Button("Mark export start", action: model.markStart).keyboardShortcut("i", modifiers: [])
           Button("Mark export end", action: model.markEnd).keyboardShortcut("o", modifiers: [])
           Button("Clear export marks", action: model.clearMarks)

@@ -16,16 +16,26 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F10: timeline zoom/navigation, retime/shift, field inheritance, explicit parameter clears and group event restoration implemented; see [timeline controls](timeline-editing.md).
 - F11: paired source trim previews and graphical pixel crop/zoom, physical joined-clip playhead capture, input image picture rendering and portable adjusted artwork implemented; see [source tools](source-tools.md).
 - F12: guided setup, selected-data template mapping, dynamic length policies, notes and saved new-session preferences implemented; see [project setup](project-setup.md).
-- Validation: 219 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F13: independent camera players, source event alignment, target rate/offset edits and composition verification implemented; see [camera synchronization](source-synchronization.md).
+- Validation: 225 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F13 — side-by-side camera synchronization**, after committing/pushing F12. F11 is pushed as `ae3da8d`; CI40483460279 succeeded, including both F10 compiler fixes.
+Next feature: **F14 — joined-clip sequence editing and time fillers**, after committing/pushing F13. F12 is pushed as `dd27ae7`; CI40484414693 succeeded.
 
 ## Remaining queue
 
-F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F13 handoff — implementation validated, live UI limited
+
+- `SourceSynchronization.swift` aligns physical source anchors transactionally using the reference placement clock and existing target synchronization calculation. Optional target rate/offset apply together; reference timing, trim/delay and export marks remain fixed. Bad bounds/rates/same stream/target join constraints reject before mutation. Joined reference members and first loop occurrences are supported; joined/virtual targets remain inspector timing workflows.
+- `SourceSyncPlayer.swift` owns independent raw AVPlayer/PlayerSurface instances, metadata, source time/frame controls and mute. Load/seek UUIDs reject stale completions, outstanding seeks block alignment, failed source replacement clears old media, teardown pauses players/removes observers. A real AVAssetWriter-generated video test exercises seek completion and cleanup. Play together auditions independent players, not sample-accurate mixed composition audio.
+- `SourceSyncSheet.swift` provides reference/target pickers, playback/rate/event alignment, errors and return-to-composition seek. Entry points in toolbar Sync menu, Timeline menu, video inspector and nested setup. Target lists exclude the reference stream (including joined members). Main composition player is paused, never attached to raw surfaces.
+- 225 tests pass (186 core/39 editor): four core alignment tests plus two editor tests cover offset directions, trim/rate/delay, joined/loop reference time, invalid/ambiguous alignment, single undo and generated actual-media player seek. `validate-source-sync.py` generates two flash-event camera files with a two-second difference, checks matching snapshots and legacy reopening at matched dimensions, then compares marked encoded output frames. Logs under `build/validation/source-sync`.
+- Mirrored InputFileSync and HowTo-MultipleDataInputs guides read. Live updated/native UI remains unavailable (cgWindowNotFound). Raw previews honor track orientation but omit project picture/display effects. Nominal FPS steps approximate VFR files. No sample-accurate dual-player playback or native pixel parity claimed.
+- F12 CI40484414693 succeeded ondd27ae7. Commit/push F13 and verify CI before continuing. No private/vendor assets committed. Continue sequential features without waiting for manual compaction.
 
 ## F12 handoff — implementation validated, live UI limited
 
