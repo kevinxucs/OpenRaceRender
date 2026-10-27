@@ -10,7 +10,16 @@ extension EditorModel {
       self.editingSegment = nil
     }
   }
-  var timelineExtent: Double { max(project.duration,project.objects.flatMap { $0.segments ?? [] }.map(\.time).filter { $0.isFinite && $0 >= 0 && $0 < 1_000_000 }.max() ?? 0) }
+  var timelineExtent: Double {
+    var extent = project.duration
+    for object in project.objects {
+      for segment in object.segments ?? [] {
+        let time = segment.time
+        if time.isFinite && time >= 0 && time < 1_000_000 { extent = max(extent,time) }
+      }
+    }
+    return extent
+  }
   var timelineSpan: Double { max(1/max(1,project.fps),timelineExtent/max(1,timelineZoom)) }
   var timelineLower: Double { max(0,min(timelineStart,max(0,timelineExtent-timelineSpan))) }
   var timelineUpper: Double { min(timelineExtent,timelineLower+timelineSpan) }
