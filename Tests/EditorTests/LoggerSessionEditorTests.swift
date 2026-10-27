@@ -27,6 +27,8 @@ final class LoggerSessionEditorTests:XCTestCase {
     let loaded = try RaceProject.read(saved),tables = try Telemetry.loadSources(loaded.inputs)
     XCTAssertEqual(tables[loaded.inputs[0].legacyIndex]?.value("speed",at:0),30)
     model.undo();XCTAssertNil(model.project.inputs[0].dataSession)
+    for _ in 0..<100 {if model.telemetry[model.project.inputs[0].legacyIndex]?.value("speed",at:0) == 10 {break};try await Task.sleep(nanoseconds:20_000_000)}
+    XCTAssertEqual(model.telemetry[model.project.inputs[0].legacyIndex]?.value("speed",at:0),10)
   }
   @MainActor func testUnsupportedLoggerIsExplainedInsteadOfAddedAsVideo() async throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".prr")

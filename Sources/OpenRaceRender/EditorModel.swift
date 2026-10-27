@@ -17,7 +17,7 @@ import UniformTypeIdentifiers
     if oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration || oldValue.lengthInputIndex != project.lengthInputIndex { schedulePreview() }
     let oldData = oldValue.inputs.filter { $0.kind == "data" }
     let newData = project.inputs.filter { $0.kind == "data" }
-    if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) { scheduleTelemetry() }
+    if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) || oldData.map(\.dataSession) != newData.map(\.dataSession) || oldData.map(\.legacyTrackIndex) != newData.map(\.legacyTrackIndex) { scheduleTelemetry() }
   } }
   @Published var telemetry: [Int: Telemetry] = [:]
   @Published var selected: UUID? { didSet {
