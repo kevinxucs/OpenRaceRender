@@ -206,7 +206,8 @@ enum CLI {
         let segment = p.objects[index].segments?.filter{$0.time <= time}.map(\.time).max() ?? object.start
         let start = max(object.start,segment,placement?.start ?? 0),elapsed = max(0,time-start)
         let sampleTime = samples ? time : placement?.sourceTime(at:time) ?? elapsed
-        let result = try EnhancedScriptDraft(object:object).test(object:object,data:data,sourceTime:sampleTime,displayTime:elapsed,sourceRate:placement?.rate ?? 1,unit:p.speedUnit,fps:p.fps)
+        let inputName = p.inputs.first(where:{$0.legacyIndex == object.inputIndex})?.name ?? placement?.input.name
+        let result = try EnhancedScriptDraft(object:object).test(object:object,data:data,sourceTime:sampleTime,displayTime:elapsed,sourceRate:placement?.rate ?? 1,inputName:inputName,unit:p.speedUnit,fps:p.fps)
         if option("--out") != nil {
           let file = try output()
           guard file.pathExtension.lowercased() == "png",let png = NSBitmapImageRep(cgImage:result.image).representation(using:.png,properties:[:]) else {throw RaceError.invalid("Choose a .png script preview output.")}

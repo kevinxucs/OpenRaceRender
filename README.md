@@ -58,6 +58,8 @@ python3 scripts/validate-designer.py
 
 ## Editing a session
 
+Enhanced scripts now honor time precision/compact modes, expose source/location names and distinguish overall/current/previous lap records; see [tested semantics and limits](docs/script-semantics.md).
+
 Enhanced displays offer a private background/foreground script editor with canvas/font controls, cancellable test rendering and output messages. See [authoring workflow, CLI and limits](docs/script-editor.md).
 
 Telemetry, still images, text/shapes and optional audio can export without a camera file. Set project length and marks, then render normally; see [camera-free videos](docs/camera-free.md).

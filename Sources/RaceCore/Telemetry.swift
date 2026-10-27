@@ -12,6 +12,8 @@ public struct TelemetryLap: Identifiable, Sendable {
 public final class Telemetry: @unchecked Sendable {
   public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz"]
   public internal(set) var firstSampleUnixTime: Double?
+  public internal(set) var locationName:String?
+  var recordedLocationName:String?
   public internal(set) var warnings: [String] = []
   let graphCache = GraphSampleCache()
   private let boundsLock = NSLock()
@@ -86,6 +88,7 @@ public final class Telemetry: @unchecked Sendable {
     headers = table.headers; times = table.times; columns = table.columns
     title = table.title; aliases = table.aliases; laps = table.laps
     firstSampleUnixTime = table.firstSampleUnixTime; warnings = table.warnings
+    recordedLocationName = table.locationName
     discreteColumns = table.discreteColumns
     if let lat = aliases["lat"], let lon = aliases["lon"] {
       let factor = cos((table.columns[lat].first(where: \.isFinite) ?? 0) * .pi / 180)
@@ -101,6 +104,7 @@ public final class Telemetry: @unchecked Sendable {
     var cols: [[Double]] = []
     var ts: [Double] = []
     var fileTitle = initialTitle
+    var fileLocation:String?
     var timeColumn = 0
     var firstTime: Double?
     var previous: [Double] = []
@@ -115,6 +119,7 @@ public final class Telemetry: @unchecked Sendable {
           line.contains("\t") ? "\t" : (line.contains(";") && !line.contains(",") ? ";" : ",")
         let cells = Self.parseRow(line.replacingOccurrences(of:"\u{FEFF}",with:""), delimiter: sep)
         if cells.first?.lowercased() == "session title", cells.count > 1 { fileTitle = cells[1] }
+        if let key = cells.first?.lowercased(),["track name","location name","location"].contains(key),cells.count > 1 {fileLocation = Self.normalizedLocation(cells[1])}
         let preferred = override.flatMap { name in cells.firstIndex { $0.caseInsensitiveCompare(name) == .orderedSame } }
         if let t = override?.isEmpty == false ? preferred : cells.firstIndex(where: { Self.isTimeHeader($0) }), cells.count >= 2 {
           delimiter = sep
@@ -163,6 +168,7 @@ public final class Telemetry: @unchecked Sendable {
     times = ts
     columns = cols
     title = fileTitle
+    recordedLocationName = fileLocation
     var a: [String: Int] = ["time":timeColumn]
     func choose(_ key: String, _ patterns: [String]) {
       for pattern in patterns {

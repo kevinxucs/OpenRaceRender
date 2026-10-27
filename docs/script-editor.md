@@ -14,7 +14,7 @@ For source-free scripts, SampleTime and DisplayTime follow elapsed project time 
 
 Sources/fonts/canvas/flags are stored using the existing structured Enhanced payload in `.orrp`/`.orrt`, retaining scripts through templates/styles and native Undo. Newly authored displays have no fabricated native common record: rebuilt native `.rrp/.rrt/.rro` export refuses them until that authored encoding is verified. Existing imported native script payload edits retain the previous legacy writer's checks; live native reopening of these new edits remains unverified. Text source import/export uses UTF-8, while the native guide's language describes ASCII strings. Do not assume native acceptance of Unicode source extensions.
 
-The editor exposes the implemented language, rather than guaranteeing complete language/visual parity. DrawTime formatting, LocName and previous-best-lap semantics remain F29 work. Print now has a diagnostic sink; ordinary preview/export does not write those messages to external files or services. Font availability, gradients and other drawing approximations retain their existing limits.
+The editor exposes the implemented language, rather than guaranteeing complete language/visual parity. F29 adds [time formatting, names, record queries and type rules](script-semantics.md). Print has a diagnostic sink; ordinary preview/export does not write those messages to external files or services. Font availability, gradients and other drawing approximations retain their existing limits.
 
 ## Command line
 

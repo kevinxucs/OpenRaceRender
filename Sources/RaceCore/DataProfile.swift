@@ -21,7 +21,7 @@ public struct DataProfile:Codable,Equatable,Sendable {
   public var includesTrackSettings:Bool
   public init(name:String,settings:DataSettings,includeTrackSettings:Bool = false) {
     self.name = name; self.settings = settings; includesTrackSettings = includeTrackSettings
-    if !includeTrackSettings { self.settings.finishLine = nil; self.settings.ignoreLapTriggers = nil }
+    if !includeTrackSettings { self.settings.finishLine = nil; self.settings.ignoreLapTriggers = nil;self.settings.locationName = nil }
   }
   enum CodingKeys:String,CodingKey { case formatVersion,name,settings,includesTrackSettings }
   public init(from decoder:Decoder) throws {
@@ -34,13 +34,13 @@ public struct DataProfile:Codable,Equatable,Sendable {
   }
   public func applying(to current:DataSettings) -> DataSettings {
     var value = settings
-    if !includesTrackSettings { value.finishLine = current.finishLine; value.ignoreLapTriggers = current.ignoreLapTriggers }
+    if !includesTrackSettings { value.finishLine = current.finishLine; value.ignoreLapTriggers = current.ignoreLapTriggers;value.locationName = current.locationName }
     return value
   }
   public func validate() throws {
     guard formatVersion == 1 else { throw RaceError.invalid("Unsupported data-profile version \(formatVersion).") }
     guard !name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty,name.utf8.count <= 1024,
-      includesTrackSettings || (settings.finishLine == nil && settings.ignoreLapTriggers == nil) else {
+      includesTrackSettings || (settings.finishLine == nil && settings.ignoreLapTriggers == nil && settings.locationName == nil) else {
       throw RaceError.invalid("Use a profile name and explicitly include track settings when saving them.")
     }
     try settings.validateConfiguration()
@@ -76,6 +76,7 @@ extension Telemetry {
 
 extension DataSettings {
   public func validateConfiguration(headers:[String]? = nil) throws {
+    if let locationName,locationName.utf8.count > 1024 || locationName.contains("\0") {throw RaceError.invalid("Location name must fit 1024 UTF-8 bytes without NUL characters.")}
     guard assignments.count <= 64,fields.count <= 64,
       assignments.allSatisfy({!$0.key.isEmpty && $0.key.utf8.count <= 128 && $0.value.utf8.count <= 4096}) else {
       throw RaceError.invalid("Data configuration has too many or invalid assignments/calculated fields.")

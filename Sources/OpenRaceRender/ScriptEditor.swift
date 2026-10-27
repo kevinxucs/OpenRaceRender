@@ -103,8 +103,9 @@ extension EditorModel {
     let start = max(request.object.start,request.segment ?? 0,placement?.start ?? 0)
     let elapsed = max(0,time-start),sourceTime = samples ? time : placement?.sourceTime(at:time) ?? elapsed
     let sourceRate = placement?.rate ?? 1,unit = model.project.speedUnit,fps = model.project.fps
+    let inputName = model.project.inputs.first(where:{$0.legacyIndex == request.object.inputIndex})?.name ?? placement?.input.name
     let object = request.object,draft = draft
-    let task = Task.detached {try draft.test(object:object,data:data,sourceTime:sourceTime,displayTime:elapsed,sourceRate:sourceRate,unit:unit,fps:fps)}
+    let task = Task.detached {try draft.test(object:object,data:data,sourceTime:sourceTime,displayTime:elapsed,sourceRate:sourceRate,inputName:inputName,unit:unit,fps:fps)}
     worker = task
     testTask = Task {
       do {

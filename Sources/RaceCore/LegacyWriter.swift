@@ -434,6 +434,7 @@ public enum LegacyWriter {
   }
 
   static func dataSettings(_ s: DataSettings, into b: inout Data) throws {
+    guard s.locationName == nil else {throw RaceError.invalid("An explicit script location name requires .orrp; native encoding is unverified.")}
     guard s.detectGPSUpdates != true,s.smoothCurves != true else {
       throw RaceError.invalid("GPS update reconstruction and smooth map curves require .orrp; their native flags are not verified.")
     }

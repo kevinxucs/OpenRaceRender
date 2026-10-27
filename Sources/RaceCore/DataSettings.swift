@@ -37,6 +37,7 @@ public struct DataSettings: Codable, Equatable, Sendable {
   public var assignments: [String: String] = [:]
   public var fields: [CalculatedField] = []
   public var finishLine: FinishLine?
+  public var locationName:String?
   public var timeUnitsPerSecond: Double?
   public var speedMultiplier: Double?
   public var speedUnit: String?
@@ -115,6 +116,7 @@ extension Telemetry {
       if discreteColumns.contains(i) { discreteColumns.insert(headers.count - 1) }
     }
     rebuildMapPoints()
+    resolveLocation(settings)
     if settings.assignments["lap"]?.isEmpty == false,let index = aliases["lap"] {
       discreteColumns.insert(index); laps = assignedLaps(column:columns[index])
     }

@@ -58,7 +58,7 @@ enum LegacyEnhancedRenderer {
     for i in 0..<8 { number("Color"+String(UnicodeScalar(65+i)!),Double(payload.u32(576+i*4) & 0xffffff)) }
     let fields = ["posx","posy","posz","speed","heading","gforcex","gforcey","throttle","brake","rpm","gear","airfuel","power","torque"]
     for (i,field) in fields.enumerated() { number("dft_"+field,Double(-i-1)) }
-    vars["speedunit"] = .string(unit == "mph" ? "MPH" : unit); vars["inputname"] = .string(data?.title ?? ""); vars["locname"] = .string("")
+    vars["speedunit"] = .string(unit == "mph" ? "MPH" : unit); vars["inputname"] = .string(timeline.inputName ?? data?.title ?? ""); vars["locname"] = .string(data?.locationName ?? "")
     let drawing = ScriptDrawing(context:canvas,font:payload.utf16(432,128),data:data,time:time,unit:unit)
     drawing.message = message
     let machine = ScriptMachine(variables:vars) { name,args in try drawing.call(name,args) }
@@ -85,7 +85,8 @@ enum LegacyEnhancedRenderer {
         let frame = Int(floor(position+0.000001))
         let dataKey = data.map { String(describing:ObjectIdentifier($0))+":"+String($0.renderRevision) } ?? "none"
         let timingKey = [timeline.sourceStart,timeline.sourceStep,timeline.displayStart,timeline.frameInterval,minimum,maximum].map { String($0.bitPattern) }.joined(separator:":")
-        let cacheKey = "\(o.id)|\(ObjectIdentifier(program))|\(dataKey)|\(channel)|\(unit)|\(timingKey)" as NSString
+        let context = Data(((timeline.inputName ?? data?.title ?? "")+"\0"+(data?.locationName ?? "")).utf8).base64EncodedString()
+        let cacheKey = "\(o.id)|\(ObjectIdentifier(program))|\(dataKey)|\(channel)|\(unit)|\(timingKey)|\(context)" as NSString
         historyLock.lock()
         let history: EnhancedHistory
         if let cached = histories.object(forKey:cacheKey) { history = cached;historyLock.unlock() }
@@ -155,10 +156,12 @@ struct EnhancedTimeline {
   var sourceStep: Double = 1.0/30
   var displayStart: Double = 0
   var frameInterval: Double = 1.0/30
+  var inputName:String?
   func displayTime(at sample: Double) -> Double { displayStart+(sample-sourceStart)*frameInterval/sourceStep }
 }
 
 final class ScriptDrawing {
+  private static let stringArguments:[String:Set<Int>] = ["drawtext":[0],"getdataindex":[0],"substr":[0],"strlen":[0],"toupper":[0],"tolower":[0],"trim":[0],"asc":[0]]
   let c: CGContext
   let font: String
   let data: Telemetry?
@@ -187,6 +190,16 @@ final class ScriptDrawing {
     NSGraphicsContext.restoreGraphicsState()
   }
   func call(_ name: String,_ args: [ScriptValue]) throws -> ScriptValue {
+    if name != "print" {
+      let strings = Self.stringArguments[name] ?? []
+      for (index,value) in args.enumerated() {
+        switch value {
+        case .string where !strings.contains(index):throw RaceError.invalid("\(name) parameter \(index+1) needs a number.")
+        case .number where strings.contains(index):throw RaceError.invalid("\(name) parameter \(index+1) needs a string.")
+        default:break
+        }
+      }
+    }
     if !renders && name.hasPrefix("draw") { return .number(0) }
     func n(_ i: Int,_ fallback: Double = 0) -> Double { args.indices.contains(i) ? args[i].number : fallback }
     func s(_ i: Int) -> String { args.indices.contains(i) ? args[i].string : "" }
@@ -198,7 +211,7 @@ final class ScriptDrawing {
     case "drawnumber": text(n(0).isFinite ? String(format:"%.*f",max(0,min(8,ScriptMachine.int(n(1)))),n(0)) : "—",x:n(2),y:n(3),color:n(4),size:n(5),alignment:n(6))
     case "drawtext": text(s(0),x:n(1),y:n(2),color:n(3),size:n(4),alignment:n(5))
     case "drawchar": text(String(UnicodeScalar(max(0,min(127,ScriptMachine.int(n(0)))))!),x:n(1),y:n(2),color:n(3),size:n(4),alignment:n(5))
-    case "drawtime": text(clockText(n(0)),x:n(2),y:n(3),color:n(4),size:n(5),alignment:n(6))
+    case "drawtime": text(ScriptTimeFormat.string(n(0),decimals:ScriptMachine.int(n(1)),compact:ScriptMachine.int(n(7))),x:n(2),y:n(3),color:n(4),size:n(5),alignment:n(6))
     case "drawdot","drawsquare","drawcircle":
       let circle = name == "drawcircle", radius = max(0,min(4096,n(circle ? 2 : 3)))
       c.setFillColor(color(n(circle ? 3 : 2))); c.setStrokeColor(color(n(circle ? 3 : 2)))
@@ -268,9 +281,11 @@ final class ScriptDrawing {
     case "getcurlaptime": return result(data?.lap(at:time).map { time-$0.start } ?? 0)
     case "getbestlapnum": return result(Double(data?.bestLap?.number ?? 0))
     case "getbestlaptime": return result(data?.bestLap?.duration ?? 0)
-    case "getcurbestlapnum","getprevbestlapnum": return result(Double(data?.bestLap(at:time)?.number ?? 0))
-    case "getcurbestlaptime","getprevbestlaptime": return result(data?.bestLap(at:time)?.duration ?? 0)
-    case "getlaptime": return result(data?.laps.first { $0.number == ScriptMachine.int(n(0)) }?.duration ?? 0)
+    case "getcurbestlapnum": return result(Double(data?.bestLap(at:time)?.number ?? 0))
+    case "getcurbestlaptime": return result(data?.bestLap(at:time)?.duration ?? 0)
+    case "getprevbestlapnum": return result(Double(data?.previousBestLap(at:time)?.number ?? 0))
+    case "getprevbestlaptime": return result(data?.previousBestLap(at:time)?.duration ?? 0)
+    case "getlaptime": return result(data?.laps.first { $0.complete && $0.number == ScriptMachine.int(n(0)) }?.duration ?? 0)
     case "formatnumber": return .string(String(format:"%.*f",max(0,min(8,ScriptMachine.int(n(1)))),n(0)))
     case "formatheading":
       let headings = ["N","NE","E","SE","S","SW","W","NW"]

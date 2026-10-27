@@ -112,9 +112,12 @@ struct FinishLineEditor:View {
     _positionMode = State(initialValue:input.dataSettings?.finishLine == nil ? "cursor" : "coordinates")
     _autoHeading = State(initialValue:input.dataSettings?.finishLine == nil)
     _ignore = State(initialValue:input.dataSettings?.ignoreLapTriggers ?? 0)
+    _trackName = State(initialValue:input.dataSettings?.locationName ?? source?.locationName ?? "")
   }
   var settings:DataSettings {
     var value = input.dataSettings ?? DataSettings(); value.finishLine = custom ? line : nil
+    let original = input.dataSettings?.locationName ?? data?.locationName ?? ""
+    if custom,(selectedTrack != nil || trackName != original),!trackName.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty {value.locationName = trackName.trimmingCharacters(in:.whitespacesAndNewlines)}
     value.ignoreLapTriggers = ignore == 0 ? nil : ignore; return value
   }
   var current:GPSTrackSample? {

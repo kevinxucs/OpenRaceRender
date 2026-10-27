@@ -38,7 +38,7 @@ final class RCZTests: XCTestCase {
   func testIndependentClocksUnitsDeviceRolesAndMissingValues() throws {
     let t = [epoch, epoch + 1000, epoch + 2000]
     let d = try read([
-      ("session.json", try json(["title": "Clock test"])),
+      ("session.json", try json(["title": "Clock test","trackName":"Original RCZ Circuit"])),
       ("sessionfragment.json", try json(["primaryGpsDeviceIndex": 42, "devices2": [
         ["selector": ["id": 42, "type": 1]], ["selector": ["id": 7, "type": 2]], ["selector": ["id": 88, "type": 12]],
         ["selector": ["id": 102, "type": 3], "gyroBias": [-1.77344, -0.60249, 2.74557]] as [String: Any]]])),
@@ -57,7 +57,7 @@ final class RCZTests: XCTestCase {
       ("channel_12_88_7_1_1", longs(t)), ("channel2_12_88_7_7_3", doubles([9.80665, 0, -9.80665])),
       ("channel_12_88_4_1_1", longs(t)), ("channel2_12_88_4_4_3", doubles([90, 90, 90])),
     ])
-    XCTAssertEqual(d.title, "Clock test"); XCTAssertEqual(d.duration, 2)
+    XCTAssertEqual(d.title, "Clock test"); XCTAssertEqual(d.duration, 2);XCTAssertEqual(d.locationName,"Original RCZ Circuit")
     XCTAssertEqual(d.firstSampleUnixTime, Double(epoch) / 1000)
     XCTAssertEqual(d.count, 9)
     XCTAssertEqual(d.speed(at: 0.5, unit: "km/h")!, 54, accuracy: 0.00001)

@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 336 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 343 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -39,13 +39,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F28: private background/foreground Enhanced source editor, canvas/font/aspect/persistence, cancellable test/messages, timeline/stale Apply and script CLI implemented; see [script authoring](script-editor.md).
 
-Next feature: **F29 — remaining Enhanced language semantics**, after committing/pushing F28. F27 `0f3c6ee` passed CI40567292217.
+- F29: DrawTime precision/compact modes, bounded Print diagnostics, location/source names, distinct overall/current/previous records and documented type restrictions implemented; see [script semantics](script-semantics.md).
+
+Next feature: **F30 — embedded GoPro telemetry extraction**, after committing/pushing F29. F28 `e3d82a7` passed CI40571284178.
 
 ## Remaining queue
 
-F29, F30, F31, F32, F33, F34, F35, F36.
+F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F29 handoff — explicit semantics/media validated, native edge cases limited
+
+- ScriptTimeFormat handles0..8decimals, rounding/carry/sign/negativezero/nonfinite and Compact minimumcomponents0hours/1minutes/2seconds (larger nonzero units retained,2digit hour/minute fields). DrawTime uses all8args. Guide leaves padding/rounding/large-value details unspecified; independent tested policy, native exact edgecases unverified. Print sink completedF28 and retained. Numeric/string mixedops, unary/conditions and function text/numeric argument rules now error as guide requires; valid short circuit preserved.
+- Telemetry.previousBestLap picks best before most recently completed lap began; current-best includes complete laps ending<=sourceTime, overall includes later completed laps. GetLapTime excludespartials. Existing general best filter>5seconds retained. Source-free clocks fromF28 unchanged. InputName uses actual root input label, fallbacktelemetrytitle; test/CLI contexts and historykey include input/location names to avoid stalepersistent backgrounds.
+- LocName resolves explicitDataSettings.locationName (emptyclears) -> RCZsession.trackName/CSVtrack-locationpreamble -> nearest user SavedTrack within5km firstvalidGPS, elseempty. No online lookup/vendorcatalogue, no frame-timeI/O. Parsing/configurationidempotent and metadata separatefromsource/sessiontitle. DataSetup optionaloverride+resolvedpreview; FinishLine selection/newnamecanapplyoverride, unchangedinferredname remainsautomatic. Profiles locationonlyincludeTrack, genericprofileskeepcurrentsource, templatesalreadystripallDataSettings. Nativewriter refusesexplicitoverride becauseencodingunverified.
+- 343 tests pass (275core/68editor), no skips with authorized library/graphics. Six core/one editor additions plusRCZmetadata assertions cover DrawTime exactliteralpixels/precision/carry/sign/components, recordboundaries/partials, metadata/reset/neartrack/profile, renamedcontextcache, typederrors and private locationApply/Undo preservingoffset/marks. Optional installed Enhanced styles render at0.5/90under strictertypes. validate-script-semantics passes authoredpublicCLI diagnostics atlapboundaries, independent literal text/name/record encodedframe refs, override, a320x180/10FPS full60s session andnonzerochunk equivalence. ReferencePNG visually inspected. Logs build/validation/script-semantics. Existing validate-script-editor regression passes. Signed local library app/ZIP verified.
+- Mirrored language time/lap/location/type sections rechecked. Native formatting/record/location-database edgecases remaincgWindowNotFound, no universal parityclaim. F28 pushede3d82a7 CI40571284178 succeeded. Regression/package complete; commit/pushF29 beforeF30, continue sequentially no manualcompactionwait. No private/vendorfixtures committed.
 
 ## F28 handoff — source authoring/rendering validated, live/native reopen limited
 

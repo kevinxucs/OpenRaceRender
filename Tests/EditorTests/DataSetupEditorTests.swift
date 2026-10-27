@@ -3,6 +3,18 @@ import XCTest
 @testable import OpenRaceRender
 
 final class DataSetupEditorTests:XCTestCase {
+  @MainActor func testLocationOverrideAppliesPrivatelyAndUndoPreservesTimingAndMarks() async throws {
+    let url = try file(),model = EditorModel()
+    var input = MediaInput(name:"Renamed input",path:url.path,kind:"data",legacyIndex:7);input.duration = 2000;input.offset = 3
+    model.project.inputs = [input];model.project.rangeStart = 1;model.project.rangeEnd = 2
+    let before = model.project,request = DataSetupRequest(url:url,headers:["Ticks","Velocity"],revision:model.documentRevision,original:input)
+    var configured = settings();configured.locationName = "Original circuit"
+    let preview = try await DataSetupPreview.load(url,settings:configured)
+    XCTAssertEqual(preview.data.locationName,"Original circuit");XCTAssertEqual(model.project,before)
+    XCTAssertTrue(model.applyDataSetup(request,preview:preview));XCTAssertEqual(model.project.inputs[0].dataSettings?.locationName,"Original circuit")
+    XCTAssertEqual(model.project.inputs[0].offset,3);XCTAssertEqual(model.project.rangeStart,1);XCTAssertEqual(model.project.rangeEnd,2)
+    model.undo();XCTAssertEqual(model.project,before)
+  }
   func file() throws -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("csv")
     try "Ticks,Velocity\n1000,36\n2000,72\n3000,108\n".write(to:url,atomically:true,encoding:.utf8)

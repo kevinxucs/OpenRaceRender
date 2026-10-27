@@ -19,3 +19,7 @@ Native RaceRender data-profile file interoperability is unverified. Do not renam
 ## Validation
 
 Five core and three editor tests cover header inspection, custom/clock-formatted/millisecond time, bad and missing clocks, speed/accuracy conversions, lap remapping, idempotence, profile scope/roundtrip/calibration, invalid settings, safe import, source identity, marks/timing, project reload, undo and stale requests. Full suite: 263 tests, no failures. `scripts/validate-data-profiles.py` compares mapped custom-clock data against independently authored canonical data in snapshots and encoded video chunks. No private or vendor fixtures are committed. Live native/editor UI operation remains unverified while the computer-use service reports `cgWindowNotFound`.
+
+## Script location metadata
+
+F29 adds an explicit location-name override in the data setup sheet, with automatic recorded metadata/nearby saved-track fallback and empty-override clearing. It is track-specific: profiles include it only with track settings, and generic profiles retain the current source override. See [script semantics](script-semantics.md).

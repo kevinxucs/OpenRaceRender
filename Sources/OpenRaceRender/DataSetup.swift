@@ -113,6 +113,7 @@ struct DataSetupSheet:View {
       HStack(alignment:.top,spacing:20) {
         ScrollView {
           Form {
+            SourceLocationControls(settings:$settings)
             DataSmoothingControls(settings:$settings)
             DataAssignmentControls(settings:$settings,headers:request.headers)
           }.padding(8)
@@ -121,6 +122,7 @@ struct DataSetupSheet:View {
           Text("Map recorded columns, then preview to check the session clock and values. Nothing is applied until you choose Apply.").font(.callout)
           if let preview {
             Text("\(preview.data.count.formatted()) samples · \(clockText(preview.data.duration))").font(.headline)
+            if let name = preview.data.locationName {Text("Location: "+name).font(.caption)}
             valuePreview(preview.data)
             Slider(value:$position,in:0...max(0.001,preview.data.duration))
             Text("Session time: " + clockText(position)).font(.caption.monospacedDigit())

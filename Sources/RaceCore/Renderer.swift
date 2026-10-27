@@ -54,7 +54,8 @@ public enum OverlayRenderer {
       let historyStart = max(segmentStart,placement?.start ?? 0)
       let interval = 1/max(1,scene.project.fps)
       let timeline = EnhancedTimeline(sourceStart:placement?.sourceTime(at:historyStart) ?? 0,
-        sourceStep:interval*(placement?.rate ?? 1),displayStart:historyStart-segmentStart,frameInterval:interval)
+        sourceStep:interval*(placement?.rate ?? 1),displayStart:historyStart-segmentStart,frameInterval:interval,
+        inputName:scene.project.inputs.first(where:{$0.legacyIndex == o.inputIndex})?.name ?? placement?.input.name)
       if let p = o.picture, o.kind != .image {
         c.translateBy(x: r.midX, y: r.midY)
         c.rotate(by: p.rotation * .pi / 180)

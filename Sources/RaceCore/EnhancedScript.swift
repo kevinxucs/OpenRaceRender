@@ -7,6 +7,7 @@ enum ScriptValue {
   var number: Double { if case .number(let n) = self { return n }; return 0 }
   var string: String { switch self { case .string(let s): return s; case .number(let n): return String(n) } }
   var truth: Bool { number.isFinite && number != 0 }
+  func boolean() throws -> Bool {guard case .number = self else {throw RaceError.invalid("A numeric condition is required.")};return truth}
 }
 enum ScriptToken: Equatable {
   case number(Double), string(String), name(String), symbol(String)
@@ -172,7 +173,7 @@ final class ScriptMachine {
     case .stop: stopped = true
     case .block(let list): try run(list)
     case .expression(let e): _ = try evaluate(e)
-    case .branch(let e, let yes, let no): if try evaluate(e).truth { try execute(yes) } else if let no { try execute(no) }
+    case .branch(let e, let yes, let no): if try evaluate(e).boolean() { try execute(yes) } else if let no { try execute(no) }
     case .assign(let name, let op, let e):
       guard variables[name] != nil || variables.count < 256 else { throw RaceError.invalid("Too many script variables.") }
       let rhs = try evaluate(e)
@@ -193,11 +194,15 @@ final class ScriptMachine {
     case .call(let name,let args): return try function(name,args.map { try evaluate($0) })
     case .unary(let op,let e):
       let v = try evaluate(e)
+      guard case .number = v else {throw RaceError.invalid("Unary \(op) needs a number.")}
       return .number(op == "!" ? (v.truth ? 0 : 1) : (op == "-" ? -v.number : v.number))
     case .binary(let op,let a,let b):
       let lhs = try evaluate(a)
-      if op == "&&" && !lhs.truth { return .number(0) }
-      if op == "||" && lhs.truth { return .number(1) }
+      if op == "&&" || op == "||" {
+        let condition = try lhs.boolean()
+        if op == "&&" && !condition { return .number(0) }
+        if op == "||" && condition { return .number(1) }
+      }
       return try Self.binary(op,lhs,evaluate(b))
     }
   }
@@ -206,7 +211,9 @@ final class ScriptMachine {
       if op == "+" { return .string(String((x+y).prefix(4096))) }
       if op == "==" { return .number(x == y ? 1 : 0) }
       if op == "!=" { return .number(x != y ? 1 : 0) }
+      throw RaceError.invalid("Operator \(op) is not supported for strings.")
     }
+    guard case .number = a,case .number = b else {throw RaceError.invalid("Cannot mix numbers and strings; use FormatNumber for text.")}
     let x = a.number,y = b.number
     switch op {
     case "+": return .number(x+y)

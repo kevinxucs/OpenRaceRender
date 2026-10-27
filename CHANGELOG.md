@@ -1,5 +1,10 @@
 # Changelog
 
+## F29 — Enhanced language semantics
+
+- DrawTime precision/compact formatting, distinct current/previous/overall lap records and incomplete-lap handling. Print diagnostics from F28 remain bounded to the current test frame.
+- Recorded/override/nearby-track LocName, renamed InputName with persistent cache invalidation, track-scoped profile handling and documented numeric/string type checks. See [rules and validation](docs/script-semantics.md).
+
 ## F28 — Enhanced script authoring
 
 - Background/foreground source editing/import/export, canvas/font/aspect/persistence controls, private draft Apply/Undo and stale-segment safeguards. Cancellable actual-renderer tests include syntax/runtime diagnostics and bounded current-frame Print output.

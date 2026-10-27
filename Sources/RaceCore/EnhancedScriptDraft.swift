@@ -54,13 +54,13 @@ public struct EnhancedScriptDraft:Equatable,Sendable {
     return result
   }
   /// Uses the actual renderer with isolated persistent history; no document changes.
-  public func test(object:DisplayObject,data:Telemetry?,sourceTime:Double,displayTime:Double,sourceRate:Double = 1,unit:String,fps:Double) throws -> EnhancedScriptTest {
+  public func test(object:DisplayObject,data:Telemetry?,sourceTime:Double,displayTime:Double,sourceRate:Double = 1,inputName:String? = nil,unit:String,fps:Double) throws -> EnhancedScriptTest {
     var value = try applying(to:object); value.id = UUID()
     guard sourceTime.isFinite,displayTime.isFinite,displayTime >= 0,sourceRate.isFinite,sourceRate > 0,fps.isFinite,fps > 0,fps <= 240 else {throw RaceError.invalid("Invalid script test clock.")}
     guard let canvas = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:0,space:OverlayRenderer.colorSpace,bitmapInfo:OverlayRenderer.bitmapInfo) else {throw RaceError.invalid("Cannot allocate the script test canvas.")}
     var messages:[String] = [],failure:String?,omitted = 0
     let interval = 1/fps
-    let timeline = EnhancedTimeline(sourceStart:sourceTime-displayTime*sourceRate,sourceStep:interval*sourceRate,displayStart:0,frameInterval:interval)
+    let timeline = EnhancedTimeline(sourceStart:sourceTime-displayTime*sourceRate,sourceStep:interval*sourceRate,displayStart:0,frameInterval:interval,inputName:inputName)
     let okay = LegacyEnhancedRenderer.draw(canvas,object:value,rect:CGRect(x:0,y:0,width:width,height:height),data:data,time:sourceTime,unit:unit,timeline:timeline,
       failure:{failure = $0},message:{if messages.count < 100 {messages.append(String($0.prefix(2048)))} else {omitted += 1}})
     guard okay,let cg = canvas.makeImage() else {throw RaceError.invalid(failure ?? "Script did not render.")}

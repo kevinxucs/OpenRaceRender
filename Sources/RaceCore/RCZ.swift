@@ -5,6 +5,7 @@ import Foundation
 enum RCZReader {
   struct Table {
     var title: String
+    var locationName:String?
     var firstSampleUnixTime: Double
     var times: [Double]
     var headers: [String]
@@ -225,7 +226,7 @@ enum RCZReader {
     if !rawIDs.isEmpty { warnings.append("Retained \(rawIDs.count) unrecognized RCZ channel identifiers as raw numeric values.") }
     let title = [session["title"] as? String, session["trackName"] as? String, fallbackTitle]
       .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty } ?? fallbackTitle
-    return Table(title: title, firstSampleUnixTime: Double(first) / 1000, times: times,
+    return Table(title: title, locationName:Telemetry.normalizedLocation(session["trackName"] as? String),firstSampleUnixTime: Double(first) / 1000, times: times,
       headers: headers, columns: columns, aliases: aliases, discreteColumns: discreteColumns, laps: laps, warnings: warnings)
   }
 
