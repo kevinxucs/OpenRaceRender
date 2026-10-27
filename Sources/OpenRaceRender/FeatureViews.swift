@@ -467,12 +467,8 @@ struct DataControls: View {
   var body: some View {
     DisclosureGroup("Data channels & lap timing") {
       VStack(alignment: .leading, spacing: 12) {
-        ForEach(["speed", "rpm", "gear", "throttle", "brake", "lat", "lon", "distance", "heading", "gx", "gy"], id: \.self) { alias in
-          Picker(alias.uppercased(), selection: Binding(get: { settings.wrappedValue.assignments[alias] ?? "" }, set: { settings.wrappedValue.assignments[alias] = $0 })) {
-            Text("Automatic").tag("")
-            ForEach(data?.recordedHeaders ?? [], id: \.self) { Text($0).tag($0) }
-          }
-        }
+        Button("Configure columns / data profiles…") { model.configureData(input) }
+        Text("Map session time, location, lap numbers and telemetry; set units; import or export a reusable profile.").font(.caption).foregroundStyle(muted)
         DerivedMotionControls(settings:settings,data:data)
         GearEstimationControls(settings:settings,data:data,model:model,inputIndex:input.legacyIndex)
         Divider()

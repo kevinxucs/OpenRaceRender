@@ -20,16 +20,26 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 255 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
-- F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
+- Validation: 263 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
+- F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F17 — complete data assignments, conversions and reusable profiles**, after committing/pushing F16. F15 is pushed as `00107a9`; CI40513410215 succeeded.
+Next feature: **F18 — configurable telemetry and gauge smoothing**, after committing/pushing F17. F16 is pushed as `3631137`; CI40517708455 succeeded.
 
 ## Remaining queue
 
-F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F17 handoff — implementation validated, live UI limited
+
+- Versioned `.orrd` JSON DataProfile stores settings/name/track scope, not source paths, offsets or marks. Logger-only profiles retain destination track settings; explicit track profiles replace them. Full role enum, settings/header validation, calibration/custom fields roundtrip and missing-column remapping are implemented. Native RaceRender data-profile encoding remains unverified; no fixture received from optional sample request yet.
+- Data setup sheet has all recorded-role assignments, custom clock + units/sec, explicit speed unit/multiplier, accuracy-to-meters conversion, raw sample rows, duration/sample count, scrubbable values, profile import/export and Apply/Cancel. Existing heading/gear/calculated/finish-line controls remain in inspector and profiles include them. Default speed conversion preserves legacy automatic-unit semantics.
+- Unrecognized CSV/TSV/TXT clocks queue private data setup instead of failing permanently. Import checkpoints now occur only on successful installation. Requests bind document revision/original source and exact preview URL/configuration. Atomic Apply preserves source ID/path/name/offset/timing and video marks, updates duration and supports one Undo. New/open clears queued setups/imports; stale async imports cannot mutate a replacement document.
+- Telemetry(url:settings:) now applies validated settings once; redundant app/CLI configure calls removed. Case-insensitive explicit headers, BOM stripping, formatted clock raw values, strict missing/backwards/constant clocks, canonical session-time role, altitude/accuracy aliases and explicit lap remapping added. Existing RCZ lap metadata retained by default. Explicit accuracy/speed-unit custom native rewrites refused until verified; `.orrp` retains them.
+- 263 tests (214 core/49 editor) pass, including five new core/three editor cases. New validate-data-profiles acceptance compares custom-clock/unit/calculated-field snapshots and encoded chunks with independent canonical data. Established validate-media passes including RCZ/CSV overlay equality and mark/picture/export checks. Local release bundles authorized library; code signature and ZIP validated. Logs under build/validation/data-profiles. Live UI/native operation still limited by cgWindowNotFound, no GUI parity claim.
+- Mirrored InputFileEdit guide/screenshot reviewed; F16 CI40517708455 succeeded. Commit/push F17, verify CI, then continue F18 sequentially. No user compaction wait required and no vendor/private fixtures committed.
 
 ## F16 handoff — implementation validated, live UI limited
 

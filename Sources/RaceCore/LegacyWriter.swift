@@ -429,6 +429,9 @@ public enum LegacyWriter {
   }
 
   static func dataSettings(_ s: DataSettings, into b: inout Data) throws {
+    guard s.accuracyMultiplier == nil, s.speedConversionEnabled == nil else {
+      throw RaceError.invalid("Explicit speed-unit overrides and GPS accuracy conversion require .orrp; their native representation is not verified.")
+    }
     guard s.gearDerivation != .recordedOnly,(s.gearEstimation ?? GearEstimationSettings()) == GearEstimationSettings() else {
       throw RaceError.invalid("Recorded-only gear and custom gear calibration require .orrp; their native settings are not verified.")
     }
@@ -438,7 +441,7 @@ public enum LegacyWriter {
       throw RaceError.invalid("Explicit recorded-only heading and G-force calculation modes require .orrp; their native source controls are not verified.")
     }
     let fields = [("time",0),("lon",132),("lat",260),("altitude",388),("accuracy",516),("lap",648),("speed",776),("heading",908),("rpm",1040),("gear",1168),("gx",1296),("gy",1424)]
-    guard Set(s.assignments.keys).isSubset(of:Set(fields.map(\.0))) else { throw RaceError.invalid("Some custom data assignments have no RaceRender input-setting field.") }
+    guard Set(s.assignments.filter{!$0.value.isEmpty}.map(\.key)).isSubset(of:Set(fields.map(\.0))) else { throw RaceError.invalid("Some custom data assignments have no RaceRender input-setting field.") }
     for (alias,offset) in fields { try string(s.assignments[alias] ?? "",into:&b,at:offset,size:128,field:"Data assignment") }
     if s.headingDerivation == .calculate { try string("(Calculate)",into:&b,at:908,size:128,field:"Heading calculation") }
     if s.gearDerivation == .calculate { try string("(Calculate)",into:&b,at:1168,size:128,field:"Gear calculation") }

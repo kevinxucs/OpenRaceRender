@@ -32,7 +32,9 @@
 			<key>LSHandlerRank</key>
 			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
-			<array><string>org.openracerender.racechrono-session</string></array>
+			<array>
+				<string>org.openracerender.racechrono-session</string>
+			</array>
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
@@ -81,9 +83,16 @@
 			<key>UTTypeDescription</key>
 			<string>RaceChrono Session Data</string>
 			<key>UTTypeConformsTo</key>
-			<array><string>com.pkware.zip-archive</string></array>
+			<array>
+				<string>com.pkware.zip-archive</string>
+			</array>
 			<key>UTTypeTagSpecification</key>
-			<dict><key>public.filename-extension</key><array><string>rcz</string></array></dict>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>rcz</string>
+				</array>
+			</dict>
 		</dict>
 	</array>
 	<key>UTExportedTypeDeclarations</key>
@@ -120,6 +129,25 @@
 				<array>
 					<string>orrt</string>
 				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.openracerender.data-profile</string>
+			<key>UTTypeDescription</key>
+			<string>OpenRaceRender Data Profile</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>orrd</string>
+				</array>
+				<key>public.mime-type</key>
+				<string>application/json</string>
 			</dict>
 		</dict>
 	</array>

@@ -76,7 +76,9 @@ import UniformTypeIdentifiers
   private var redoStack: [RaceProject] = []
   private var pendingInputs: [URL] = []
   private var importingInputs = false
-  private var documentRevision = UUID()
+  private(set) var documentRevision = UUID()
+  @Published var dataSetupRequest:DataSetupRequest?
+  var dataSetupQueue:[DataSetupRequest] = []
   private(set) var openTask: Task<Void, Never>?
   private var openingURL: URL?
   var missingInputs: [MediaInput] { project.inputs.filter { !$0.path.isEmpty && !$0.exists } }
@@ -350,6 +352,7 @@ import UniformTypeIdentifiers
   func newProject() {
     guard confirmDiscard() else { return }
     documentRevision = UUID()
+    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
     project = RaceProject()
@@ -383,6 +386,7 @@ import UniformTypeIdentifiers
     guard confirmDiscard() else { return }
     let revision = UUID()
     documentRevision = revision
+    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []
     openTask?.cancel()
     openingURL = url.standardizedFileURL
     pause()
@@ -436,7 +440,6 @@ import UniformTypeIdentifiers
       var result: [Int: Telemetry] = [:]
       for input in p.inputs where input.kind == "data" && input.exists {
         let data = try Telemetry(url: URL(fileURLWithPath: input.path), settings: input.dataSettings)
-        if let settings = input.dataSettings { data.configure(settings) }
         result[input.legacyIndex] = data
       }
       return result
@@ -517,17 +520,24 @@ import UniformTypeIdentifiers
   func addInputs(_ urls: [URL]) {
     pendingInputs.append(contentsOf: urls)
     guard !importingInputs else { return }
-    checkpoint()
+    let revision = documentRevision
     importingInputs = true; busy = true
     Task {
+      defer {
+        importingInputs = false
+        if documentRevision == revision { busy = false }
+        if !pendingInputs.isEmpty { addInputs([]) }
+      }
       while !pendingInputs.isEmpty {
+        guard documentRevision == revision else { return }
         let url = pendingInputs.removeFirst()
         if ["rrt", "rro", "orrt"].contains(url.pathExtension.lowercased()) {
           do {
             let layout = try await Task.detached { try RaceProject.read(url) }.value
+            guard documentRevision == revision else { return }
             if url.pathExtension.lowercased() == "rro" { applyStyle(layout) }
             else { apply(layout, replace: false, mapping: [:]) }
-          } catch { self.error = error.localizedDescription }
+          } catch { if documentRevision == revision { self.error = error.localizedDescription } }
           continue
         }
         let ext = url.pathExtension.lowercased()
@@ -536,50 +546,62 @@ import UniformTypeIdentifiers
           ? "data"
           : (["mp3", "wav", "m4a", "aac"].contains(ext)
             ? "audio" : (["png", "jpg", "jpeg", "tif", "bmp"].contains(ext) ? "image" : "video"))
-        let placeholder = project.inputs.firstIndex { $0.kind == kind && $0.path.isEmpty && $0.joinedTo == nil && $0.isJoinRoot != true && $0.isTimeFiller != true }
-        let index = placeholder.map { project.inputs[$0].legacyIndex } ?? ((project.inputs.map(\.legacyIndex).max() ?? -1) + 1)
-        var input = MediaInput(
-          name: url.deletingPathExtension().lastPathComponent, path: url.path, kind: kind,
-          legacyIndex: index)
+        var input = MediaInput(name:url.deletingPathExtension().lastPathComponent,path:url.path,kind:kind)
+        var loadedData:Telemetry?
         do {
           if kind == "data" {
             let d = try await Task.detached { try Telemetry(url: url) }.value
-            telemetry[index] = d
+            loadedData = d
             input.duration = d.duration
-            project.warnings += d.warnings.filter { !project.warnings.contains($0) }
           } else if kind != "image" {
             input.duration = try await AVURLAsset(url: url).load(.duration).seconds
           }
-          if let placeholder { input.id = project.inputs[placeholder].id; project.inputs[placeholder] = input }
-          else { project.inputs.append(input) }
-          if kind == "data" && project.inputs.filter({ $0.kind == "data" }).count == 1 {
-            for i in project.objects.indices where project.objects[i].inputIndex < 0 && (![.video, .audio, .image, .group].contains(project.objects[i].kind) || project.objects[i].imageUsesData) {
-              project.objects[i].inputIndex = index
-            }
-          }
-          if kind == "video" && !project.objects.contains(where: { $0.kind == .video && $0.inputIndex == index }) {
-            var o = DisplayObject(name: input.name, kind: .video)
-            o.inputIndex = index
-            let firstVideo = !project.objects.contains { $0.kind == .video }
-            o.x = firstVideo ? 0 : 70; o.y = firstVideo ? 0 : 70
-            o.width = firstVideo ? 100 : 27; o.height = firstVideo ? 100 : 27
-            if firstVideo { project.objects.insert(o, at: 0) } else { project.objects.append(o) }
-          }
-          if kind == "audio" && !project.objects.contains(where: { $0.kind == .audio && $0.inputIndex == index }) {
-            var o = DisplayObject(name: input.name, kind: .audio); o.inputIndex = index; project.objects.append(o)
-          }
-          if kind == "image" {
-            var o = DisplayObject(name: input.name, kind: .image)
-            o.text = url.path
-            o.inputIndex = index
-            project.objects.append(o)
-          }
-        } catch { self.error = error.localizedDescription }
+          guard documentRevision == revision else { return }
+          installInput(input,data:loadedData)
+        } catch {
+          guard documentRevision == revision else { return }
+          if kind == "data",["csv","tsv","txt"].contains(ext),let columns = try? TelemetryColumnPreview.read(url) {
+            enqueueDataSetup(DataSetupRequest(url:url,headers:columns.headers,rows:columns.rows,revision:revision))
+          } else { self.error = error.localizedDescription }
+        }
       }
       configurePlayers()
-      importingInputs = false; busy = false
-      status = "Inputs added"
+      status = dataSetupRequest == nil ? "Inputs added" : "Choose the data file’s session clock"
     }
+  }
+  func installInput(_ source:MediaInput,data:Telemetry?) {
+    checkpoint()
+    var input = source; let kind = input.kind
+    let url = URL(fileURLWithPath:input.path)
+    let placeholder = project.inputs.firstIndex { $0.kind == kind && $0.path.isEmpty && $0.joinedTo == nil && $0.isJoinRoot != true && $0.isTimeFiller != true }
+    let index = placeholder.map { project.inputs[$0].legacyIndex } ?? ((project.inputs.map(\.legacyIndex).max() ?? -1)+1)
+    input.legacyIndex = index
+    if let data { telemetry[index] = data; project.warnings += data.warnings.filter{!project.warnings.contains($0)} }
+    if let placeholder { input.id = project.inputs[placeholder].id; project.inputs[placeholder] = input }
+    else { project.inputs.append(input) }
+    if kind == "data" && project.inputs.filter({ $0.kind == "data" }).count == 1 {
+      for i in project.objects.indices where project.objects[i].inputIndex < 0 && (![.video, .audio, .image, .group].contains(project.objects[i].kind) || project.objects[i].imageUsesData) {
+        project.objects[i].inputIndex = index
+      }
+    }
+    if kind == "video" && !project.objects.contains(where: { $0.kind == .video && $0.inputIndex == index }) {
+      var o = DisplayObject(name: input.name, kind: .video)
+      o.inputIndex = index
+      let firstVideo = !project.objects.contains { $0.kind == .video }
+      o.x = firstVideo ? 0 : 70; o.y = firstVideo ? 0 : 70
+      o.width = firstVideo ? 100 : 27; o.height = firstVideo ? 100 : 27
+      if firstVideo { project.objects.insert(o, at: 0) } else { project.objects.append(o) }
+    }
+    if kind == "audio" && !project.objects.contains(where: { $0.kind == .audio && $0.inputIndex == index }) {
+      var o = DisplayObject(name: input.name, kind: .audio); o.inputIndex = index; project.objects.append(o)
+    }
+    if kind == "image" {
+      var o = DisplayObject(name: input.name, kind: .image)
+      o.text = url.path
+      o.inputIndex = index
+      project.objects.append(o)
+    }
+    selectedInput = input.id
   }
   func relink(_ id: UUID) {
     guard let input = project.inputs.first(where: { $0.id == id }) else { return }
@@ -608,7 +630,6 @@ import UniformTypeIdentifiers
       switch original.kind {
       case "data":
         data = try await Task.detached { try Telemetry(url: url, settings: original.dataSettings) }.value
-        if let settings = original.dataSettings { data?.configure(settings) }
         replacement.duration = data!.duration
       case "video", "audio":
         let asset = AVURLAsset(url: url)

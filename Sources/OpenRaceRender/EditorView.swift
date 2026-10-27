@@ -61,10 +61,11 @@ struct EditorView: View {
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
     .sheet(isPresented: $model.showSourceSync) { SourceSyncSheet(model:model) }
+    .sheet(item:$model.dataSetupRequest,onDismiss:{model.nextDataSetup()}) { DataSetupSheet(model:model,request:$0) }
     .sheet(item:$model.sequenceInput) { SequenceEditor(model:model,inputID:$0.id) }
     .alert(
       "OpenRaceRender",
-      isPresented: Binding(get: { model.error != nil && !model.showExport && !model.showProjectSetup && !model.showSourceSync }, set: { if !$0 { model.error = nil } })
+      isPresented: Binding(get: { model.error != nil && model.dataSetupRequest == nil && !model.showExport && !model.showProjectSetup && !model.showSourceSync }, set: { if !$0 { model.error = nil } })
     ) {
       Button("OK") { model.error = nil }
     } message: {

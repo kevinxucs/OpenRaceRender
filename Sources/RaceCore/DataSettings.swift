@@ -33,6 +33,8 @@ public struct DataSettings: Codable, Equatable, Sendable {
   public var timeUnitsPerSecond: Double?
   public var speedMultiplier: Double?
   public var speedUnit: String?
+  public var speedConversionEnabled:Bool?
+  public var accuracyMultiplier:Double?
   public var headingAdjustment: Double?
   public var reverseHeading: Bool?
   public var headingDerivation:DataDerivationMode?
@@ -52,14 +54,19 @@ extension Telemetry {
     restoreRecordedData()
     interpolationEnabled = settings.interpolate ?? true
     for (alias, header) in settings.assignments where !header.isEmpty {
-      if let i = headers.firstIndex(of: header) { aliases[alias] = i }
+      if let i = headers.firstIndex(where:{$0.caseInsensitiveCompare(header) == .orderedSame}) { aliases[alias] = i }
     }
-    if let units = settings.timeUnitsPerSecond, units.isFinite, units > 0, units != 1 {
-      if let index = settings.assignments["time"].flatMap({ headers.firstIndex(of: $0) }), let first = columns[index].first {
-        let candidate = columns[index].map { ($0 - first) / units }
-        if candidate.allSatisfy(\.isFinite), zip(candidate, candidate.dropFirst()).allSatisfy({ $0 <= $1 }) { times = candidate }
-      } else { times = times.map { $0 / units } }
-      laps = laps.map { var lap = $0; lap.start /= units; lap.end /= units; return lap }
+    sourceHeaders = Dictionary(uniqueKeysWithValues:aliases.compactMap { role,index in headers.indices.contains(index) ? (role,headers[index]) : nil })
+    let units = settings.timeUnitsPerSecond.flatMap{$0.isFinite && $0 > 0 ? $0 : nil} ?? 1
+    if let name = settings.assignments["time"],!name.isEmpty,
+      let index = headers.firstIndex(where:{$0.caseInsensitiveCompare(name) == .orderedSame}),let first = columns[index].first,first.isFinite {
+      let candidate = columns[index].map{($0-first)/units}
+      if candidate.allSatisfy(\.isFinite),zip(candidate,candidate.dropFirst()).allSatisfy({$0 <= $1}) { times = candidate }
+    } else { times = times.map{$0/units} }
+    laps = laps.map { var lap = $0; lap.start /= units; lap.end /= units; return lap }
+    if let index = aliases["time"],columns[index] == times { aliases["time"] = index }
+    else {
+      headers.append("Configured session time (s)"); columns.append(times); aliases["time"] = headers.count-1
     }
     func transformed(_ alias: String, name: String, operation: (Double) -> Double) {
       guard let index = channelIndex(alias) else { return }
@@ -67,12 +74,16 @@ extension Telemetry {
       provenance[headers.count-1] = provenance[index]
       if circularColumns.contains(index) { circularColumns.insert(headers.count-1) }
       if discreteColumns.contains(index) { discreteColumns.insert(headers.count-1) }
-      if discreteColumns.contains(index) { discreteColumns.insert(headers.count - 1) }
     }
-    if let multiplier = settings.speedMultiplier, multiplier.isFinite, settings.assignments["speed"] != nil {
+    let convertSpeed = settings.speedConversionEnabled ?? (settings.speedMultiplier != nil && settings.assignments["speed"]?.isEmpty == false)
+    let multiplier = settings.speedMultiplier ?? 1
+    if convertSpeed,multiplier.isFinite {
       let unit = settings.speedUnit ?? "mph"
       let toMPS = unit == "mph" ? 1 / 2.2369362921 : unit == "km/h" ? 1 / 3.6 : unit == "knots" ? 0.514444 : 1
       transformed("speed", name: "Configured speed (m/s)") { $0 * multiplier * toMPS }
+    }
+    if let multiplier = settings.accuracyMultiplier,multiplier.isFinite,multiplier > 0 {
+      transformed("accuracy",name:"Configured GPS accuracy (m)"){$0*multiplier}
     }
     deriveMotion(settings)
     let headingAdjustment = settings.headingAdjustment.flatMap { $0.isFinite ? $0 : nil } ?? 0
@@ -93,8 +104,23 @@ extension Telemetry {
       if discreteColumns.contains(i) { discreteColumns.insert(headers.count - 1) }
     }
     rebuildMapPoints()
+    if settings.assignments["lap"]?.isEmpty == false,let index = aliases["lap"] {
+      discreteColumns.insert(index); laps = assignedLaps(column:columns[index])
+    }
     if let latitude = aliases["lat"], let longitude = aliases["lon"], let line = settings.finishLine {
       laps = detectLaps(line:line,lat:columns[latitude],lon:columns[longitude],ignore:settings.ignoreLapTriggers ?? 0)
+    }
+  }
+  private func assignedLaps(column:[Double]) -> [TelemetryLap] {
+    var entries:[(Int,Double)] = []
+    for i in times.indices {
+      let value = column[i]
+      guard value.isFinite,value >= 0,value < 1_000_000,value.rounded() == value else { continue }
+      if entries.last?.0 != Int(value) { entries.append((Int(value),times[i])) }
+    }
+    return entries.indices.map { i in
+      TelemetryLap(number:entries[i].0,start:entries[i].1,end:i+1 < entries.count ? entries[i+1].1 : duration,
+        complete:i+1 < entries.count && (i > 0 || entries[i].1 > 0))
     }
   }
   public func finishLine(at time: Double) -> FinishLine? {

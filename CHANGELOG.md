@@ -1,5 +1,10 @@
 # Changelog
 
+## F17 — Data configuration and reusable profiles
+
+- Complete recorded-role mappings, custom session clocks, time units, explicit speed units/multipliers and GPS accuracy conversion in a private preview/apply sheet. Unknown CSV clock imports can be recovered without editing source files.
+- Versioned JSON `.orrd` profile import/export with optional track scope, missing-header validation, source/timing/mark preservation, stale-request protection and one-step undo. See [workflow and compatibility limits](docs/data-profiles.md).
+
 ## F16 — Gear estimation and calibration
 
 - Recorded-first automatic gear estimation, forced/disabled modes, learned time-weighted ratios, manual/playhead calibration, thresholds and gear-number adjustment. Results remain discrete and calibration is stable across render chunks.

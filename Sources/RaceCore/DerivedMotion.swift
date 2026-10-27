@@ -43,6 +43,7 @@ extension Telemetry {
       recordedState = TelemetryRecordedState(headers:headers,columns:columns,aliases:aliases,times:times,laps:laps,mapPoints:mapPoints,discreteColumns:discreteColumns)
     }
     provenance.removeAll(); circularColumns.removeAll(); gearCalibration = nil; gearEstimateMessage = nil; invalidateValueCaches()
+    if aliases["time"] == nil,headers.first?.lowercased() == "time" { aliases["time"] = 0 }
   }
   static func normalHeading(_ degrees:Double) -> Double { (degrees.truncatingRemainder(dividingBy:360)+360).truncatingRemainder(dividingBy:360) }
   static func headingDelta(from a:Double,to b:Double) -> Double { normalHeading(b-a+180)-180 }

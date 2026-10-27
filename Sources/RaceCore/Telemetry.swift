@@ -26,6 +26,7 @@ public final class Telemetry: @unchecked Sendable {
   var circularColumns = Set<Int>()
   public internal(set) var gearCalibration:GearCalibration?
   public internal(set) var gearEstimateMessage:String?
+  public internal(set) var sourceHeaders:[String:String] = [:]
   public internal(set) var columns: [[Double]]
   public let title: String
   public internal(set) var laps: [TelemetryLap]
@@ -45,10 +46,12 @@ public final class Telemetry: @unchecked Sendable {
     }
     if url.pathExtension.lowercased() == "rcz" {
       try self.init(rcz: RCZReader.read(d, title: url.deletingPathExtension().lastPathComponent))
+      if let settings { try configureValidated(settings) }
       return
     }
     if url.pathExtension.lowercased() == "fit" || (d.count >= 12 && String(data: d[8..<12], encoding: .ascii) == ".FIT") {
       try self.init(text: FITReader.csv(d), title: url.deletingPathExtension().lastPathComponent)
+      if let settings { try configureValidated(settings) }
       return
     }
     guard
@@ -57,6 +60,7 @@ public final class Telemetry: @unchecked Sendable {
     else { throw RaceError.invalid("Could not decode telemetry text.") }
     let normalized = try TelemetryFormats.csv(from: d, text: text, extension: url.pathExtension.lowercased())
     try self.init(text: normalized, title: url.deletingPathExtension().lastPathComponent, timeColumn: settings?.assignments["time"])
+    if let settings { try configureValidated(settings) }
   }
   private init(rcz table: RCZReader.Table) {
     headers = table.headers; times = table.times; columns = table.columns
@@ -83,15 +87,16 @@ public final class Telemetry: @unchecked Sendable {
     var delimiter: Character = ","
     var lapColumn: Int?
     var candidates: [(Int, Double)] = []
+    var backwards = 0
     text.enumerateLines { line, stop in
       if line.isEmpty { return }
       if header.isEmpty {
         let sep: Character =
           line.contains("\t") ? "\t" : (line.contains(";") && !line.contains(",") ? ";" : ",")
-        let cells = Self.parseRow(line, delimiter: sep)
+        let cells = Self.parseRow(line.replacingOccurrences(of:"\u{FEFF}",with:""), delimiter: sep)
         if cells.first?.lowercased() == "session title", cells.count > 1 { fileTitle = cells[1] }
         let preferred = override.flatMap { name in cells.firstIndex { $0.caseInsensitiveCompare(name) == .orderedSame } }
-        if let t = preferred ?? cells.firstIndex(where: { Self.isTimeHeader($0) }), cells.count >= 2 {
+        if let t = override?.isEmpty == false ? preferred : cells.firstIndex(where: { Self.isTimeHeader($0) }), cells.count >= 2 {
           delimiter = sep
           header = cells
           timeColumn = t
@@ -109,11 +114,12 @@ public final class Telemetry: @unchecked Sendable {
       else { return }
       if firstTime == nil { firstTime = absolute }
       let time = absolute - (firstTime ?? absolute)
-      guard time >= 0, time >= (ts.last ?? 0) else { return }
+      guard time >= 0, time >= (ts.last ?? 0) else { backwards += 1; return }
       // Duplicate timestamps are merged, keeping the last sample for correct binary search.
       let duplicate = ts.last == time
       for j in header.indices {
         if j < cells.count, let v = Double(cells[j]), v.isFinite { previous[j] = v }
+        if j == timeColumn { previous[j] = absolute }
         if duplicate {
           cols[j][cols[j].count - 1] = previous[j]
         } else {
@@ -130,13 +136,14 @@ public final class Telemetry: @unchecked Sendable {
     }
     guard !header.isEmpty, !ts.isEmpty else {
       throw RaceError.invalid(
-        "No time series found. CSV needs a Time, Time (s), Timestamp or Elapsed time column.")
+        override?.isEmpty == false ? "No time series found using assigned column ‘\(override!)’. Choose a recorded, increasing time column." : "No time series found. CSV needs a Time, Time (s), Timestamp or Elapsed time column.")
     }
+    if override?.isEmpty == false,backwards > 0 { throw RaceError.invalid("Assigned time column ‘\(override!)’ moves backwards. Choose the session clock column.") }
     headers = header
     times = ts
     columns = cols
     title = fileTitle
-    var a: [String: Int] = [:]
+    var a: [String: Int] = ["time":timeColumn]
     func choose(_ key: String, _ patterns: [String]) {
       for pattern in patterns {
         if let i = header.firstIndex(where: { $0.lowercased() == pattern }) {
@@ -185,6 +192,8 @@ public final class Telemetry: @unchecked Sendable {
     choose("distance", ["distance (m)", "distance"])
     choose("lap", ["lap #", "lap", "lap number"])
     choose("heading", ["heading (deg)", "heading", "bearing", "course", "gps heading"])
+    choose("altitude",["altitude (m)","altitude","elevation (m)","elevation"])
+    choose("accuracy",["gps accuracy (m)","horizontal accuracy (m)","gps accuracy","horizontal accuracy","accuracy"])
     choose("coolant", ["coolant temperature (.c) *obd", "coolant temperature", "coolant"])
     choose("intake", ["intake temperature (.c) *obd", "intake temperature", "intake"])
     choose("oil", ["engine oil temperature", "oil temperature", "oil"])
