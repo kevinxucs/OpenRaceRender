@@ -70,7 +70,7 @@ import UniformTypeIdentifiers
     selected = nil; selectedInput = input.id
   }
   var scene: RenderScene { RenderScene(project: project, telemetry: telemetry) }
-  var usesDesignSamples: Bool { showWidgets && project.objects.contains { ![.video, .audio, .image, .shape, .text, .group].contains($0.kind) } && telemetry.isEmpty && !project.inputs.contains { $0.kind == "data" && !$0.path.isEmpty } }
+  var usesDesignSamples: Bool { showWidgets && project.objects.contains { (![.video, .audio, .image, .shape, .text, .group].contains($0.kind) || $0.imageUsesData) } && telemetry.isEmpty && !project.inputs.contains { $0.kind == "data" && !$0.path.isEmpty } }
   var designScene: RenderScene { usesDesignSamples ? WidgetDesign.scene(project) : scene }
   var activeData: Telemetry? { telemetry.sorted { $0.key < $1.key }.first?.value }
   var dataIndex: Int? { project.inputs.first { $0.kind == "data" }?.legacyIndex }
@@ -524,7 +524,7 @@ import UniformTypeIdentifiers
           if let placeholder { input.id = project.inputs[placeholder].id; project.inputs[placeholder] = input }
           else { project.inputs.append(input) }
           if kind == "data" && project.inputs.filter({ $0.kind == "data" }).count == 1 {
-            for i in project.objects.indices where project.objects[i].inputIndex < 0 && ![.video, .audio, .image, .group].contains(project.objects[i].kind) {
+            for i in project.objects.indices where project.objects[i].inputIndex < 0 && (![.video, .audio, .image, .group].contains(project.objects[i].kind) || project.objects[i].imageUsesData) {
               project.objects[i].inputIndex = index
             }
           }
@@ -646,7 +646,7 @@ import UniformTypeIdentifiers
     var o = style.object
     o.id = UUID(); o.legacyOffset = nil; o.legacyIndex = nil; o.parentIndex = -1; o.parentID = nil
     o.start = 0; o.end = 1_000_000; o.segments = nil; o.visible = true
-    o.inputIndex = project.inputs.first { $0.kind == (o.kind == .image ? "image" : "data") && $0.joinedTo == nil }?.legacyIndex ?? -1
+    o.inputIndex = project.inputs.first { $0.kind == (o.kind == .image && !o.imageUsesData ? "image" : "data") && $0.joinedTo == nil }?.legacyIndex ?? -1
     if let point { o = o.placed(at: point) }
     project.objects.append(o); selected = o.id; selectedInput = nil
     status = "Added " + style.name

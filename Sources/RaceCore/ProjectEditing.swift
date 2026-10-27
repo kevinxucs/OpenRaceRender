@@ -61,7 +61,7 @@ extension RaceProject {
     for var object in layout.objects {
       func remap(_ index: Int) -> Int {
         let source = layout.inputs.first { $0.legacyIndex == index }
-        let kind = source?.kind ?? (object.kind == .video ? "video" : object.kind == .audio ? "audio" : object.kind == .image ? "image" : "data")
+        let kind = source?.kind ?? (object.kind == .video ? "video" : object.kind == .audio ? "audio" : object.kind == .image && !object.imageUsesData ? "image" : "data")
         if let explicit = mapping[index] {
           return inputs.contains { $0.legacyIndex == explicit && $0.kind == kind && $0.joinedTo == nil } ? explicit : -1
         }

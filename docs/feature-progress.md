@@ -11,16 +11,27 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F03: grouping/multiple selection, nested subtree operations, group timeline edits, stable template identities and group visibility/audio behavior implemented; see [controls, native findings and validation limits](grouping.md).
 - F04: arbitrary subset template export, editable object/input-role names, required group ancestors, source-switch/history roles, draft isolation and text-selection shortcut routing implemented; see [template export](template-export.md).
 - F06: configurable graph axes, seven time modes, ranges, style controls, persistence/migration, cached sampling and legacy graph writing implemented; see [graph controls and limits](graphs.md).
-- Validation: 179 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- F08: data-controlled embedded images, deterministic flashing, source-role/artwork handling and native image record repair implemented; see [scope and validation limits](image-controls.md).
+- Validation: 188 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F10/F12/F17/F18/F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F08 — data-controlled embedded images**. F06 is validated and ready to commit/push; do that before starting F08.
+Next feature: **F09 — background editor**. F06 is pushed as `a47e75a` (CI 40453569024 succeeded). F08 is validated and ready to commit/push before F09.
 
 ## Remaining queue
 
-F08, F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F09, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F08 handoff — implementation validated, live UI limited
+
+- `ImageControl.swift` models simple/proportional/inclusive threshold modes, visibility/opacity/rotation/brightness/hue, and project-time flashing. Image effects use synchronized source time, cached artwork and the shared overlay renderer. Group alpha is applied once. Mapped images validate telemetry as well as artwork.
+- `ImageControlControls.swift` embeds artwork, exposes mapping controls, chooses a logger without dropping the image and writes the complete mode/source change atomically for undo. Generic source/channel controls accept data for mapped images. Styles and template role discovery include image mappings/segments/history while excluding static artwork-file roles. Model migration retains native image controls from payloads.
+- Native RR3 E Image controls were operated before the usage interruption; ignored `native-image-research.rrp` contains vendor compass artwork and mapped controls. Native proportional rotation payload is 168 bytes (channel0, input doubles128/136, output144/152, mode160, function161, pulse162 in tenths). Threshold/transparency/pulse edits confirmed mode2/function3/pulse5 for0.5s. Rotation is function2; brightness/hue follow the inspector's output order4/5. Opacity endpoints invert native transparency.
+- Native images wrap their bitmap in an exact outer length. Strict reader previously failed “Unknown RRP image container”; old authored static image failed native ProjectOpen2 -81. Reader/writer now handle the bounded wrapper/control payload; the actual native-saved fixture imports correctly. RRP/RRT/RRO automated roundtrips and following-object tests pass. Corrected authored RRP has **not** yet reopened in native RR3 because CUA now reports `cgWindowNotFound` for RR3 and ORR. The user was asked asynchronously to reopen RR3; no answer yet. No native pixel parity or updated-editor live check claimed. See `docs/image-controls.md`.
+- 188 tests pass (160 core/28 editor), no skips with local library/graphics services. Original `scripts/validate-image-controls.py` passes six configurations with exact ORR/legacy-reopened snapshots and nonzero-start encoded video compared against session-time snapshots. Logs: `build/validation/image-controls/{tests,build,acceptance}.log`. `images.orrp` under its acceptance directory is safe original artwork/data for future live checks.
+- CUA kernel was reset while investigating missing windows; documentation restored afterward. No valid app variables remain. Both applications return cgWindowNotFound. Do not use other UI automation to bypass this. A getApp immediately after reset was automatically rejected for missing rewriteDocumentation; corrected by reading docs first, no action remains approval-blocked.
+- Commit/push F08 before starting F09. Preserve the pending native smoke-test limitation; no user originals touched.
 
 ## F06 handoff — implementation validated
 

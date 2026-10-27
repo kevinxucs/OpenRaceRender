@@ -6,6 +6,9 @@ enum LegacyArtwork {
   static func png(_ container: Data) -> Data? {
     guard container.count >= 8 else { return nil }
     var raw = container
+    if container.count >= 12, Int(container.u32(0)) == container.count-4, container.u32(4) & 0xffff == 8 {
+      raw = Data(container.dropFirst(4))
+    }
     if container.u32(0) & 0x8000_0000 != 0 {
       let count = Int(container.u32(0) & 0x7fff_ffff)
       guard count > 0, count <= 32*1024*1024, count+4 <= container.count,

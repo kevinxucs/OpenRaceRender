@@ -75,6 +75,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
   public var graph: GraphSettings?
+  public var imageControl: ImageControlSettings?
   public var typography: TextSettings?
   public var shape: ShapeSettings?
   public var hud: HUDSettings?
@@ -102,6 +103,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
     if let v = picture { object.picture = v }
     if let v = gauge { object.gauge = v }
     if let v = graph { object.graph = v }
+    if let v = imageControl { object.imageControl = v }
     if let v = typography { object.typography = v }
     if let v = shape { object.shape = v }
     if let v = hud { object.hud = v }
@@ -141,6 +143,7 @@ extension DisplayObject {
     if old.picture != value.picture { list[i].picture = value.picture }
     if old.gauge != value.gauge { list[i].gauge = value.gauge }
     if old.graph != value.graph { list[i].graph = value.graph }
+    if old.imageControl != value.imageControl { list[i].imageControl = value.imageControl }
     if old.typography != value.typography { list[i].typography = value.typography }
     if old.shape != value.shape { list[i].shape = value.shape }
     if old.hud != value.hud { list[i].hud = value.hud }

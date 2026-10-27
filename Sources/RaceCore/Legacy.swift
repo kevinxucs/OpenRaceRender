@@ -274,6 +274,10 @@ public enum LegacyReader {
         if let maximum = o.styleMaximum { o.maximum = maximum }
       }
     }
+    if o.legacyType == 14 {
+      o.imageControl = ImageControlSettings.legacy(o)
+      if d.count >= 128 { o.channel = d.utf16(0,128) }
+    }
     if o.legacyType == 35 {
       o.kind = .graph; o.graph = GraphSettings.legacy(o)
       if d.count >= 272 {

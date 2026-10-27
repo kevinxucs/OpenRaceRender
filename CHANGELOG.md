@@ -1,5 +1,10 @@
 # Changelog
 
+## F08 — Data-controlled images
+
+- Embedded artwork chooser, proportional and inclusive threshold mappings to visibility/opacity/rotation/brightness/hue, and deterministic flashing. Source selection and settings support undo, segments and portable templates.
+- Shared cached image rendering, telemetry dependency checks, native E Image settings and bounded length-prefixed bitmap import/export. See [controls and validation limits](docs/image-controls.md).
+
 ## F06 — Configurable 2D graphs
 
 - Time, distance and channel axes; moving, centered, fixed cursor and progress modes; automatic/manual ranges, lap/source ranges, points/lines and saved appearance controls.

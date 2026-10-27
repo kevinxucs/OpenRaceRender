@@ -42,7 +42,7 @@ public enum OverlayRenderer {
       c.clip(to: r)
       let data = scene.telemetry[o.inputIndex]
       let placement = scene.project.media(for:o.inputIndex,at:time)
-      if o.legacyType != nil,placement == nil,
+      if o.legacyType != nil, (o.kind != .image || o.imageUsesData), placement == nil,
         scene.project.inputs.contains(where:{ $0.legacyIndex == o.inputIndex && $0.kind == "data" }) {
         c.restoreGState();continue
       }
@@ -85,7 +85,11 @@ public enum OverlayRenderer {
       if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height) {
         c.restoreGState(); continue
       }
-      renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit)
+      if o.kind == .image {
+        if !ImageRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time) {
+          panel(c,r); text(c,"IMAGE",x:r.midX,y:r.midY,size:min(r.width,r.height)*0.1,color:"#97A6BA")
+        }
+      } else { renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit) }
       c.restoreGState()
     }
     if let id = selection, let o = scene.project.displayForEditing(id, at: time) {
@@ -320,13 +324,10 @@ public enum OverlayRenderer {
       c.setFillColor(color(accent))
       c.fill(r)
     case .image:
-      if let image = (o.artwork ?? o.embeddedImage).flatMap({ NSImage(data: $0) }) ?? sceneImagePath(o).flatMap({ NSImage(contentsOfFile: $0) }),
-        let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-      {
-        PictureProcessor.draw(c, image: CIImage(cgImage: cg), in: r, opacity: o.opacity, object: o.picture, context: CIContext())
-      } else {
-        panel(c, r)
-        text(c, "IMAGE", x: cx, y: cy, size: s * 0.1, color: "#97A6BA")
+      // Image controls require both clocks: data mapping follows synchronization,
+      // while flashing stays deterministic in the project timeline.
+      if !ImageRenderer.draw(c,object:o,rect:r,data:data,sourceTime:time,projectTime:time) {
+        panel(c,r); text(c,"IMAGE",x:cx,y:cy,size:s*0.1,color:"#97A6BA")
       }
     case .enhanced:
       panel(c, r)

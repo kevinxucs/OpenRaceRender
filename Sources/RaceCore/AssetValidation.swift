@@ -23,8 +23,10 @@ extension RaceProject {
           display.visible, lo >= display.start, lo < display.end, display.opacity > 0 else { continue }
         if display.kind == .image {
           if display.artwork == nil && display.embeddedImage == nil { require(display.text, label: display.name) }
-        } else if ![.shape, .text].contains(display.kind) {
+        }
+        if display.imageUsesData || ![.image, .shape, .text].contains(display.kind) {
           let sources = inputs.filter { $0.legacyIndex == display.inputIndex || $0.joinedTo == display.inputIndex }
+          if display.imageUsesData && sources.isEmpty { missing.insert(display.name + ": choose a telemetry input") }
           for input in sources {
             if input.isJoinRoot == true { continue }
             // Media can be deliberately inactive outside its trim/delay/join span.

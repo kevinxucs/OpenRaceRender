@@ -101,6 +101,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
   public var graph: GraphSettings?
+  public var imageControl: ImageControlSettings?
   public var hud: HUDSettings?
   public var typography: TextSettings?
   public var shape: ShapeSettings?
@@ -112,6 +113,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var automaticChannel: String {
     switch kind {
     case .speed, .graph: return "speed"
+    case .image: return imageUsesData ? "speed" : ""
     case .rpm, .lights: return "rpm"
     case .gear: return "gear"
     case .gforce: return "gy"
@@ -181,6 +183,15 @@ public struct RaceProject: Codable, Equatable, Sendable {
         }
       }
       LegacyReader.repairOldChannelDecode(&p.objects[i])
+      if p.objects[i].legacyType == 14 {
+        if p.objects[i].imageControl == nil { LegacyReader.inferDetails(&p.objects[i]) }
+        for j in (p.objects[i].segments ?? []).indices {
+          if let raw = p.objects[i].segments?[j].legacyPayload, p.objects[i].segments?[j].imageControl == nil {
+            var value = p.objects[i]; value.legacyPayload = raw; LegacyReader.inferDetails(&value)
+            p.objects[i].segments?[j].imageControl = value.imageControl
+          }
+        }
+      }
       if p.objects[i].legacyType == 35 {
         p.objects[i].kind = .graph
         if p.objects[i].graph == nil { LegacyReader.inferDetails(&p.objects[i]) }
@@ -319,7 +330,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
         o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture,
-        o.typography == old.typography, o.shape == old.shape, o.audio == old.audio, o.graph == old.graph
+        o.typography == old.typography, o.shape == old.shape, o.audio == old.audio, o.graph == old.graph, o.imageControl == old.imageControl
       else {
         throw RaceError.invalid(
           "RRP copy export supports labels, visibility, opacity, geometry and synchronization. Save other edits in .orrp format."

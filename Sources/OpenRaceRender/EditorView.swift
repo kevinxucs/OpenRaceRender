@@ -557,9 +557,9 @@ struct ObjectInspector: View {
       small("DATA SOURCE")
       Picker("Input", selection: $object.inputIndex) {
         Text("None").tag(-1)
-        ForEach(model.project.inputs.filter { $0.joinedTo == nil && $0.kind == (object.kind == .video ? "video" : object.kind == .audio ? "audio" : object.kind == .image ? "image" : "data") }) { Text($0.name).tag($0.legacyIndex) }
+        ForEach(model.project.inputs.filter { $0.joinedTo == nil && (object.kind == .image ? ($0.kind == "data" || $0.legacyIndex == object.inputIndex) : $0.kind == (object.kind == .video ? "video" : object.kind == .audio ? "audio" : "data")) }) { Text($0.name).tag($0.legacyIndex) }
       }.labelsHidden()
-      if ![.video, .audio, .image, .text, .shape].contains(object.kind) {
+      if ![.video, .audio, .image, .text, .shape].contains(object.kind) || object.imageUsesData {
         Picker("Channel", selection: $object.channel) {
           Text("Automatic").tag("")
           if !object.channel.isEmpty, !(model.telemetry[object.inputIndex]?.headers.contains(object.channel) ?? false) {
@@ -576,25 +576,28 @@ struct ObjectInspector: View {
             Text("Channel unavailable in this input").font(.system(size: 10)).foregroundStyle(.orange)
           }
         }
-        if object.hasStyleRange { WidgetRangeControls(object: $object) }
-        else { HStack {
-          field("Min", $object.minimum)
-          field("Max", $object.maximum)
-        } }
-        if !object.hasScriptStyleSettings && object.legacyType != 31 && object.kind != .graph {
-        ColorPicker(
-          "Accent",
-          selection: Binding(
-            get: { Color(cgColor: OverlayRenderer.color(object.color)) },
-            set: { c in
-              if let rgb = NSColor(c).usingColorSpace(.deviceRGB) {
-                object.color = String(
-                  format: "#%02X%02X%02X", Int(rgb.redComponent * 255),
-                  Int(rgb.greenComponent * 255), Int(rgb.blueComponent * 255))
-              }
-            }))
+        if object.kind != .image {
+          if object.hasStyleRange { WidgetRangeControls(object: $object) }
+          else { HStack {
+            field("Min", $object.minimum)
+            field("Max", $object.maximum)
+          } }
+          if !object.hasScriptStyleSettings && object.legacyType != 31 && object.kind != .graph {
+          ColorPicker(
+            "Accent",
+            selection: Binding(
+              get: { Color(cgColor: OverlayRenderer.color(object.color)) },
+              set: { c in
+                if let rgb = NSColor(c).usingColorSpace(.deviceRGB) {
+                  object.color = String(
+                    format: "#%02X%02X%02X", Int(rgb.redComponent * 255),
+                    Int(rgb.greenComponent * 255), Int(rgb.blueComponent * 255))
+                }
+              }))
+          }
         }
       }
+      if object.kind == .image { ImageControlControls(object: $object, inputs: model.project.inputs) }
       if object.hasScriptStyleSettings { ScriptStyleControls(object: $object) }
       if object.hud != nil {
         HUDControls(settings: Binding(get: { object.hud! }, set: { object.hud = $0 }))

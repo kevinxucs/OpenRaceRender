@@ -208,6 +208,20 @@ public enum LegacyWriter {
       payload.putU32(try rgb(s.gradientColor,enabled:s.gradient),12)
     } else if type == 30 {
       try gauge(o,common:&common,payload:&payload)
+    } else if type == 14 {
+      let s = o.imageControl ?? ImageControlSettings()
+      guard s.output != .visibility else { throw unsupported("Use opacity endpoints 0 and 100 to export visibility to RaceRender.") }
+      if payload.count < 168 { payload.append(Data(repeating:0,count:168-payload.count)) }
+      try string(o.channel,into:&payload,at:0,size:128,field:"Image channel")
+      payload.putDouble(try finite(s.inputMinimum,"Image input minimum"),128)
+      payload.putDouble(try finite(s.inputMaximum,"Image input maximum"),136)
+      payload.putDouble(try finite(s.output == .opacity ? 100-s.outputMinimum : s.outputMinimum,"Image output minimum"),144)
+      payload.putDouble(try finite(s.output == .opacity ? 100-s.outputMaximum : s.outputMaximum,"Image output maximum"),152)
+      payload[160] = s.mode == .simple ? 0 : s.mode == .proportional ? 1 : s.mode == .greaterOrEqual ? 2 : 3
+      payload[161] = s.output == .rotation ? 2 : s.output == .opacity ? 3 : s.output == .brightness ? 4 : 5
+      guard s.pulseInterval.isFinite, s.pulseInterval >= 0, s.pulseInterval <= 25.5,
+        abs(s.pulseInterval*10-(s.pulseInterval*10).rounded()) < 1e-7 else { throw unsupported("RaceRender image pulse intervals use tenths of a second from 0 to 25.5.") }
+      payload[162] = UInt8((s.pulseInterval*10).rounded())
     } else if type == 35 {
       let g = o.graph ?? GraphSettings()
       guard g.lap == nil, !g.flipSides else { throw unsupported("Graph lap selection and alternate number placement have no verified legacy encoding.") }
@@ -275,10 +289,10 @@ public enum LegacyWriter {
       o.start.isFinite, o.end.isFinite, o.start >= 0, o.end >= o.start else { throw unsupported("Invalid display size or time bounds.") }
     for (p,v) in [(260,o.x),(264,o.y),(268,o.width),(272,o.height),(276,o.start)] { common.putFloat(try finite(v,"Display geometry/time"),p) }
     common[280] = UInt8(clamping:type); common[281] = 2
-    common[282] = [0,12,13,14].contains(type) ? 255 : try input(o.inputIndex,sources:sources)
+    common[282] = ([0,12,13].contains(type) || (type == 14 && !o.imageUsesData)) ? 255 : try input(o.inputIndex,sources:sources)
     let originalVisible = (o.legacyActivation ?? 1) <= 1
     common[284] = o.visible == originalVisible ? UInt8(clamping:o.legacyActivation ?? 1) : o.visible ? 1 : 2
-    common[285] = (o.picture?.maintainAspect ?? (common[285] != 0)) ? 1 : 0
+    common[285] = (o.picture?.maintainAspect ?? (type == 14 && o.legacyCommon == nil ? true : common[285] != 0)) ? 1 : 0
     if let picture = o.picture { common[286] = (picture.flipX ? 1 : 0) + (picture.flipY ? 2 : 0) }
     common[292] = try byte(audio.volume*100,"Display volume"); common[293] = try byte((audio.balance+1)*100,"Display balance")
     common[294] = try byte((1-o.opacity)*100,"Transparency")
@@ -296,7 +310,7 @@ public enum LegacyWriter {
     } else if type == 14, !o.text.isEmpty { image = try bitmap(Data(contentsOf:URL(fileURLWithPath:o.text))) }
     else if type == 14 { throw unsupported("The image is missing; relink it before export.") }
     else { image = word(0) }
-    return Record(common:common,payload:payload,image:image)
+    return Record(common:common,payload:payload,image:type == 14 ? word(image.count)+image : image)
   }
 
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {

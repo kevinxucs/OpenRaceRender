@@ -119,6 +119,15 @@ enum LegacyProjectSettings {
     guard cursor + 4 <= b.count else { throw RaceError.invalid("Truncated RRP image record.") }
     let value = b.u32(cursor)
     if value == 0 { cursor += 4; return nil }
+    // Embedded Image (type 14) wraps its bitmap in an exact byte count.
+    // Accept only a bounded container with an independently valid inner header.
+    if value > 8, value <= 64*1024*1024, cursor+4+Int(value) <= b.count,
+      b.u32(cursor+4) & 0xffff == 8 {
+      let width = Int(b.u32(cursor+4) >> 16), height = Int(b.u32(cursor+8) & 0xffff)
+      if width > 0, height > 0, width <= 4096, height <= 4096, Int(value) == 8+width*height*4 {
+        let raw = Data(b[cursor+4..<cursor+4+Int(value)]); cursor += 4+Int(value); return raw
+      }
+    }
     let length: Int
     if value & 0x80000000 != 0 { length = 4 + Int(value & 0x7fffffff) }
     else {
