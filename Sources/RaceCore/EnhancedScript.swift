@@ -82,7 +82,11 @@ struct ScriptParser {
   mutating func parse() throws -> [ScriptStatement] {
     var result: [ScriptStatement] = []
     separators()
-    while index < tokens.count { result.append(try statement(depth: 0)); separators() }
+    do {while index < tokens.count { result.append(try statement(depth: 0)); separators() }}
+    catch {
+      let line = 1+tokens.prefix(index).filter{$0 == .symbol("\n")}.count
+      throw RaceError.invalid("Line \(line): \(error.localizedDescription)")
+    }
     return result
   }
   mutating func take(_ s: String) -> Bool {
@@ -157,7 +161,11 @@ final class ScriptMachine {
     self.variables = variables; self.function = function
   }
   func run(_ program: [ScriptStatement]) throws { for s in program where !stopped { try execute(s) } }
-  func spend() throws { budget -= 1; if budget <= 0 { throw RaceError.invalid("Enhanced script instruction limit.") } }
+  func spend() throws {
+    budget -= 1
+    if budget & 255 == 0,Task.isCancelled { throw CancellationError() }
+    if budget <= 0 { throw RaceError.invalid("Enhanced script instruction limit.") }
+  }
   func execute(_ s: ScriptStatement) throws {
     try spend()
     switch s {

@@ -58,6 +58,7 @@ struct EditorView: View {
     .sheet(isPresented: $model.showSync) { SyncSheet(model: model) }
     .sheet(isPresented: $model.showExport) { ExportSheet(model: model) }
     .sheet(isPresented: $model.showPreviewSettings) { PreviewSettingsSheet(model:model) }
+    .sheet(item:$model.scriptEditorRequest) { ScriptEditor(model:model,request:$0) }
     .sheet(isPresented: $model.showSaveTemplate) { SaveTemplateSheet(model: model) }
     .sheet(isPresented: $model.showWidgetStyles) { WidgetStyleBrowser(model: model) }
     .sheet(isPresented: $model.showProjectSetup) { ProjectSetupSheet(model:model) }
@@ -594,6 +595,9 @@ struct ObjectInspector: View {
       if ![.video,.audio,.image,.group].contains(object.kind) { BackgroundControls(model:model,object:$object) }
       if object.kind == .image { ImageControlControls(object: $object, inputs: model.project.inputs) }
       if object.hasScriptStyleSettings { ScriptStyleControls(object: $object) }
+      if object.canEditScripts {
+        Button(object.hasScriptStyleSettings ? "Edit drawing scripts…" : "Create drawing scripts…") {model.beginScriptEditor(object.id)}
+      }
       if object.hud != nil {
         HUDControls(settings: Binding(get: { object.hud! }, set: { object.hud = $0 }))
       }

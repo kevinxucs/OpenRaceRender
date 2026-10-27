@@ -79,7 +79,8 @@ public enum OverlayRenderer {
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }
-      if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,timeline:timeline) {
+      let scriptTime = placement?.sourceTime(at:time) ?? max(0,time-historyStart)
+      if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:scriptTime,unit:scene.project.speedUnit,timeline:timeline) {
         c.restoreGState(); continue
       }
       if LegacyMapRenderer.draw(c,object:o,rect:r,data:data,time:t) {

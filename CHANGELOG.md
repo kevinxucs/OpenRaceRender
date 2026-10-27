@@ -1,5 +1,10 @@
 # Changelog
 
+## F28 — Enhanced script authoring
+
+- Background/foreground source editing/import/export, canvas/font/aspect/persistence controls, private draft Apply/Undo and stale-segment safeguards. Cancellable actual-renderer tests include syntax/runtime diagnostics and bounded current-frame Print output.
+- Script-edit/check CLI, source-free display clocks, retained script-style aspect and portable `.orrt` CLI conversion. See [workflow and compatibility limits](docs/script-editor.md).
+
 ## F27 — Camera-free preview and export
 
 - Telemetry/still/graphics/audio or blank projects now render without a camera, with a reusable internal timing source and no saved fake dependency. Still-only designs use the same 60-second default as graphics-only projects.

@@ -3,6 +3,13 @@ import AppKit
 /// Honor traditional widget styling from the imported payload instead of applying the native theme.
 enum LegacyStyledRenderer {
   static func contentRect(_ o: DisplayObject,in rect: CGRect) -> CGRect {
+    if o.legacyType == 50,let picture = o.picture,let payload = o.legacyPayload,payload.count >= 284 {
+      guard picture.maintainAspect else {return rect}
+      let width = Double(payload.u32(280)&0xffff),height = Double(payload.u32(280)>>16)
+      guard width > 0,height > 0 else {return rect}
+      let scale = min(rect.width/width,rect.height/height)
+      return CGRect(x:rect.midX-width*scale/2,y:rect.midY-height*scale/2,width:width*scale,height:height*scale)
+    }
     guard let common = o.legacyCommon,common.count >= 300,common[285] != 0 else { return rect }
     let width = Double(common.u32(296) & 0xffff),height = Double(common.u32(296) >> 16)
     guard width > 0,height > 0 else { return rect }

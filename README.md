@@ -58,6 +58,8 @@ python3 scripts/validate-designer.py
 
 ## Editing a session
 
+Enhanced displays offer a private background/foreground script editor with canvas/font controls, cancellable test rendering and output messages. See [authoring workflow, CLI and limits](docs/script-editor.md).
+
 Telemetry, still images, text/shapes and optional audio can export without a camera file. Set project length and marks, then render normally; see [camera-free videos](docs/camera-free.md).
 
 Export offers local/internet/television profiles, reusable custom profiles, independent output aspect/size/FPS, whole-composition borders, scaling choices and mono/stereo 44.1/48 kHz AAC. See [output settings](docs/output-settings.md).
@@ -158,7 +160,7 @@ If a project opens with unavailable inputs, use **Review missing files** and **R
 
 Vendor artwork and scripts are loaded from your local files or an explicitly packaged local library and are not relicensed under MIT. They are excluded from the public repository and default builds. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 
-360° projection/metadata, stereoscopic compositing, TrackAddict network transfer, camera GPS extraction, full script editing, and several advanced audio/picture controls remain unimplemented. See the audit for details. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
+360° projection/metadata, stereoscopic compositing, TrackAddict network transfer, camera GPS extraction and several remaining Enhanced-language/audio/picture operations remain unimplemented. See the audit for details. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
 
 ## Contributing and support
 

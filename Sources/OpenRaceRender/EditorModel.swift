@@ -52,6 +52,7 @@ import UniformTypeIdentifiers
   } }
   @Published var showSourceSync = false
   @Published var sequenceInput:MediaInput?
+  @Published var scriptEditorRequest:ScriptEditRequest?
   @Published var showProjectSetup = false
   @Published var setupSyncActive = false { didSet {
     if setupSyncActive { fullScreenPreview?.close() }
@@ -375,6 +376,7 @@ import UniformTypeIdentifiers
   func newProject() {
     guard confirmDiscard() else { return }
     documentRevision = UUID()
+    scriptEditorRequest = nil
     dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
@@ -409,6 +411,7 @@ import UniformTypeIdentifiers
     guard confirmDiscard() else { return }
     let revision = UUID()
     documentRevision = revision
+    scriptEditorRequest = nil
     dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel()
     openingURL = url.standardizedFileURL

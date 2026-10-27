@@ -76,6 +76,9 @@ extension DisplayObject {
     result.segments = segments; result.parentIndex = parentIndex; result.parentID = parentID
     result.legacyIndex = legacyIndex; result.legacyOffset = nil
     result.picture = picture
+    if style.hasScriptStyleSettings,let aspect = style.picture?.maintainAspect {
+      var settings = picture ?? PictureSettings();settings.maintainAspect = aspect;result.picture = settings
+    }
     if result.hud != nil, let hud {
       result.hud?.label = hud.label
       if [.metric, .odometer].contains(hud.role), let role = result.hud?.role, [.metric, .odometer].contains(role) {

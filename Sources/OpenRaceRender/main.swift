@@ -18,6 +18,8 @@ enum CLI {
       OpenRaceRender make-template apex-road --out Apex-Road.orrt
       OpenRaceRender make-template apex-gt-road --out Apex-GT-Road.orrt
       OpenRaceRender snapshot PROJECT --time 120 --out frame.png [--width 1280]
+      OpenRaceRender script-edit PROJECT --object 0 --background background.txt --foreground foreground.txt --out authored.orrp [--canvas-width 320 --canvas-height 180 --font Arial --persistent|--stateless]
+      OpenRaceRender script-check PROJECT --object 0 --time 5 [--samples] [--out script.png]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       Export options: --profile local-1080 --workspace fitCanvas|output --border 5 --scaling high|linear|nearest --audio-rate 44100|48000 --audio-channels 0|1|2
       OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
@@ -114,6 +116,33 @@ enum CLI {
         return 0
       }
       var p = try RaceProject.read(url)
+      func scriptIndex() throws -> Int {
+        if let value = option("--object") {
+          guard let index = Int(value),p.objects.indices.contains(index),p.objects[index].canEditScripts else {throw RaceError.invalid("Choose a zero-based Enhanced object index.")}
+          return index
+        }
+        guard let index = p.objects.firstIndex(where:{$0.canEditScripts}) else {throw RaceError.invalid("No Enhanced display in this project.")}
+        return index
+      }
+      if a[1] == "script-edit" {
+        let index = try scriptIndex();var draft = EnhancedScriptDraft(object:p.objects[index])
+        func sourceFile(_ value:String) throws -> String {
+          let file = URL(fileURLWithPath:value),size = try file.resourceValues(forKeys:[.fileSizeKey]).fileSize ?? 0
+          guard size < 32768 else {throw RaceError.invalid("Script source exceeds 32767 bytes.")}
+          return try String(contentsOf:file,encoding:.utf8)
+        }
+        if let value = option("--background") {draft.background = try sourceFile(value)}
+        if let value = option("--foreground") {draft.foreground = try sourceFile(value)}
+        if let value = option("--canvas-width") {guard let width = Int(value) else {throw RaceError.invalid("Invalid script width.")};draft.width = width}
+        if let value = option("--canvas-height") {guard let height = Int(value) else {throw RaceError.invalid("Invalid script height.")};draft.height = height}
+        if let value = option("--font") {draft.font = value}
+        guard !(a.contains("--persistent") && a.contains("--stateless")) else {throw RaceError.invalid("Choose persistent or stateless, not both.")}
+        if a.contains("--persistent") {draft.persistent = true};if a.contains("--stateless") {draft.persistent = false}
+        let destination = try output()
+        guard destination.pathExtension.lowercased() == "orrp" else {throw RaceError.invalid("Save authored script projects as .orrp.")}
+        p.objects[index] = try draft.applying(to:p.objects[index]);try p.save(destination)
+        print("Saved Enhanced script edit: "+destination.path);return 0
+      }
       if a[1] == "export" {
         var settings = p.exportSettings ?? ExportSettings()
         if let id = option("--profile") {
@@ -162,11 +191,29 @@ enum CLI {
         if let value = option("--audio-bitrate") { guard let rate = Int(value),rate >= 64,rate <= 320 else { throw RaceError.invalid("Invalid audio bitrate in kbps.") };settings.audioBitRate = rate*1000 }
         p.exportSettings = settings
       }
-      let telemetry = try Telemetry.loadSources(p.inputs)
+      let telemetry:[Int:Telemetry] = a[1] == "script-check" && a.contains("--samples") ? [:] : try Telemetry.loadSources(p.inputs)
       for i in p.inputs.indices {
         if let data = telemetry[p.inputs[i].legacyIndex] { p.inputs[i].duration = data.duration }
       }
       switch a[1] {
+      case "script-check":
+        let index = try scriptIndex(),time = Double(option("--time") ?? "0") ?? .nan
+        guard time.isFinite,time >= 0,time <= p.duration else {throw RaceError.invalid("Choose a test time within the project.")}
+        let object = p.objects[index].resolved(at:time),samples = a.contains("--samples")
+        guard object.hasScriptStyleSettings else {throw RaceError.invalid("The selected display has no script at this time.")}
+        let placement = samples ? nil : p.media(for:object.inputIndex,at:time)
+        let data = samples ? WidgetDesign.telemetry : placement.flatMap{telemetry[$0.input.legacyIndex]}
+        let segment = p.objects[index].segments?.filter{$0.time <= time}.map(\.time).max() ?? object.start
+        let start = max(object.start,segment,placement?.start ?? 0),elapsed = max(0,time-start)
+        let sampleTime = samples ? time : placement?.sourceTime(at:time) ?? elapsed
+        let result = try EnhancedScriptDraft(object:object).test(object:object,data:data,sourceTime:sampleTime,displayTime:elapsed,sourceRate:placement?.rate ?? 1,unit:p.speedUnit,fps:p.fps)
+        if option("--out") != nil {
+          let file = try output()
+          guard file.pathExtension.lowercased() == "png",let png = NSBitmapImageRep(cgImage:result.image).representation(using:.png,properties:[:]) else {throw RaceError.invalid("Choose a .png script preview output.")}
+          try png.write(to:file,options:.atomic)
+        }
+        let report:[String:Any] = ["compiled":true,"projectTime":time,"sourceTime":sampleTime,"sampleData":samples,"width":result.image.width,"height":result.image.height,"messages":result.messages]
+        print(String(data:try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]),encoding:.utf8)!)
       case "inspect":
         var out: [String: Any] = [
           "name": p.name, "format": "OpenRaceRender 1", "width": p.width, "height": p.height,
@@ -208,6 +255,8 @@ enum CLI {
         if ["rrp","rrt","rro"].contains(dest.pathExtension.lowercased()) {
           try LegacyWriter.write(p,to:dest)
           print("Saved RaceRender \(dest.pathExtension) file.")
+        } else if dest.pathExtension.lowercased() == "orrt" {
+          try p.reusableLayout().save(dest);print("Saved portable native template.")
         } else { try p.save(dest); print("Saved native project.") }
       case "snapshot":
         let dest = try output()
@@ -368,7 +417,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "script-edit", "script-check", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

@@ -20,7 +20,7 @@ enum LegacyEnhancedRenderer {
     let cache = NSCache<NSString,EnhancedHistory>();cache.countLimit = 16;return cache
   }()
   private static let historyLock = NSLock()
-  static func draw(_ c: CGContext, object o: DisplayObject, rect: CGRect, data: Telemetry?, time: Double, unit: String, timeline: EnhancedTimeline = EnhancedTimeline(), failure: ((String) -> Void)? = nil) -> Bool {
+  static func draw(_ c: CGContext, object o: DisplayObject, rect: CGRect, data: Telemetry?, time: Double, unit: String, timeline: EnhancedTimeline = EnhancedTimeline(), failure: ((String) -> Void)? = nil, message:((String)->Void)? = nil) -> Bool {
     guard o.legacyType == 50, let payload = o.legacyPayload, payload.count >= 67168 else { return false }
     let key = payload as NSData
     let program: EnhancedProgram
@@ -60,6 +60,7 @@ enum LegacyEnhancedRenderer {
     for (i,field) in fields.enumerated() { number("dft_"+field,Double(-i-1)) }
     vars["speedunit"] = .string(unit == "mph" ? "MPH" : unit); vars["inputname"] = .string(data?.title ?? ""); vars["locname"] = .string("")
     let drawing = ScriptDrawing(context:canvas,font:payload.utf16(432,128),data:data,time:time,unit:unit)
+    drawing.message = message
     let machine = ScriptMachine(variables:vars) { name,args in try drawing.call(name,args) }
     func frameValues(_ sample: Double) -> [String:ScriptValue] {
       let sampleValue = channelValue(channel,data:data,time:sample,unit:unit,interpolate:o.kind != .gear)
@@ -165,6 +166,7 @@ final class ScriptDrawing {
   let unit: String
   var outline: Double = -1
   var renders = true
+  var message:((String)->Void)?
   init(context: CGContext,font: String,data: Telemetry?,time: Double,unit: String) {
     c = context; self.font = font; self.data = data; self.time = time; self.unit = unit
   }
@@ -191,7 +193,7 @@ final class ScriptDrawing {
     func result(_ value: Double) -> ScriptValue { .number(value) }
     if name.hasPrefix("draw"), args.contains(where:{ if case .number(let v) = $0 { return !v.isFinite || abs(v) > 1e9 }; return false }) { return .number(0) }
     switch name {
-    case "print": return .number(0)
+    case "print": if renders {message?(String(args.map(\.string).joined(separator:" ").prefix(2048)))};return .number(0)
     case "settextoutline": outline = n(0)
     case "drawnumber": text(n(0).isFinite ? String(format:"%.*f",max(0,min(8,ScriptMachine.int(n(1)))),n(0)) : "—",x:n(2),y:n(3),color:n(4),size:n(5),alignment:n(6))
     case "drawtext": text(s(0),x:n(1),y:n(2),color:n(3),size:n(4),alignment:n(5))
