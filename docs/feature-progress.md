@@ -20,18 +20,28 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 270 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 278 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
+- F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
 - F23: some shared model/rendering dependencies were added with import support. These IDs are not complete; their full user-facing workflows still require individual review.
 
-Next feature: **F19 — richer GPS start/finish and track selection**, after committing/pushing F18. F17 is pushed as `1d4d49b`; CI40523658268 succeeded.
+Next feature: **F20 — two-run/two-car map comparison and time-trial ghost**, after committing/pushing F19. F18 is pushed as `dc4d8a5`; CI40525222794 succeeded.
 
 ## Remaining queue
 
-F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
+F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F31, F32, F33, F34, F35, F36.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F19 handoff — implementation validated, catalogue/live UI limits explicit
+
+- FinishLineEditor is a private map/coordinate draft with sampled GPS route, source cursor/playhead/seconds/nudges, track snapping, decimal coordinates to8 places, inferred/manual forward heading, gate width, heading/axis tolerances, min lap, ignored triggers and precision selection. Full-source preview lists partial/complete laps; selecting an interval freezes the gate before seeking. Atomic Apply reuses DataSetup request/preview stale-source/document safeguards and preserves timing/marks; Undo and save/reload covered. Source inspector entry retains previous quick gate shortcut.
+- FinishLine adds optional east/north meter tolerances and interpolated/sample precision, preserving old JSON. Central validation shared with profiles/library. Forward plane crossings support wrapped headings/longitude, apply tolerances at estimated crossing or recorded next sample, and skip long gaps/implausible jumps. No proprietary timing-algorithm parity claim. FinishLine(at:) now uses interpolated position and neighboring motion rather than always the preceding raw sample.
+- Ignoring triggers works on calculated gates and recorded lap boundaries; ignored prefix becomes partial warmup and later intervals renumber while retaining recorded times/completeness. Raw lap-number columns remain unchanged. Gate min duration/width respect positive fractional values.
+- Independent Tracks.json managed under Library starts empty; no vendor/global track catalogue. Saved gates can be searched and recognized within50km of first GPS sample, with Show all; selection explicit. Portable version1 .orrtracks JSON, validated names/geometry/version/IDs/size/count, identical-entry skip and collision-safe merge. Corrupt managed library preserved with writes disabled; library changes separate from project Apply/Undo. Native track format/online feed and custom gate rewriting remain unverified.
+- 278 tests (226 core/52 editor) pass, six new core/two editor tests covering precision/tolerances/direction/ignored recorded+calculated triggers, stops/gaps/teleports, compatibility/profiles, library roundtrip/lookup/merge, dateline map projection, draft isolation, mark/timing preservation/reload/undo. validate-finish-line passes both modes and ignored warmup against independent recorded-boundary snapshots/encoded frames; validate-smoothing regression passes. App and local-library ZIP signed/verified; artifacts under build/validation/finish-line. Reviewed actual output image. Live native/editor still cgWindowNotFound; no GUI parity claim.
+- Mirrored InputFileSetLap guide and screenshot reviewed. F18 CI40525222794 succeeded. Commit/push F19, verify CI, then F20; continue sequentially with no manual compaction wait. No private/vendor files committed.
 
 ## F18 handoff — implementation validated, live UI limited
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## F19 — GPS finish-line editor and saved tracks
+
+- Private map/coordinate gate editing, motion/manual heading, coordinate and heading tolerances, interpolated/sample precision, ignored calculated or recorded triggers, lap previews and one-step Apply/Undo.
+- Nearby/searchable saved-track lookup and portable JSON import/export under Library, with validation and collision-safe merges. No proprietary track catalogue bundled. See [workflow and limits](docs/finish-line.md).
+
 ## F18 — Telemetry and gauge smoothing
 
 - Source boosting controls, opt-in held GPS reconstruction, bounded map curves shared by trace/marker, discrete lap preservation and interpolation gap protection.

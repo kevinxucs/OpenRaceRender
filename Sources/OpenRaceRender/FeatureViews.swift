@@ -487,6 +487,7 @@ struct DataControls: View {
         }
         Button("Add calculated field") { settings.wrappedValue.fields.append(CalculatedField()) }
         Divider()
+        Button("GPS start / finish editor…") { model.editFinishLine(input) }
         Button("Set finish line at current GPS position") {
           let t = model.project.sourceTime(for: input.legacyIndex, at: model.time) ?? -1
           if let line = data?.finishLine(at: t) { settings.wrappedValue.finishLine = line }

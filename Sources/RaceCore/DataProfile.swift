@@ -100,11 +100,7 @@ extension DataSettings {
         throw RaceError.invalid("Calculated fields need unique names, a source and finite multiplier/offset.")
       }
     }
-    if let line = finishLine {
-      guard line.latitude.isFinite,abs(line.latitude) <= 90,line.longitude.isFinite,abs(line.longitude) <= 180,
-        line.heading.isFinite,line.width.isFinite,line.width > 0,line.minimumLap.isFinite,line.minimumLap > 0,
-        line.headingTolerance.map({$0.isFinite && (0...180).contains($0)}) ?? true else { throw RaceError.invalid("Invalid GPS start/finish settings in the profile.") }
-    }
+    try finishLine?.validate()
   }
 }
 

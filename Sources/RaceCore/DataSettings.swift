@@ -6,6 +6,10 @@ public enum DataDerivationMode:String,Codable,CaseIterable,Sendable {
     switch self { case .automatic:return "Automatic"; case .calculate:return "Calculate"; case .recordedOnly:return "Recorded only" }
   }
 }
+public enum LapTimingPrecision:String,Codable,CaseIterable,Sendable {
+  case interpolated,sample
+  public var title:String { self == .interpolated ? "Interpolate GPS crossing" : "Recorded sample crossing" }
+}
 public struct FinishLine: Codable, Equatable, Sendable {
   public var latitude: Double
   public var longitude: Double
@@ -13,6 +17,9 @@ public struct FinishLine: Codable, Equatable, Sendable {
   public var width: Double = 40
   public var minimumLap: Double = 10
   public var headingTolerance: Double?
+  public var eastTolerance:Double?
+  public var northTolerance:Double?
+  public var precision:LapTimingPrecision?
   public init(latitude: Double, longitude: Double, heading: Double) {
     self.latitude = latitude; self.longitude = longitude; self.heading = heading
   }
@@ -113,6 +120,11 @@ extension Telemetry {
     }
     if let latitude = aliases["lat"], let longitude = aliases["lon"], let line = settings.finishLine {
       laps = detectLaps(line:line,lat:columns[latitude],lon:columns[longitude],ignore:settings.ignoreLapTriggers ?? 0)
+    } else if let ignored = settings.ignoreLapTriggers,ignored > 0,!laps.isEmpty {
+      let remaining = Array(laps.filter{$0.start > 0}.dropFirst(ignored))
+      laps = [TelemetryLap(number:0,start:0,end:remaining.first?.start ?? duration,complete:false)]+remaining.enumerated().map { index,lap in
+        TelemetryLap(number:index+1,start:lap.start,end:lap.end,complete:lap.complete)
+      }
     }
   }
   private func assignedLaps(column:[Double]) -> [TelemetryLap] {
@@ -128,39 +140,56 @@ extension Telemetry {
     }
   }
   public func finishLine(at time: Double) -> FinishLine? {
-    guard let lat = aliases["lat"], let lon = aliases["lon"], count >= 2, time >= 0, time <= duration else { return nil }
-    let i = min(index(at: time), count-2), j = min(count-1,i+max(1,count/20000))
-    guard columns[lat][i].isFinite, columns[lon][i].isFinite else { return nil }
-    let north = columns[lat][j]-columns[lat][i]
-    let east = (columns[lon][j]-columns[lon][i])*cos(columns[lat][i] * .pi/180)
-    guard abs(north)+abs(east) > 1e-10 else { return nil }
-    return FinishLine(latitude: columns[lat][i], longitude: columns[lon][i], heading: atan2(east,north)*180 / .pi)
+    guard let lat = aliases["lat"],let lon = aliases["lon"],count >= 2,time >= 0,time <= duration,
+      let latitude = value(headers[lat],at:time),let longitude = value(headers[lon],at:time) else { return nil }
+    let i = index(at:time)
+    var before = i,after = i
+    while before > 0,time-times[before] < 2 {
+      before -= 1
+      if columns[lat][before] != latitude || columns[lon][before] != longitude { break }
+    }
+    while after+1 < count,times[after]-time < 2 {
+      after += 1
+      if columns[lat][after] != latitude || columns[lon][after] != longitude { break }
+    }
+    guard times[after] > times[before],times[after]-times[before] <= maximumInterpolationGap else { return nil }
+    let north = columns[lat][after]-columns[lat][before]
+    let east = FinishLine.longitudeDelta(columns[lon][after]-columns[lon][before])*cos(latitude * .pi/180)
+    guard north.isFinite,east.isFinite,abs(north)+abs(east) > 1e-10 else { return nil }
+    return FinishLine(latitude:latitude,longitude:longitude,heading:Self.normalHeading(atan2(east,north)*180 / .pi))
   }
-  private func detectLaps(line: FinishLine, lat: [Double], lon: [Double], ignore: Int = 0) -> [TelemetryLap] {
-    let north = cos(line.heading * .pi/180), east = sin(line.heading * .pi/180)
-    let factor = cos(line.latitude * .pi/180)
-    var crossings: [Double] = []
+  private func detectLaps(line:FinishLine,lat:[Double],lon:[Double],ignore:Int = 0) -> [TelemetryLap] {
+    guard count > 1,(try? line.validate()) != nil else { return [] }
+    let north = cos(line.heading * .pi/180),east = sin(line.heading * .pi/180)
+    var crossings:[Double] = []
     for i in 1..<count {
-      let y0 = (lat[i-1]-line.latitude)*111195, x0 = (lon[i-1]-line.longitude)*111195*factor
-      let y1 = (lat[i]-line.latitude)*111195, x1 = (lon[i]-line.longitude)*111195*factor
-      let a = y0*north+x0*east, b = y1*north+x1*east
-      guard a.isFinite, b.isFinite, a < 0, b >= 0, b > a else { continue }
+      let interval = times[i]-times[i-1]
+      guard interval > 0,interval <= maximumInterpolationGap,
+        lat[i-1].isFinite,lon[i-1].isFinite,lat[i].isFinite,lon[i].isFinite else { continue }
+      let (x0,y0) = line.localPosition(latitude:lat[i-1],longitude:lon[i-1])
+      let (x1,y1) = line.localPosition(latitude:lat[i],longitude:lon[i])
+      let a = y0*north+x0*east,b = y1*north+x1*east
+      guard a < 0,b >= 0,b > a,hypot(x1-x0,y1-y0) <= max(1000,300*interval) else { continue }
       let fraction = -a/(b-a)
-      let across = (x0+(x1-x0)*fraction)*north-(y0+(y1-y0)*fraction)*east
-      let time = times[i-1]+(times[i]-times[i-1])*fraction
-      guard abs(across) <= max(1,line.width)/2, time-(crossings.last ?? -1_000_000) >= max(1,line.minimumLap) else { continue }
-      if let tolerance = line.headingTolerance, tolerance.isFinite {
-        let heading = atan2(x1-x0, y1-y0) * 180 / .pi
-        let difference = abs((heading - line.heading + 540).truncatingRemainder(dividingBy: 360) - 180)
-        if difference > max(1, min(180, tolerance)) { continue }
+      let precision = line.precision ?? .interpolated
+      let positionFraction = precision == .sample ? 1 : fraction
+      let x = x0+(x1-x0)*positionFraction,y = y0+(y1-y0)*positionFraction
+      let across = x*north-y*east
+      let time = precision == .sample ? times[i] : times[i-1]+interval*fraction
+      guard abs(across) <= line.width/2,time-(crossings.last ?? -1_000_000) >= line.minimumLap else { continue }
+      if let tolerance = line.eastTolerance,abs(x) > tolerance+1e-7 { continue }
+      if let tolerance = line.northTolerance,abs(y) > tolerance+1e-7 { continue }
+      if let tolerance = line.headingTolerance {
+        let heading = atan2(x1-x0,y1-y0)*180 / .pi
+        if abs(Self.headingDelta(from:line.heading,to:heading)) > tolerance+1e-7 { continue }
       }
       crossings.append(time)
     }
-    let ignored = min(crossings.count, max(0, ignore))
+    let ignored = min(crossings.count,max(0,ignore))
     if ignored > 0 { crossings.removeFirst(ignored) }
     let boundaries = [0.0]+crossings+[duration]
     return (0..<(boundaries.count-1)).map { i in
-      TelemetryLap(number: i, start: boundaries[i], end: boundaries[i+1], complete: i > 0 && i < boundaries.count-2)
+      TelemetryLap(number:i,start:boundaries[i],end:boundaries[i+1],complete:i > 0 && i < boundaries.count-2)
     }
   }
 }

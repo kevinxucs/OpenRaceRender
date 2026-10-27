@@ -78,6 +78,7 @@ import UniformTypeIdentifiers
   private var importingInputs = false
   private(set) var documentRevision = UUID()
   @Published var dataSetupRequest:DataSetupRequest?
+  @Published var finishLineInput:MediaInput?
   var dataSetupQueue:[DataSetupRequest] = []
   private(set) var openTask: Task<Void, Never>?
   private var openingURL: URL?
@@ -352,7 +353,7 @@ import UniformTypeIdentifiers
   func newProject() {
     guard confirmDiscard() else { return }
     documentRevision = UUID()
-    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []
+    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
     project = RaceProject()
@@ -386,7 +387,7 @@ import UniformTypeIdentifiers
     guard confirmDiscard() else { return }
     let revision = UUID()
     documentRevision = revision
-    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []
+    dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel()
     openingURL = url.standardizedFileURL
     pause()
