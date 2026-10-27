@@ -598,6 +598,7 @@ struct ObjectInspector: View {
         MapDisplayControls(object:$object,data:model.telemetry[object.inputIndex])
         MapComparisonControls(model:model,object:$object)
       }
+      if object.kind == .timer { TimerControls(object:$object,model:model) }
       if object.kind == .graph { GraphControls(object: $object, headers: model.telemetry[object.inputIndex]?.headers ?? []) }
       if object.kind == .text {
         TextField("Text", text: $object.text, axis: .vertical).lineLimit(2...5)

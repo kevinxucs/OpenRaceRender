@@ -61,7 +61,7 @@ public struct PictureSettings: Codable, Equatable, Sendable {
 /// Each nil property inherits its value from earlier segments, as in RaceRender.
 public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public enum ClearedProperty: String, Codable, Hashable, Sendable {
-    case picture, gauge, graph, mapComparison, mapSettings, imageControl, typography, shape, hud, audio, legacyType, legacyCommon, legacyPayload
+    case picture, gauge, graph, mapComparison, mapSettings, timerSettings, imageControl, typography, shape, hud, audio, legacyType, legacyCommon, legacyPayload
   }
   public var clearedProperties: Set<ClearedProperty>?
   public var legacyType: Int?
@@ -83,6 +83,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var graph: GraphSettings?
   public var mapComparison:MapComparisonSettings?
   public var mapSettings:MapDisplaySettings?
+  public var timerSettings:TimerSettings?
   public var imageControl: ImageControlSettings?
   public var typography: TextSettings?
   public var shape: ShapeSettings?
@@ -100,7 +101,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public func apply(to object: inout DisplayObject) {
     for property in clearedProperties ?? [] {
       switch property {
-      case .picture: object.picture = nil; case .gauge: object.gauge = nil; case .graph: object.graph = nil; case .mapComparison: object.mapComparison = nil; case .mapSettings: object.mapSettings = nil
+      case .picture: object.picture = nil; case .gauge: object.gauge = nil; case .graph: object.graph = nil; case .mapComparison: object.mapComparison = nil; case .mapSettings: object.mapSettings = nil; case .timerSettings: object.timerSettings = nil
       case .imageControl: object.imageControl = nil; case .typography: object.typography = nil
       case .shape: object.shape = nil; case .hud: object.hud = nil; case .audio: object.audio = nil
       case .legacyType: object.legacyType = nil; case .legacyCommon: object.legacyCommon = nil
@@ -123,6 +124,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
     if let v = graph { object.graph = v }
     if let v = mapComparison { object.mapComparison = v }
     if let v = mapSettings { object.mapSettings = v }
+    if let v = timerSettings { object.timerSettings = v }
     if let v = imageControl { object.imageControl = v }
     if let v = typography { object.typography = v }
     if let v = shape { object.shape = v }
@@ -172,6 +174,7 @@ extension DisplayObject {
     parameter(.graph,\.graph,old.graph,value.graph)
     parameter(.mapComparison,\.mapComparison,old.mapComparison,value.mapComparison)
     parameter(.mapSettings,\.mapSettings,old.mapSettings,value.mapSettings)
+    parameter(.timerSettings,\.timerSettings,old.timerSettings,value.timerSettings)
     parameter(.imageControl,\.imageControl,old.imageControl,value.imageControl)
     parameter(.typography,\.typography,old.typography,value.typography)
     parameter(.shape,\.shape,old.shape,value.shape)

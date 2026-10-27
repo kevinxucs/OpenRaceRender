@@ -12,15 +12,17 @@ extension RaceProject {
     let included = layoutObjectIDs(selected)
     let kinds = Dictionary(objects.map { ($0.id,$0.kind) }, uniquingKeysWith: { a, _ in a })
     var controlled = Set(objects.filter(\.imageUsesData).map(\.id))
+    var sourceTimers = Set(objects.filter{$0.kind == .timer && ($0.timerSettings?.usesSourceClock ?? true)}.map(\.id))
     func inspect(_ segments: [ObjectSegment], id: UUID) {
       for segment in segments {
+        if segment.timerSettings?.usesSourceClock == true || segment.clearedProperties?.contains(.timerSettings) == true { sourceTimers.insert(id) }
         if segment.imageControl?.usesData == true { controlled.insert(id) }
         for (child,records) in segment.groupChildrenBefore ?? [:] { inspect(records,id:child) }
       }
     }
     for object in objects { inspect(object.segments ?? [],id:object.id) }
     func usesSource(_ kind: ObjectKind, id: UUID) -> Bool {
-      kind == .image ? controlled.contains(id) : ![.group,.shape,.text].contains(kind)
+      kind == .timer ? sourceTimers.contains(id) : kind == .image ? controlled.contains(id) : ![.group,.shape,.text].contains(kind)
     }
     func indexIfUsed(_ index: Int, kind: ObjectKind, id: UUID) -> [Int] {
       guard usesSource(kind,id:id), kind != .image || inputs.contains(where: { $0.legacyIndex == index && $0.kind == "data" }) else { return [] }

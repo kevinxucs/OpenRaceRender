@@ -3,7 +3,7 @@ import Foundation
 extension RaceProject {
   /// Check dependencies of visible displays in the requested span, including source switches
   /// and joined clips. Preview can still show available sources while a project is repaired.
-  public func validateExportAssets(start: Double, duration: Double) throws {
+  public func validateExportAssets(start: Double, duration: Double, telemetry:[Int:Telemetry]? = nil) throws {
     guard start.isFinite, duration.isFinite, duration > 0 else { return }
     let end = start + duration
     var missing = Set<String>()
@@ -21,10 +21,16 @@ extension RaceProject {
       for (lo, hi) in zip(boundaries, boundaries.dropFirst()) {
         guard let display = resolvedObjects(at: lo).first(where: { $0.id == object.id }),
           display.visible, lo >= display.start, lo < display.end, display.opacity > 0 else { continue }
+        if let timer = display.timerSettings {
+          try timer.validate()
+          if timer.mode == .timeOfDay,timer.clock == .source,timer.epoch == nil,let telemetry,telemetry[display.inputIndex]?.firstSampleUnixTime == nil {
+            throw RaceError.invalid("‘\(display.name)’ has no recorded UTC epoch. Set an explicit clock anchor before rendering.")
+          }
+        }
         if display.kind == .image {
           if display.artwork == nil && display.embeddedImage == nil { require(display.text, label: display.name) }
         }
-        if display.imageUsesData || ![.image, .shape, .text].contains(display.kind) {
+        if (display.timerSettings?.usesSourceClock ?? true) && (display.imageUsesData || ![.image, .shape, .text].contains(display.kind)) {
           let sources = inputs.filter { $0.legacyIndex == display.inputIndex || $0.joinedTo == display.inputIndex }
           if display.imageUsesData && sources.isEmpty { missing.insert(display.name + ": choose a telemetry input") }
           for input in sources {

@@ -823,7 +823,7 @@ import UniformTypeIdentifiers
   var exportRangeError: String? {
     do {
       try project.validateExportRange(start: exportStart, duration: exportDuration)
-      try project.validateExportAssets(start: exportStart, duration: exportDuration)
+      try project.validateExportAssets(start: exportStart, duration: exportDuration,telemetry:telemetry)
       return nil
     }
     catch { return error.localizedDescription }

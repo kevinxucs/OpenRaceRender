@@ -178,6 +178,7 @@ public enum LegacyWriter {
   static func record(_ object: DisplayObject, sources: [Int:Int], parents: [Int:Int]) throws -> Record {
     let o = object
     func unsupported(_ detail: String) -> RaceError { .invalid("‘\(o.name)’: \(detail) Save this project in .orrp format.") }
+    guard o.timerSettings == nil else { throw unsupported("Configured native timers and wall clocks require .orrp/.orrt.") }
     guard o.mapSettings == nil else { throw unsupported("Edited vector map options require .orrp/.orrt; the original map payload remains available by resetting the map editor.") }
     guard o.mapComparison == nil else { throw unsupported("Shared-map comparisons and lap ghosts require .orrp/.orrt.") }
     guard o.hud == nil else { throw unsupported("GT/HUD instruments have no equivalent RaceRender display.") }

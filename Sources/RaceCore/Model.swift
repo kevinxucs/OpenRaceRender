@@ -104,6 +104,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var graph: GraphSettings?
   public var mapComparison:MapComparisonSettings?
   public var mapSettings:MapDisplaySettings?
+  public var timerSettings:TimerSettings?
   public var imageControl: ImageControlSettings?
   public var hud: HUDSettings?
   public var typography: TextSettings?

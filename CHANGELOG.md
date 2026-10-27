@@ -1,5 +1,10 @@
 # Changelog
 
+## F22 — Manual timers and wall clocks
+
+- Manual project timers with delay, initial offset, explicit anchor and displayed-value stop/hold; configurable duration components, decimals and compact output.
+- RCZ/explicit UTC anchors, source/project clocks, timezone/DST/12-hour formatting, missing-anchor preflight, source-free rendering and timeline/template/Undo integration. See [workflow and limits](docs/timers.md).
+
 ## F21 — Map display editor
 
 - Course/position visibility, whole/best/current/selected-lap traces, vector vehicle icons, colors/widths, detail budgets and start markers.

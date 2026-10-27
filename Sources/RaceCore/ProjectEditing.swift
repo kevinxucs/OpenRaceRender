@@ -144,6 +144,7 @@ extension RaceProject {
       return segment
     }
     for i in p.objects.indices {
+      p.objects[i].timerSettings?.anchorTime = nil; p.objects[i].timerSettings?.epoch = nil
       p.objects[i].mapSettings?.lapStart = nil
       if p.objects[i].mapSettings?.trace == .lap { p.objects[i].mapSettings?.trace = .all }
       p.objects[i].mapComparison?.primaryLapStart = nil; p.objects[i].mapComparison?.referenceLapStart = nil

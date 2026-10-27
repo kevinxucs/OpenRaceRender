@@ -42,11 +42,11 @@ public enum OverlayRenderer {
       c.clip(to: r)
       let data = scene.telemetry[o.inputIndex]
       let placement = scene.project.media(for:o.inputIndex,at:time)
-      if o.legacyType != nil, (o.kind != .image || o.imageUsesData), placement == nil,
+      if o.legacyType != nil,(o.timerSettings?.usesSourceClock ?? true), (o.kind != .image || o.imageUsesData), placement == nil,
         scene.project.inputs.contains(where:{ $0.legacyIndex == o.inputIndex && $0.kind == "data" }) {
         c.restoreGState();continue
       }
-      if o.legacyType == 50,o.legacyActivation == 0,placement == nil {
+      if o.legacyType == 50,(o.timerSettings?.usesSourceClock ?? true),o.legacyActivation == 0,placement == nil {
         c.restoreGState();continue
       }
       let t = placement?.sourceTime(at:time) ?? -1
@@ -73,6 +73,7 @@ public enum OverlayRenderer {
       if [.speed, .rpm, .gauge].contains(o.kind), GaugeDesignerRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
         c.restoreGState(); continue
       }
+      if TimerDisplayRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
       if MapComparisonRenderer.draw(c,object:o,rect:r,scene:scene,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
       if MapDisplayRenderer.draw(c,object:o,rect:r,data:data,time:t) { c.restoreGState(); continue }
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
