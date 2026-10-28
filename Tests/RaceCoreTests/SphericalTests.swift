@@ -99,6 +99,43 @@ final class SphericalTests:XCTestCase {
     XCTAssertEqual(source.picture?.spherical?.pan,90);XCTAssertEqual(source.picture?.spherical?.fieldOfView,240)
     XCTAssertEqual(source.picture?.spherical?.mode,.fisheye);XCTAssertEqual(source.picture?.spherical?.axis,.up)
   }
+  func testNativePanoramicProjectAndTemplateExportRetainExpandedGeometry() throws {
+    var p = RaceProject();p.setSphericalWorkspace(true);p.width = 480;p.height = 240
+    var shape = DisplayObject(name:"Outside center",kind:.shape);shape.shape = ShapeSettings()
+    shape.color = "#FF0000";shape.x = -75;shape.y = 125;shape.width = 80;shape.height = 40
+    p.objects = [shape]
+    for format in [LegacyWriter.Format.rrp,.rrt] {
+      let bytes = try LegacyWriter.data(p,format:format,seed:123)
+      XCTAssertEqual(bytes[format == .rrp ? 2126 : 12],6,"Native mode selector, not a flat 2:1 approximation")
+      let q = try format == .rrp ? LegacyReader.project(bytes,base:URL(fileURLWithPath:"/tmp")) : LegacyReader.template(bytes)
+      XCTAssertEqual(q.sphericalWorkspace,true);XCTAssertEqual(q.width,3840);XCTAssertEqual(q.height,1920)
+      let o = try XCTUnwrap(q.objects.first)
+      XCTAssertEqual(o.x,-75);XCTAssertEqual(o.y,125);XCTAssertEqual(o.width,80);XCTAssertEqual(o.height,40)
+      XCTAssertEqual(q.canvasRect(CGRect(x:o.x,y:o.y,width:o.width,height:o.height),size:CGSize(width:480,height:240)),p.canvasRect(CGRect(x:shape.x,y:shape.y,width:shape.width,height:shape.height),size:CGSize(width:480,height:240)))
+    }
+    p.rangeStart = 1;p.rangeEnd = 3;p.explicitDuration = 4
+    var moved = shape;moved.x = 150;p.objects[0].editSegment(at:2,from:shape,to:moved)
+    let q = try LegacyReader.project(LegacyWriter.data(p,format:.rrp),base:URL(fileURLWithPath:"/tmp"))
+    XCTAssertEqual(q.rangeStart,1);XCTAssertEqual(q.rangeEnd,3);XCTAssertEqual(q.objects[0].resolved(at:2).x,150)
+  }
+  func testNativePanoramicExportRefusesUnrepresentableWorkspaceAndLens() throws {
+    var p = RaceProject();p.setSphericalWorkspace(true)
+    p.objects = [DisplayObject(name:"Shape",kind:.shape)];p.objects[0].shape = ShapeSettings()
+    XCTAssertThrowsError(try LegacyWriter.data(p,format:.rro))
+    for dimensions in [(1920,1080),(0,0),(3840,1921)] {
+      p.width = dimensions.0;p.height = dimensions.1
+      for format in [LegacyWriter.Format.rrp,.rrt] {XCTAssertThrowsError(try LegacyWriter.data(p,format:format))}
+    }
+    p.width = 3840;p.height = 1920
+    var picture = PictureSettings();picture.spherical = SphericalProjection()
+    p.objects[0].picture = picture
+    XCTAssertThrowsError(try LegacyWriter.data(p,format:.rrp));XCTAssertThrowsError(try LegacyWriter.data(p,format:.rrt))
+    p.objects[0].picture = nil
+    var source = MediaInput(name:"Unverified lens",path:"/tmp/original.mp4",kind:"video");source.picture = picture;p.inputs = [source]
+    XCTAssertThrowsError(try LegacyWriter.data(p,format:.rrp))
+    p.inputs = [];p.sphericalWorkspace = nil
+    XCTAssertThrowsError(try LegacyWriter.data(p,format:.rrp),"A flat 2:1 project must not become spherical implicitly")
+  }
   func testActual360ExportAutomaticallyMarksPlayableOutput() async throws {
     let output = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString+".mp4")
     defer {try? FileManager.default.removeItem(at:output)}

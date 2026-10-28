@@ -62,7 +62,9 @@ public enum LegacyWriter {
     guard project.inputs.count <= 255, project.objects.count <= 10000 else {
       throw RaceError.invalid("RaceRender export allows at most 255 inputs and 10,000 displays.")
     }
-    guard project.sphericalWorkspace != true else {throw RaceError.invalid("Spherical workspaces require .orrp/.orrt; native workspace encoding is unverified.")}
+    if project.sphericalWorkspace == true,format == .rro {
+      throw RaceError.invalid("An individual RRO style cannot carry a spherical workspace. Export an RRT template or RRP project instead.")
+    }
     guard Set(project.inputs.map(\.legacyIndex)).count == project.inputs.count else {
       throw RaceError.invalid("Input identifiers must be unique before RaceRender export.")
     }
@@ -644,9 +646,15 @@ public enum LegacyWriter {
     throw RaceError.invalid("Display or join references missing input \(index).")
   }
   static func workspace(_ project: RaceProject) throws -> UInt8 {
+    if project.sphericalWorkspace == true {
+      guard project.height > 0,project.width > 0,Double(project.width) == Double(project.height)*2 else {
+        throw RaceError.invalid("RaceRender panoramic export requires a 2:1 workspace. Save other spherical canvas sizes in .orrp/.orrt format.")
+      }
+      return 6 // Verified native panoramic RRP header / RRT workspace selector.
+    }
     let ratio = Double(project.width)/Double(max(1,project.height))
     if abs(ratio-16.0/9) < 0.001 { return 2 }; if abs(ratio-4.0/3) < 0.001 { return 0 }
-    throw RaceError.invalid("RaceRender export currently supports 16:9 and 4:3 workspaces. Save other canvas sizes in .orrp format.")
+    throw RaceError.invalid("RaceRender export supports flat 16:9/4:3 or spherical 2:1 workspaces. Save other canvas sizes in .orrp format.")
   }
   static func noTimeline(_ p: RaceProject) throws {
     guard p.objects.allSatisfy({ ($0.segments ?? []).isEmpty && $0.start == 0 && $0.end >= 1_000_000 }) else {

@@ -57,3 +57,7 @@ F08 adds E Image control payloads, mapped data roles and length-prefixed artwork
 F09 allows a cleared base background. Artwork-clear timeline events require native format and are explicitly refused for RRP output; see [background editor](background-editor.md).
 
 F10 refuses renderer-type changes inside a legacy timeline event. RRT seeds are normalized if an encrypted input identifier would collide with the raw input-table delimiter; valid seeds remain unchanged. See [timeline validation](timeline-editing.md).
+
+### Panoramic workspace
+
+Spherical 2:1 projects/templates export with the verified native workspace selector 6. Negative/expanded display coordinates are preserved, with timeline events and output marks in RRP. Native reopening uses its 3840×1920 workspace default; arbitrary output resolution is separate. Other spherical aspect ratios, per-source/display spherical projection settings and individual spherical RRO styles are refused explicitly. Flatten/stitch the camera first or retain projection edits in `.orrp`. `scripts/validate-spherical-export.py` verifies exact OpenRaceRender reopening pixels and marked full/chunk exports; live native reopening remains unverified while computer-use is unavailable.
