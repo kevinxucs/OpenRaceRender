@@ -2,26 +2,26 @@ import Foundation
 
 /// Identified Olympus OL* sensor sentences. Camera axes are intentionally not vehicle G.
 enum OlympusSensorReader {
+  static func timestamp(_ date:String,_ clock:String) throws -> Double {
+    var calendar = Calendar(identifier:.gregorian);calendar.timeZone = TimeZone(secondsFromGMT:0)!
+    let clockParts = clock.split(separator:".",omittingEmptySubsequences:false)
+    func digits(_ value:Substring) -> Bool {!value.isEmpty && value.utf8.allSatisfy{(48...57).contains($0)}}
+    guard date.count == 8,digits(date[...]),clockParts.count <= 2,clockParts[0].count == 6,
+      clockParts.allSatisfy(digits),let seconds = Double(clock.dropFirst(4)),seconds >= 0,seconds < 60 else {
+      throw RaceError.invalid("Olympus sensor timestamps require YYYYMMDD,HHMMSS[.fraction].")
+    }
+    let year = Int(date.prefix(4))!,month = Int(date.dropFirst(4).prefix(2))!,day = Int(date.suffix(2))!
+    let hour = Int(clock.prefix(2))!,minute = Int(clock.dropFirst(2).prefix(2))!
+    guard (1...9999).contains(year),(1...12).contains(month),(1...31).contains(day),(0...23).contains(hour),(0...59).contains(minute),
+      let value = calendar.date(from:DateComponents(year:year,month:month,day:day,hour:hour,minute:minute,second:Int(seconds))),
+      calendar.component(.month,from:value) == month,calendar.component(.day,from:value) == day else {
+      throw RaceError.invalid("Invalid Olympus sensor calendar date/time.")
+    }
+    return value.timeIntervalSince1970+seconds-Double(Int(seconds))
+  }
   static func sessions(_ text:String) throws -> [LoggerTextSession] {
     var rows:[[String]] = [],time:Double?,first:Double?,values = [String](repeating:"nan",count:10)
     var seen = Set<String>(),offsets = Set<Double>(),unknown = Set<String>(),invalid = 0
-    var calendar = Calendar(identifier:.gregorian);calendar.timeZone = TimeZone(secondsFromGMT:0)!
-    func timestamp(_ date:String,_ clock:String) throws -> Double {
-      let clockParts = clock.split(separator:".",omittingEmptySubsequences:false)
-      func digits(_ value:Substring) -> Bool {!value.isEmpty && value.utf8.allSatisfy{(48...57).contains($0)}}
-      guard date.count == 8,digits(date[...]),clockParts.count <= 2,clockParts[0].count == 6,
-        clockParts.allSatisfy(digits),let seconds = Double(clock.dropFirst(4)),seconds >= 0,seconds < 60 else {
-        throw RaceError.invalid("Olympus sensor timestamps require YYYYMMDD,HHMMSS[.fraction].")
-      }
-      let year = Int(date.prefix(4))!,month = Int(date.dropFirst(4).prefix(2))!,day = Int(date.suffix(2))!
-      let hour = Int(clock.prefix(2))!,minute = Int(clock.dropFirst(2).prefix(2))!
-      guard (1...9999).contains(year),(1...12).contains(month),(1...31).contains(day),(0...23).contains(hour),(0...59).contains(minute),
-        let value = calendar.date(from:DateComponents(year:year,month:month,day:day,hour:hour,minute:minute,second:Int(seconds))),
-        calendar.component(.month,from:value) == month,calendar.component(.day,from:value) == day else {
-        throw RaceError.invalid("Invalid Olympus sensor calendar date/time.")
-      }
-      return value.timeIntervalSince1970+seconds-Double(Int(seconds))
-    }
     func finishRow() {if let time,let first {rows.append([String(time-first)]+values)}}
     for raw in text.components(separatedBy:.newlines) {
       let line = raw.replacingOccurrences(of:"\u{FEFF}",with:"").trimmingCharacters(in:.whitespacesAndNewlines)
@@ -72,6 +72,8 @@ enum OlympusSensorReader {
     if invalid > 0 {warnings.append("\(invalid) Olympus sensor fields have invalid values or unknown temperature units; missing values were retained.")}
     if !unknown.isEmpty {warnings.append("Unknown Olympus sensor sentence types were omitted: "+unknown.sorted().joined(separator:", "))}
     let headers = ["Time","Camera compass (deg)","Atmospheric pressure (hPa)","Sensor altitude (m)","Sensor altitude (ft)","Ambient temperature (C)","Temperature unit flag","Temperature status (raw)","Camera acceleration X (raw)","Camera acceleration Y (raw)","Camera acceleration Z (raw)"]
-    return [LoggerTextSession(name:"Olympus sensors",text:LoggerText.csv(headers,rows),epoch:epoch,count:rows.count,warnings:warnings)]
+    var document = LoggerTextSession(name:"Olympus sensors",text:LoggerText.csv(headers,rows),epoch:epoch,count:rows.count,warnings:warnings)
+    document.gpsClockCorrected = offsets.count == 1
+    return [document]
   }
 }

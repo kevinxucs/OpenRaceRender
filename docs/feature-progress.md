@@ -20,7 +20,7 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 419 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 423 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -55,13 +55,13 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 
 - F36: atomic recovery copies, explicit startup/Help restoration, archive, optional saved-project reopen, CLI recovery and private diagnostic viewer/export implemented; see [recovery and validation limits](session-recovery.md).
 
-F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. F31 internal FIT session selection `8d5102d` passed CI. SpeedAngle v4 import pushed as `5c45b9c`. Native 2:1 panoramic workspace writing pushed as `11679a1`. Current work: Olympus identified sensor-log import, then companion-file merging and other independently verifiable gaps.
+F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. F31 internal FIT session selection `8d5102d` passed CI. SpeedAngle v4 import pushed as `5c45b9c`. Native 2:1 panoramic workspace writing pushed as `11679a1`. Olympus identified sensor-log import pushed as `1ff9533` and passed CI; panoramic writing also passed CI. Current work: finish/push conservative Olympus companion merging, then other independently verifiable gaps.
 
 ## Remaining work after F36
 
 | ID | Remaining implementation |
 | --- | --- |
-| F31 | GTech GTR/GTS, PZRacing PRR, Sony MOFF and Olympus companion-file merging; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
+| F31 | GTech GTR/GTS, PZRacing PRR, Sony MOFF; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
 | F32 | Native TrackAddict discovery and Wi-Fi transfer protocol. The browser/HTTP receiving workflow is implemented; native sender interoperability still needs a verifiable protocol/fixture. |
 
 Other explicit limits: native sphere projection pixel parity/automatic camera calibration and native spherical lens writing (F34); unsupported native clipping/timeline flags and repair of edited older incorrectly imported events (F01/F10/F35). Live Google OAuth/Keychain/upload validation (F33) requires a separately authorized account/client workflow; F36 live GUI validation is pending a working computer-use connection. These are not silently claimed complete. Individual feature guides contain narrower format/rendering limits.
@@ -390,3 +390,8 @@ CI40540820591 on fcefa0f hit an older Swift compiler type-check timeout in the c
 
 - Identified OL* text packets load as telemetry through Add input/drop/Finder, with pressure/altitude/temperature, camera compass and three raw acceleration channels. Strict packet clocks/checksums/arity avoid guessed placement; missing readings remain missing. Reported camera UTC warns when not GPS-corrected; one consistent SNS/GPS offset adjusts it, changing offsets remove the anchor. Camera axes/compass never silently become vehicle G/heading. `.snslog` accepts the same identified text; normal vendor SNSLOG is a folder. Unknown generations/automatic companion merging/native SNS mapping remain outside this subfeature.
 - 419 tests pass (330 core/89 editor), including four core and one editor save/reload test. Release build and independent CSV pixel/marked full-chunk acceptance pass. Signed local-library app/ZIP verified; synthetic PNG inspected. First-hand camera-owner sentence observations were checked against manufacturer folder documentation; fixtures are original. No live UI claim while native pipe remains unavailable.
+
+## F31 Olympus GPS companion merging — validated follow-up
+
+- Same-basename LOG in the SNS folder or sibling GPSLOG is paired only with one unambiguous candidate, consistent recorded camera/GPS offset, dated 2000–2099 GP/GN RMC clocks and overlapping intervals. Combined data retains both sampling grids, void fixes, sensor bounds and GPS outage gaps. First combined UTC becomes time zero; a warning asks to recheck sync and retain both files/folders. Failure warns and keeps standalone sensors. No source writes, recursive scans or alignment from filename alone. `.log` imports remain GPS-only.
+- 423 tests (334 core/89 editor) pass; focused Olympus rerun verifies saved relative project reload, offsets/marks and untouched originals. Release/media acceptance passes: independent combined CSV pixels, relocated relative project, unchanged originals and marked full/chunk video. Signed local-library app/ZIP verified and original PNG visually inspected. Original fixtures only; live native parity remains unavailable.

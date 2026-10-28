@@ -8,6 +8,7 @@ struct LoggerTextSession {
   var count:Int
   var warnings:[String] = []
   var lapStarts:[Double]?
+  var gpsClockCorrected = false
 }
 
 /// Explicit text dialects; closed binary formats are refused rather than interpreted as video.
