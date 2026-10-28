@@ -4,6 +4,22 @@ import XCTest
 @testable import OpenRaceRender
 
 final class LoggerSessionEditorTests:XCTestCase {
+  @MainActor func testSpeedAngleImportsAsDataAndKeepsManualAssignmentsPortable() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
+    let url = root.appendingPathComponent("original.sa")
+    try Data("#V=4.0.0=\n<timer #unit=KM/h>\n</timer>\n<trace #pt=2>\n10,20,1,2,3,4,36,-255,10,1,0\n10.001,20.001,2,3,4,5,40,-255,10,1,0\n</trace>\n".utf8).write(to:url)
+    let model = EditorModel();model.addInputs([url])
+    for _ in 0..<200 {if !model.busy {break};try await Task.sleep(nanoseconds:20_000_000)}
+    XCTAssertEqual(model.project.inputs.count,1);XCTAssertEqual(model.project.inputs[0].kind,"data")
+    XCTAssertFalse(model.project.objects.contains{$0.kind == .video});XCTAssertNil(model.error)
+    XCTAssertEqual(model.telemetry[0]?.speed(at:0,unit:"km/h"),36)
+    let saved = root.appendingPathComponent("saved.orrp");try model.project.save(saved)
+    let reopened = try RaceProject.read(saved),tables = try Telemetry.loadSources(reopened.inputs)
+    XCTAssertEqual(tables[0]?.value("Lean angle (deg)",at:0),1)
+    XCTAssertEqual(AppDelegate.launchProjectURL(["App",url.path]),url)
+    model.dataSetupRequest = nil
+  }
   @MainActor func testInternalFITSelectionOffersPreviewAndUndo() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}

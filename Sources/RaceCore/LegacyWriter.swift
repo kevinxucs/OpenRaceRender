@@ -335,6 +335,7 @@ public enum LegacyWriter {
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {
     let s = source, root = s.isJoinRoot == true
     if s.picture?.spherical != nil {throw RaceError.invalid("Spherical picture edits require .orrp; native lens encoding is unverified.")}
+    if s.kind == "data",URL(fileURLWithPath:s.path).pathExtension.lowercased() == "sa" {throw RaceError.invalid("SpeedAngle channel mapping requires .orrp; native RRP mapping has not been verified.")}
     if s.dataSession != nil || (s.kind == "data" && URL(fileURLWithPath:s.path).pathExtension.lowercased() == "json") {throw RaceError.invalid("Data-session selections require .orrp; native logger track numbering has not been verified.")}
     if s.cameraVideoID != nil || (s.kind == "data" && CameraTelemetry.extensions.contains(URL(fileURLWithPath:s.path).pathExtension.lowercased())) {
       throw RaceError.invalid("Embedded camera data requires .orrp; native camera-data encoding is unverified.")

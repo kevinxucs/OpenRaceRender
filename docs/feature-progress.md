@@ -20,7 +20,7 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 407 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 412 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -43,7 +43,7 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 
 - F30: bounded GoPro GPS5/GPS9/ACCL/GYRO extraction, optional import offers, camera-linked timing/sequence identities, saved sources and manual sync implemented; see [camera telemetry](camera-telemetry.md).
 
-- F31: documented MSL/GUTMA imports and saved CSV/GPX/TCX/concatenated-FIT/RCZ session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
+- F31: documented MSL/GUTMA/SpeedAngle v4 imports and saved CSV/GPX/TCX/internal-FIT/RCZ/SA session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
 
 - F32: explicit-start browser/HTTP local receiving, streamed private staging, destination/progress/cancel/completed-file import implemented. TrackAddict native discovery/wire protocol remains unverified and outstanding; see [network receiving](network-receive.md).
 
@@ -55,13 +55,13 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 
 - F36: atomic recovery copies, explicit startup/Help restoration, archive, optional saved-project reopen, CLI recovery and private diagnostic viewer/export implemented; see [recovery and validation limits](session-recovery.md).
 
-F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. Current work: F31 internal FIT session selection, then remaining independently verifiable gaps; commit/push before continuing.
+F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. F31 internal FIT session selection `8d5102d` passed CI. Current work: finish/push SpeedAngle v4 import, then remaining independently verifiable gaps.
 
 ## Remaining work after F36
 
 | ID | Remaining implementation |
 | --- | --- |
-| F31 | GTech GTR/GTS, PZRacing PRR, SpeedAngle SA, Sony MOFF, Olympus SNS/SNSLOG and companion-file merging; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
+| F31 | GTech GTR/GTS, PZRacing PRR, Sony MOFF, Olympus SNS/SNSLOG and companion-file merging; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
 | F32 | Native TrackAddict discovery and Wi-Fi transfer protocol. The browser/HTTP receiving workflow is implemented; native sender interoperability still needs a verifiable protocol/fixture. |
 
 Other explicit limits: native sphere projection pixel parity/automatic camera calibration and native spherical writing (F34); unsupported native clipping/timeline flags and repair of edited older incorrectly imported events (F01/F10/F35). Live Google OAuth/Keychain/upload validation (F33) requires a separately authorized account/client workflow; F36 live GUI validation is pending a working computer-use connection. These are not silently claimed complete. Individual feature guides contain narrower format/rendering limits.
@@ -72,7 +72,7 @@ Public source contains no private sessions, telemetry or proprietary vendor asse
 
 - FITReader separates internal session summaries in either message order, using start_time + elapsed/1000 rather than the summary write timestamp. Concatenated containers flatten into stable one-based selections. Shared boundary samples belong to the new session; laps stay local. Out-of-range records remain in a warned unassigned selection; empty summaries omitted, duplicate ranges deduplicated, overlaps/incomplete multi-session ranges refused. Single incomplete summary retains records with a warning. FIT UTC epochs propagate; relative device clocks remain unanchored. Missing fields emit nan instead of holding older values; compressed-clock overflow is refused.
 - 407 tests (320core/87editor) pass with local library/graphics. Six new core tests and one actual data-setup model preview/apply/Undo check cover message ordering/bounds/UTC/laps/gaps/concatenation/cache/malformed data/missing values. Original generated files match official Garmin SDK21.218.0 decoding; independent CSV snapshots and marked full/chunk export pass. Public spec/profile downloaded only to ignored reference folder; SDK confined to ignored validation venv, no vendor source/assets committed.
-- Updated native app cannot be reached through CUA: native pipe startup still fails. No live FIT picker claim. Logs build/validation/fit-sessions/{tests,build,focused,acceptance}; synthetic PNG visually inspected. Final signed package and commit/push required before next feature. F36 push verified, GitHub SSH works again.
+- Updated native app cannot be reached through CUA: native pipe startup still fails. No live FIT picker claim. Logs build/validation/fit-sessions/{tests,build,focused,acceptance}; synthetic PNG visually inspected. Signed package completed; pushed as `8d5102d`, CI passed. F36 push verified, GitHub SSH works again.
 
 ## F36 handoff — implementation complete; live UI connection unavailable
 
@@ -374,3 +374,9 @@ CI40540820591 on fcefa0f hit an older Swift compiler type-check timeout in the c
 - OpenRaceRender is on saved synthetic `acceptance/authored.orrp`, just successfully exported `ui-export.rrt`. RaceRender is on the synthetic timeline test, at1.25seconds with a saved custom camera rotation15; native inspector normalization may leave the window dirty. Its on-disk synthetic fixture was later regenerated by acceptance. Preserve current native state to a new private file if another project must be opened, rather than discarding it.
 - Automatic approval review rejected choosing No at an unsaved RR prompt earlier. Resolved safely by choosing Yes and saving a new `designer/rrt-probe-state-20261026.rrp`; no outstanding approval request. Do not retry discarding unsaved state.
 - CUA after compaction: call `await cua.rewriteDocumentation()` first. Native combo-box choices commit reliably with the dropdown button + arrow keys + Return; clicking list text alone can leave the value unchanged. File panels use Command+shift+g, set path, observe, double-click selected GoTo row, observe, click Open/Save.
+
+## F31 SpeedAngle v4 — validated follow-up
+
+- Manufacturer's SA Log Format appendix establishes v4, 10 Hz, 11 trace fields, speed units and timer/finish markers. Reader preserves both motion readings/raw G, exact matching timer laps, local names, invalid-fix timing and selectable trace blocks. No fabricated UTC or acceleration scale. Unsupported versions/malformed rows fail explicitly; count/timer disagreements warn without silently shifting time. Native RRP source mapping remains refused.
+- 412 tests pass (324 core/88 editor), release build succeeds. Original independent CSV snapshots, marked full/chunk frames, Finder type registration and public 6080-row source checks pass. Public accompanying VBO mislabeled mph numbers as km/h; documented rather than reproduced. Public GPS and reference files remain ignored; committed fixtures are original. Logs: `build/validation/speedangle/{tests,build,acceptance}.log`.
+- Live native UI remains unverified because CUA's native pipe cannot start. Editor-model import/save/reload workflow passes. No user session modified.

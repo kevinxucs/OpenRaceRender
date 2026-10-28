@@ -28,6 +28,7 @@ extension Telemetry {
       return try FITReader.sessions(data)
     }
     guard let text = String(data:data,encoding:.utf8) ?? String(data:data,encoding:.utf16) ?? String(data:data,encoding:.isoLatin1) else {throw RaceError.invalid("Could not decode telemetry text.")}
+    if ext == "sa" {return try SpeedAngleReader.sessions(text)}
     if ext == "msl" {return try LoggerText.msl(text)}
     if ["gpx","tcx"].contains(ext) || text.trimmingCharacters(in:.whitespacesAndNewlines).hasPrefix("<?xml") {return try TelemetryFormats.xmlSessions(data)}
     let normalized = try TelemetryFormats.csv(from:data,text:text,extension:ext)

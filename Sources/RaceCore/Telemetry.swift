@@ -10,7 +10,7 @@ public struct TelemetryLap: Identifiable, Sendable {
 }
 
 public final class Telemetry: @unchecked Sendable {
-  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz", "msl", "json"]
+  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz", "msl", "json", "sa"]
   public internal(set) var firstSampleUnixTime: Double?
   public internal(set) var locationName:String?
   var recordedLocationName:String?
@@ -84,6 +84,12 @@ public final class Telemetry: @unchecked Sendable {
     try self.init(text:document.text,title:url.deletingPathExtension().lastPathComponent,timeColumn:settings?.assignments["time"])
     firstSampleUnixTime = document.epoch
     warnings += document.warnings
+    if let starts = document.lapStarts {
+      restoreRecordedData()
+      let points = [0]+starts
+      laps = points.indices.map{i in TelemetryLap(number:i,start:points[i],end:i+1 < points.count ? points[i+1] : duration,complete:i > 0 && i+1 < points.count)}
+      recordedState = nil;configure(DataSettings())
+    }
     fileSessions = sessions.enumerated().map {TelemetrySessionInfo(id:$0.offset+1,name:$0.element.name,samples:$0.element.count)}
     if sessions.count > 1 {warnings.append("Using data session \(selected) of \(sessions.count): \(document.name). Change it in data configuration.")}
     if let settings {try configureValidated(settings)}
