@@ -55,6 +55,7 @@ struct EditorView: View {
     }
     .background(bg).preferredColorScheme(.dark).tint(mint)
     .frame(minWidth: 1100, minHeight: 760)
+    .sheet(isPresented:$model.showStereoLayout) { StereoLayoutSheet(model:model) }
     .sheet(isPresented:$model.showSphericalMetadata) { SphericalMetadataSheet() }
     .sheet(item:$model.youTubeUploadRequest) { YouTubeUploadSheet(request:$0) }
     .sheet(isPresented: $model.showNetworkReceive) { NetworkReceiveSheet(model:model) }
@@ -551,6 +552,7 @@ struct ObjectInspector: View {
         Text("Opacity").font(.system(size: 11)).foregroundStyle(muted)
         Slider(value: $object.opacity, in: 0...1)
       }
+      if ![.group,.audio].contains(object.kind) {RGBChannelControls(object:$object)}
       Divider()
       small("DATA SOURCE")
       Picker("Input", selection: $object.inputIndex) {

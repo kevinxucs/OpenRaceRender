@@ -175,13 +175,14 @@ public enum LegacyReader {
     o.inputIndex = Int(b[p + 282])
     o.legacyActivation = Int(b[p + 284])
     o.visible = b[p + 284] <= 1
-    o.opacity = max(0, 1 - Double(b[p + 294]) / 100)
+    o.opacity = max(0, 1 - Double(b[p + 286]) / 100)
+    if b[p+288] & 7 != 7 { o.colorChannels = RGBWriteMask(bits:b[p+288] & 7) }
     o.legacyType = type
     o.legacyIndex = legacyIndex
     o.legacyCommon = Data(b[p..<min(p + 344, b.count)])
     if [.video,.image].contains(o.kind) {
       var picture = PictureSettings(); picture.maintainAspect = b[p + 285] != 0
-      picture.flipX = b[p + 286] == 1 || b[p + 286] == 3; picture.flipY = b[p + 286] == 2 || b[p + 286] == 3
+      picture.flipX = b[p + 287] == 1 || b[p + 287] == 3; picture.flipY = b[p + 287] == 2 || b[p + 287] == 3
       o.picture = picture
     }
     let start = b.f32(p + 276)

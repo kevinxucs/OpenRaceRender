@@ -1,17 +1,17 @@
 import Foundation
 
 public enum SegmentField: String, CaseIterable, Sendable, Identifiable {
-  case visibility, source, position, size, opacity, channel, text, color, range, picture,
+  case colorChannels, visibility, source, position, size, opacity, channel, text, color, range, picture,
     gauge, graph, mapComparison, mapSettings, timerSettings, imageControl, typography, shape, hud, audio, style, artwork
   public var id: String { rawValue }
   public var title: String {
-    switch self { case .source:return "Data/media source"; case .imageControl:return "Image control"
+    switch self { case .colorChannels:return "RGB channels"; case .source:return "Data/media source"; case .imageControl:return "Image control"
     case .mapComparison:return "Map comparison"; case .mapSettings:return "Map display"; case .timerSettings:return "Timer settings"; case .typography:return "Text typography"; case .hud:return "HUD parameters"; case .style:return "Style / legacy parameters"
     default:return rawValue.capitalized }
   }
   public static func available(for o: DisplayObject) -> [Self] {
     if o.kind == .group { return [.visibility,.position,.size,.opacity] }
-    var fields: [Self] = [.visibility,.source,.position,.size,.opacity,.channel,.text,.color,.range,.picture,.style,.artwork]
+    var fields: [Self] = [.colorChannels,.visibility,.source,.position,.size,.opacity,.channel,.text,.color,.range,.picture,.style,.artwork]
     if [.speed,.rpm,.gauge].contains(o.kind) { fields.append(.gauge) }
     if o.kind == .timer { fields.append(.timerSettings) }
     if o.kind == .map { fields += [.mapComparison,.mapSettings] }
@@ -26,6 +26,7 @@ extension ObjectSegment {
   public func overrides(_ field: SegmentField) -> Bool {
     let cleared: ObjectSegment.ClearedProperty?
     switch field {
+    case .colorChannels:cleared = .colorChannels
     case .picture:cleared = .picture; case .gauge:cleared = .gauge; case .graph:cleared = .graph; case .mapComparison:cleared = .mapComparison; case .mapSettings:cleared = .mapSettings; case .timerSettings:cleared = .timerSettings
     case .imageControl:cleared = .imageControl; case .typography:cleared = .typography
     case .shape:cleared = .shape; case .hud:cleared = .hud; case .audio:cleared = .audio
@@ -37,6 +38,7 @@ extension ObjectSegment {
     case .position:return x != nil || y != nil; case .size:return width != nil || height != nil
     case .opacity:return opacity != nil; case .channel:return channel != nil; case .text:return text != nil
     case .color:return color != nil; case .range:return minimum != nil || maximum != nil
+    case .colorChannels:return colorChannels != nil
     case .picture:return picture != nil; case .gauge:return gauge != nil; case .graph:return graph != nil; case .mapComparison:return mapComparison != nil; case .mapSettings:return mapSettings != nil; case .timerSettings:return timerSettings != nil
     case .imageControl:return imageControl != nil; case .typography:return typography != nil
     case .shape:return shape != nil; case .hud:return hud != nil; case .audio:return audio != nil
@@ -54,6 +56,7 @@ extension ObjectSegment {
     case .text:text = enabled ? o.text : nil
     case .color:color = enabled ? o.color : nil
     case .range:minimum = enabled ? o.minimum : nil; maximum = enabled ? o.maximum : nil
+    case .colorChannels:colorChannels = enabled ? o.colorChannels ?? RGBWriteMask() : nil
     case .picture:picture = enabled ? o.picture ?? PictureSettings() : nil
     case .gauge:gauge = enabled ? o.gauge ?? GaugeSettings() : nil
     case .graph:graph = enabled ? o.graph ?? GraphSettings() : nil
@@ -72,6 +75,7 @@ extension ObjectSegment {
     }
     let related: [ClearedProperty]
     switch field {
+    case .colorChannels:related = [.colorChannels]
     case .picture:related = [.picture]; case .gauge:related = [.gauge]; case .graph:related = [.graph]; case .mapComparison:related = [.mapComparison]; case .mapSettings:related = [.mapSettings]; case .timerSettings:related = [.timerSettings]
     case .imageControl:related = [.imageControl]; case .typography:related = [.typography]
     case .shape:related = [.shape]; case .hud:related = [.hud]; case .audio:related = [.audio]

@@ -171,22 +171,23 @@ enum LegacyProjectSettings {
         let payload = Data(b[cursor..<cursor+size]); cursor += size
         let artwork = try image(b, cursor: &cursor)
         var segment = ObjectSegment(time: time), value = previous
-        if flags & 1 != 0 { value.inputIndex = v[149] == 255 ? -1 : Int(v[149]) }
+        if flags & 16 != 0 { value.inputIndex = v[145] == 255 ? -1 : Int(v[145]) }
         if flags & 2 != 0 { value.x = v.f32(128); value.y = v.f32(132) }
         if flags & 4 != 0 { value.width = v.f32(136); value.height = v.f32(140) }
-        if flags & 8 != 0 { value.visible = v[144] != 0 }
-        if flags & 16 != 0 { if value.picture == nil { value.picture = PictureSettings() }; value.picture?.maintainAspect = v[145] != 0 }
-        if flags & 32 != 0 {
+        if flags & 8 != 0 { value.visible = v[144] <= 1 }
+        if flags & 64 != 0 { if value.picture == nil { value.picture = PictureSettings() }; value.picture?.maintainAspect = v[147] != 0 }
+        if flags & 256 != 0 {
           if value.picture == nil { value.picture = PictureSettings() }
-          value.picture?.flipX = v[146] == 1 || v[146] == 3; value.picture?.flipY = v[146] == 2 || v[146] == 3
+          value.picture?.flipX = v[149] == 1 || v[149] == 3; value.picture?.flipY = v[149] == 2 || v[149] == 3
         }
         if flags & 128 != 0 { value.opacity = 1 - Double(v[148]) / 100 }
-        if flags & 256 != 0 { value.style = v.utf16(0, 128) }
+        if flags & 1 != 0 { value.style = v.utf16(0, 128) }
+        if flags & 512 != 0 { value.colorChannels = v[150] & 7 == 7 ? nil : RGBWriteMask(bits:v[150] & 7) }
         if flags & 1024 != 0 { if value.audio == nil { value.audio = AudioSettings() }; value.audio?.volume = Double(v[151]) / 100 }
         if flags & 2048 != 0 { if value.audio == nil { value.audio = AudioSettings() }; value.audio?.balance = Double(v[152]) / 100 - 1 }
         if flags & 4096 != 0, !payload.isEmpty { value.legacyPayload = payload; LegacyReader.inferDetails(&value) }
         if let artwork { value.embeddedImage = artwork; value.artwork = LegacyArtwork.png(artwork) }
-        if flags & ~UInt32(0x1DBF) != 0 { p.warnings.append("Timeline segment at \(clockText(time)) for ‘\(value.name)’ includes unsupported color-channel or clipping changes.") }
+        if flags & ~UInt32(0x1FDF) != 0 { p.warnings.append("Timeline segment at \(clockText(time)) for ‘\(value.name)’ includes unsupported clipping or specialized changes.") }
         var holder = previous; holder.segments = nil; holder.editSegment(at: time, from: previous, to: value)
         if let decoded = holder.segments?.first { segment = decoded }
         p.objects[index].segments = (p.objects[index].segments ?? []) + [segment]

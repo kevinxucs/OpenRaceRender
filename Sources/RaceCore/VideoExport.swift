@@ -63,7 +63,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
         // directly into the destination surface rather than reading a 4K CGImage
         // back to the CPU and then copying it into another full-size bitmap.
         var baseVideo: UUID?
-        if let first = objects.first,first.kind == .video,
+        if let first = objects.first,first.kind == .video,(first.colorChannels?.bits ?? 7) != 0,
           let placement = instruction.scene.project.media(for:first.inputIndex,at:time),
           let track = instruction.tracks[placement.input.legacyIndex],let frame = request.sourceFrame(byTrackID:track) {
           let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(by:instruction.transforms[placement.input.legacyIndex] ?? .identity)
@@ -71,7 +71,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           let layer = PictureProcessor.positioned(image,in:rect,opacity:first.opacity,input:placement.input.picture,object:first.picture,scaling:instruction.options.scaling).cropped(to:viewport)
           let bounds = CGRect(origin:.zero,size:outputSize)
           let background = CIImage(color:CIColor(red:0,green:0,blue:0)).cropped(to:bounds)
-          self.ci.render(layer.composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
+          self.ci.render(RGBChannelCompositor.overBlack(layer,mask:first.colorChannels).composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
           baseVideo = first.id
         }
         CVPixelBufferLockBaseAddress(output, [])
@@ -97,7 +97,9 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           {
             let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(
               by: instruction.transforms[placement.input.legacyIndex] ?? .identity)
+            RGBChannelCompositor.draw(c,mask:o.colorChannels) {
             PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size,project:instruction.scene.project), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
+            }
           } else if o.kind == .image {
             OverlayRenderer.draw(
               c,
@@ -307,7 +309,9 @@ public final class VideoExporter: @unchecked Sendable {
           gen.requestedTimeToleranceAfter = .zero
           let cg = try gen.copyCGImage(
             at: CMTime(seconds: sourceTime, preferredTimescale: 60000), actualTime: nil)
+          RGBChannelCompositor.draw(c,mask:o.colorChannels) {
           PictureProcessor.draw(c, image: PictureProcessor.source(cg,settings:input.picture), in: OverlayRenderer.rect(o, size: size,project:scene.project), opacity: o.opacity, input: input.picture, object: o.picture, context: ci)
+          }
         }
       } else if ![.audio, .group].contains(o.kind) {
         OverlayRenderer.draw(

@@ -312,10 +312,10 @@ public enum LegacyWriter {
     let originalVisible = (o.legacyActivation ?? 1) <= 1
     common[284] = o.visible == originalVisible ? UInt8(clamping:o.legacyActivation ?? 1) : o.visible ? 1 : 2
     common[285] = (o.picture?.maintainAspect ?? (type == 14 && o.legacyCommon == nil ? true : common[285] != 0)) ? 1 : 0
-    if let picture = o.picture { common[286] = (picture.flipX ? 1 : 0) + (picture.flipY ? 2 : 0) }
+    if let picture = o.picture { common[287] = (picture.flipX ? 1 : 0) + (picture.flipY ? 2 : 0) }
     common[292] = try byte(audio.volume*100,"Display volume"); common[293] = try byte((audio.balance+1)*100,"Display balance")
-    common[294] = try byte((1-o.opacity)*100,"Transparency")
-    if o.legacyCommon == nil { common[288] = 7 }
+    common[286] = try byte((1-o.opacity)*100,"Transparency")
+    common[288] = (common[288] & ~7) | (o.colorChannels ?? RGBWriteMask()).bits
     guard payload.count <= 4*1024*1024 else { throw unsupported("Oversized display settings.") }
     let background = try o.gauge?.backgroundImage ?? o.gauge?.backgroundPath.map { try Data(contentsOf:URL(fileURLWithPath:$0)) }
     if background != nil, o.artwork != nil || o.embeddedImage != nil {
@@ -506,22 +506,23 @@ public enum LegacyWriter {
       }
       var b = Data(repeating:0,count:208), flags: UInt32 = 0
       b.putFloat(segment.time,0)
-      if old.common[282] != new.common[282] { flags |= 1 }
+      if old.common[282] != new.common[282] { flags |= 16 }
       if previous.x != value.x || previous.y != value.y { flags |= 2 }
       if previous.width != value.width || previous.height != value.height { flags |= 4 }
       if previous.visible != value.visible { flags |= 8 }
-      if old.common[285] != new.common[285] { flags |= 16 }
-      if old.common[286] != new.common[286] { flags |= 32 }
-      if old.common[294] != new.common[294] { flags |= 128 }
-      if previous.style != value.style { flags |= 256 }
+      if old.common[285] != new.common[285] { flags |= 64 }
+      if old.common[287] != new.common[287] { flags |= 256 }
+      if old.common[288] != new.common[288] { flags |= 512 }
+      if old.common[286] != new.common[286] { flags |= 128 }
+      if previous.style != value.style { flags |= 1 }
       if old.common[292] != new.common[292] { flags |= 1024 }
       if old.common[293] != new.common[293] { flags |= 2048 }
       if old.payload != new.payload { flags |= 4096 }
       b.putU32(flags,4)
       b.replaceSubrange(8..<136,with:new.common[128..<256])
       for (dest,source) in [(136,260),(140,264),(144,268),(148,272)] { b.putU32(new.common.u32(source),dest) }
-      b[152] = value.visible ? 1 : 0; b[153] = new.common[285]; b[154] = new.common[286]
-      b[156] = new.common[294]; b[157] = new.common[282]; b[159] = new.common[292]; b[160] = new.common[293]
+      b[152] = new.common[284]; b[153] = new.common[282]; b[155] = new.common[285]
+      b[156] = new.common[286]; b[157] = new.common[287]; b[158] = new.common[288]; b[159] = new.common[292]; b[160] = new.common[293]
       let payload = flags & 4096 != 0 ? new.payload : Data()
       b.append(word(payload.count)); b.append(payload); b.append(old.image != new.image ? new.image : word(0))
       result.append(b); previous = value

@@ -417,6 +417,7 @@ struct RaceRenderApp: App {
           Button("Clear export marks", action: model.clearMarks)
         }
         CommandMenu("Display") {
+          Button("Stereo camera layout…") {model.showStereoLayout = true}
           Button("Start blank layout", action: model.blankLayout)
           Button("Show widget palette") { model.showWidgets = true }
           Divider()

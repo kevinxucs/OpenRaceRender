@@ -38,8 +38,28 @@ public enum OverlayRenderer {
     where o.visible && time >= o.start && time < o.end
       && ![.video, .audio, .group].contains(o.kind)
     {
+      RGBChannelCompositor.draw(c,mask:o.colorChannels) {
+        drawLayer(c,object:o,scene:scene,time:time,size:size)
+      }
+    }
+    if let id = selection, let o = scene.project.displayForEditing(id, at: time) {
+      let r = rect(o, size: size,project:scene.project)
+      c.setStrokeColor(color("#5EE0B5"))
+      c.setLineWidth(1.5)
+      c.stroke(r)
+      for p in [
+        CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY), CGPoint(x: r.minX, y: r.maxY),
+        CGPoint(x: r.maxX, y: r.maxY),
+      ] {
+        c.setFillColor(color("#5EE0B5"))
+        c.fill(CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6))
+      }
+    }
+    c.restoreGState()
+  }
+  private static func drawLayer(_ c:CGContext,object o:DisplayObject,scene:RenderScene,time:Double,size:CGSize) {
       let r = LegacyStyledRenderer.contentRect(o,in:rect(o,size:size,project:scene.project))
-      guard r.width > 0 && r.height > 0 else { continue }
+      guard r.width > 0 && r.height > 0 else { return }
       c.saveGState()
       c.setAlpha(o.opacity)
       c.clip(to: r)
@@ -47,10 +67,10 @@ public enum OverlayRenderer {
       let placement = scene.project.media(for:o.inputIndex,at:time)
       if o.legacyType != nil,(o.timerSettings?.usesSourceClock ?? true), (o.kind != .image || o.imageUsesData), placement == nil,
         scene.project.inputs.contains(where:{ $0.legacyIndex == o.inputIndex && $0.kind == "data" }) {
-        c.restoreGState();continue
+        c.restoreGState();return
       }
       if o.legacyType == 50,(o.timerSettings?.usesSourceClock ?? true),o.legacyActivation == 0,placement == nil {
-        c.restoreGState();continue
+        c.restoreGState();return
       }
       let t = placement?.sourceTime(at:time) ?? -1
       let segmentStart = max(o.start,(o.segments ?? []).filter { $0.time <= time }.map(\.time).max() ?? o.start)
@@ -68,30 +88,30 @@ public enum OverlayRenderer {
       if let artwork = o.artwork, o.kind != .image,!(o.kind == .map && o.mapSettings != nil), let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
       if o.kind == .text, o.typography != nil {
         DrawingRenderer.text(c, object: o, rect: r, height: size.height*(100/scene.project.coordinateSpan))
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
       if o.kind == .shape, o.shape != nil {
         DrawingRenderer.shape(c, object: o, rect: r, height: size.height*(100/scene.project.coordinateSpan))
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
       if [.speed, .rpm, .gauge].contains(o.kind), GaugeDesignerRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
-      if TimerDisplayRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
-      if MapComparisonRenderer.draw(c,object:o,rect:r,scene:scene,sourceTime:t,projectTime:time) { c.restoreGState(); continue }
-      if MapDisplayRenderer.draw(c,object:o,rect:r,data:data,time:t) { c.restoreGState(); continue }
+      if TimerDisplayRenderer.draw(c,object:o,rect:r,data:data,sourceTime:t,projectTime:time) { c.restoreGState(); return }
+      if MapComparisonRenderer.draw(c,object:o,rect:r,scene:scene,sourceTime:t,projectTime:time) { c.restoreGState(); return }
+      if MapDisplayRenderer.draw(c,object:o,rect:r,data:data,time:t) { c.restoreGState(); return }
       if HUDRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
       let scriptTime = placement?.sourceTime(at:time) ?? max(0,time-historyStart)
       if LegacyEnhancedRenderer.draw(c,object:o,rect:r,data:data,time:scriptTime,unit:scene.project.speedUnit,timeline:timeline) {
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
       if LegacyMapRenderer.draw(c,object:o,rect:r,data:data,time:t) {
-        c.restoreGState();continue
+        c.restoreGState();return
       }
       if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height*(100/scene.project.coordinateSpan)) {
-        c.restoreGState(); continue
+        c.restoreGState(); return
       }
       if o.kind == .image {
         let sourcePicture = scene.project.inputs.first { $0.kind == "image" && !o.text.isEmpty && $0.path == o.text }?.picture
@@ -100,21 +120,6 @@ public enum OverlayRenderer {
         }
       } else { renderObject(c, o: o, r: r, data: data, time: t, unit: scene.project.speedUnit) }
       c.restoreGState()
-    }
-    if let id = selection, let o = scene.project.displayForEditing(id, at: time) {
-      let r = rect(o, size: size,project:scene.project)
-      c.setStrokeColor(color("#5EE0B5"))
-      c.setLineWidth(1.5)
-      c.stroke(r)
-      for p in [
-        CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY), CGPoint(x: r.minX, y: r.maxY),
-        CGPoint(x: r.maxX, y: r.maxY),
-      ] {
-        c.setFillColor(color("#5EE0B5"))
-        c.fill(CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6))
-      }
-    }
-    c.restoreGState()
   }
   static func text(
     _ c: CGContext, _ string: String, x: Double, y: Double, size: Double, color: String = "#FFFFFF",

@@ -72,6 +72,7 @@ import UniformTypeIdentifiers
   @Published var showNetworkReceive = false
   @Published var showTemplates = false
   @Published var showExport = false
+  @Published var showStereoLayout = false
   @Published var showSphericalMetadata = false
   @Published var showSphericalGuide = true
   @Published var showWidgets = false { didSet { if oldValue != showWidgets { schedulePreview() } } }

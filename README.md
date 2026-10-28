@@ -11,6 +11,8 @@ This is an evolving implementation. It does **not** have full RaceRender feature
 
 [Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
 
+[RGB channel masks and stereo layouts](docs/stereo.md) preserve underlying channels for anaglyphs and other compositing effects.
+
 [360° workspaces, fisheye projection and spherical metadata tools](docs/spherical-video.md) support monoscopic panoramic projects.
 
 [YouTube upload](docs/youtube.md) supports system-browser sign-in, explicit metadata/visibility review and resumable transfer using your own Google Desktop client.
@@ -172,7 +174,7 @@ If a project opens with unavailable inputs, use **Review missing files** and **R
 
 Vendor artwork and scripts are loaded from your local files or an explicitly packaged local library and are not relicensed under MIT. They are excluded from the public repository and default builds. The original product's [license](https://racerender.com/RR3/License.txt) does not provide a general standalone-asset redistribution grant.
 
-360° projection/metadata, stereoscopic compositing, TrackAddict network transfer, camera GPS extraction and several remaining Enhanced-language/audio/picture operations remain unimplemented. See the audit for details. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
+Native TrackAddict discovery/transfer and closed logger formats remain unsupported without verifiable protocols or fixtures. Native sphere projection pixel parity, automatic lens calibration, some native timeline flags and calibrated stereo color matrices remain explicit limits. See [current feature progress](docs/feature-progress.md) and individual feature guides for verified scope. Parsing all installed templates is a structural compatibility check, not a guarantee of identical rendering.
 
 ## Contributing and support
 

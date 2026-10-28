@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 382 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 389 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -51,13 +51,22 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F34: expanded spherical workspace/editing, equirectangular pan/seam and calibrated single-fisheye projection, 360 output profiles and safe spherical metadata tools implemented; see [360 scope and validation](spherical-video.md).
 
-Next feature: **F35 — RGB channel masks/anaglyph composition**, after committing/pushing F34. F33 `7615467` passed CI40628283216. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
+- F35: RGB destination-channel write masks, native/imported timeline persistence, old-native migration and five two-camera stereo layout presets implemented; see [stereo controls and validation](stereo.md).
+
+Next feature: **F36 — crash recovery and accessible diagnostic logs**, after committing/pushing F35. F34 `93b6f78` passed CI40632417939. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
 
 ## Remaining queue
 
-F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
+F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F35 handoff — native mask/opacity and editor/media workflows verified
+
+- RGBWriteMask optional display/segment property with independent red/green/blue enables, all-off no draw, disabled components retain destination after normal alpha compositing. BGRA/RGBA canvas support; normal RGB draws retain fast path and first masked camera uses Core Image over black. Additional masked layers require a surface copy/CPU pass. Shared preview/snapshot/export, native templates and timeline clear/inherit controls.
+- Stereo sheet chooses two independent sources, five anaglyph/parallel/cross-eye presets, eye swap and convergence. Adds pair above ordinary cameras/below HUD, leaves source clocks/trim/marks/settings and existing objects intact, right display muted. Single checkpoint, two selected IDs; live add/Undo and RGB values verified on original fixture. Review grouped camera layer order; no depth synthesis/calibrated anaglyph matrix or stereo spherical output.
+- Native anaglyph template verifies common RGB bits1/6. Direct native inspector/saved probes exposed earlier incorrect base transparency/mirror and native timeline field mapping. Corrected common286/287 and timeline style1/source16/aspect64/opacity128/mirror256/RGB512 with independently observed fields. Native half-opacity stereo snapshot now pixel-identical (mean error0); before correction native transparency was0 and pixels differed. Untouched old native base values migrate once; edited old timeline data retained with reimport warning. Unsupported clipping fields remain explicit.
+- 388 tests (307 core/81 editor) pass in the full run, with an additional focused old-native migration regression (389 total). New channel tests cover raw bytes/alpha/all-off on both bitmap formats, widgets/events/inheritance/templates, native base/timeline field constants/roundtrips, old-native migration, safe stereo layout and Undo. Original synthetic validate-color-channels passes independent decoded-source arithmetic, encoded frames, RRP reopening and masked-widget preservation. Native artifacts/proprietary template artwork remain ignored. Logs color-channels/{final-native-tests,final-build,final-acceptance,native-comparison}. Matched 1080p60/2s synthetic export took3.60s masked vs3.39s allRGB (~6% overhead), no native speed claim. Signed release and local library ZIP verified; focused migration test passed. Commit/push required before F36.
 
 ## F34 handoff — spherical workflow validated; native projection parity remains limited
 

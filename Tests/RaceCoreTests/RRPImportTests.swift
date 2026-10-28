@@ -36,7 +36,7 @@ final class RRPImportTests: XCTestCase {
   func segment(time: Double, flags: UInt32, payload: Data = Data()) -> Data {
     var b = Data(repeating: 0, count: 212)
     b.putFloat(time, 0); b.putU32(flags, 4); b.putFloat(12.5, 8+128); b.putFloat(62.5, 8+136); b.putFloat(100, 8+140)
-    b[8+144] = 0; b[8+148] = 23; b[8+151] = 63
+    b[8+144] = 2; b[8+148] = 23; b[8+151] = 63
     b.putU32(UInt32(payload.count), 208)
     return b + payload + Data(repeating: 0, count: 4)
   }

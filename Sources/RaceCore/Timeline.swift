@@ -64,7 +64,7 @@ public struct PictureSettings: Codable, Equatable, Sendable {
 /// Each nil property inherits its value from earlier segments, as in RaceRender.
 public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public enum ClearedProperty: String, Codable, Hashable, Sendable {
-    case picture, gauge, graph, mapComparison, mapSettings, timerSettings, imageControl, typography, shape, hud, audio, legacyType, legacyCommon, legacyPayload
+    case colorChannels, picture, gauge, graph, mapComparison, mapSettings, timerSettings, imageControl, typography, shape, hud, audio, legacyType, legacyCommon, legacyPayload
   }
   public var clearedProperties: Set<ClearedProperty>?
   public var legacyType: Int?
@@ -81,6 +81,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public var text: String?
   public var color: String?
   public var channel: String?
+  public var colorChannels:RGBWriteMask?
   public var picture: PictureSettings?
   public var gauge: GaugeSettings?
   public var graph: GraphSettings?
@@ -104,6 +105,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
   public func apply(to object: inout DisplayObject) {
     for property in clearedProperties ?? [] {
       switch property {
+      case .colorChannels: object.colorChannels = nil
       case .picture: object.picture = nil; case .gauge: object.gauge = nil; case .graph: object.graph = nil; case .mapComparison: object.mapComparison = nil; case .mapSettings: object.mapSettings = nil; case .timerSettings: object.timerSettings = nil
       case .imageControl: object.imageControl = nil; case .typography: object.typography = nil
       case .shape: object.shape = nil; case .hud: object.hud = nil; case .audio: object.audio = nil
@@ -122,6 +124,7 @@ public struct ObjectSegment: Identifiable, Codable, Equatable, Sendable {
     if let v = text { object.text = v }
     if let v = color { object.color = v }
     if let v = channel { object.channel = v }
+    if let v = colorChannels { object.colorChannels = v }
     if let v = picture { object.picture = v }
     if let v = gauge { object.gauge = v }
     if let v = graph { object.graph = v }
@@ -172,6 +175,7 @@ extension DisplayObject {
       if after == nil { cleared.insert(property) } else { cleared.remove(property) }
       list[i].clearedProperties = cleared.isEmpty ? nil : cleared
     }
+    parameter(.colorChannels,\.colorChannels,old.colorChannels,value.colorChannels)
     parameter(.picture,\.picture,old.picture,value.picture)
     parameter(.gauge,\.gauge,old.gauge,value.gauge)
     parameter(.graph,\.graph,old.graph,value.graph)

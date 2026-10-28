@@ -104,6 +104,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
   public var artwork: Data?
   public var segments: [ObjectSegment]?
   public var picture: PictureSettings?
+  public var colorChannels:RGBWriteMask?
   public var gauge: GaugeSettings?
   public var graph: GraphSettings?
   public var mapComparison:MapComparisonSettings?
@@ -159,6 +160,8 @@ public struct RaceProject: Codable, Equatable, Sendable {
   public var lastExport: ExportDestination?
   public var notes: String?
   public var lengthInputIndex: Int?
+  public var legacyDisplayControlsVersion:Int? = 1
+  public var colorChannelVersion:Int? = 1
   public var legacyImportVersion: Int?
   public init() {}
   public var duration: Double {
@@ -274,6 +277,25 @@ public struct RaceProject: Codable, Equatable, Sendable {
       p.objects[i].legacyActivation = Int(common[284])
       if common[284] == 0 { p.objects[i].visible = true }
     }
+    if p.legacyDisplayControlsVersion == nil {
+      for i in p.objects.indices {
+        guard let common = p.objects[i].legacyCommon,common.count > 294 else {continue}
+        if p.objects[i].opacity == max(0,1-Double(common[294])/100) {p.objects[i].opacity = max(0,1-Double(common[286])/100)}
+        let oldX = common[286] == 1 || common[286] == 3,oldY = common[286] == 2 || common[286] == 3
+        if p.objects[i].picture?.flipX == oldX,p.objects[i].picture?.flipY == oldY {
+          p.objects[i].picture?.flipX = common[287] == 1 || common[287] == 3
+          p.objects[i].picture?.flipY = common[287] == 2 || common[287] == 3
+        }
+        if !(p.objects[i].segments ?? []).isEmpty {p.warnings.append("An older native import of ‘\(p.objects[i].name)’ may contain incorrect source/aspect/mirror timeline fields. Reimport the original RRP to recover native events; edited native events were retained.")}
+      }
+      p.legacyDisplayControlsVersion = 1
+    }
+    if p.colorChannelVersion == nil {
+      for i in p.objects.indices {
+        if p.objects[i].colorChannels == nil,let common = p.objects[i].legacyCommon,common.count > 288,common[288] & 7 != 7 {p.objects[i].colorChannels = RGBWriteMask(bits:common[288] & 7)}
+      }
+      p.colorChannelVersion = 1
+    }
     p.warnings = p.warnings.map { $0.replacingOccurrences(of:"persistent script state is not yet reproduced.",with:"persistent state is replayed from the display start.") }
     return p
   }
@@ -348,7 +370,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
       }
       guard o.kind == old.kind, o.style == old.style, o.channel == old.channel, o.text == old.text,
         o.color == old.color, o.minimum == old.minimum, o.maximum == old.maximum,
-        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture,
+        o.start == old.start, o.end == old.end, o.gauge == old.gauge, o.artwork == old.artwork,o.picture == old.picture,o.colorChannels == old.colorChannels,
         o.typography == old.typography, o.shape == old.shape, o.audio == old.audio, o.graph == old.graph, o.imageControl == old.imageControl
       else {
         throw RaceError.invalid(
@@ -371,7 +393,7 @@ public struct RaceProject: Codable, Equatable, Sendable {
       if o.visible != old.visible {
         b[p + 284] = 1
       }
-      if o.opacity != old.opacity { b[p + 294] = UInt8(max(0, min(100, ((1 - o.opacity) * 100).rounded()))) }
+      if o.opacity != old.opacity { b[p + 286] = UInt8(max(0, min(100, ((1 - o.opacity) * 100).rounded()))) }
       b[p + 282] = o.inputIndex < 0 ? 255 : UInt8(clamping: o.inputIndex)
     }
     for input in inputs {
