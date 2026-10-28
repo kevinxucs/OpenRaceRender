@@ -21,6 +21,9 @@ final class OlympusSensorTests:XCTestCase {
     XCTAssertNil(t.value("gx",at:0));XCTAssertNil(t.value("heading",at:0))
     XCTAssertTrue(t.warnings.contains{$0.contains("without GPS clock correction")})
     XCTAssertEqual(try Telemetry(url:file(fixture(),ext:"snslog")).count,3)
+    let fractional = fixture().replacingOccurrences(of:"000001.5",with:"000001.7")
+    let q = try Telemetry(url:file(fractional));XCTAssertEqual(q.times[1],2.2)
+    XCTAssertNil(q.value("Camera compass (deg)",at:2.2),"Missing packet readings must start at the declared fractional clock")
   }
   func testClockCorrectionRequiresOneConsistentOffset() throws {
     let sync = "$OLSNSGPSTIM,20260101,235959,20260102,000001\n"

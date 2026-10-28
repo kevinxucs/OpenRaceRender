@@ -21,7 +21,7 @@ This is an evolving implementation. It does **not** have full RaceRender feature
 
 [Receive exported data/video over a local network](docs/network-receive.md) using an on-demand browser upload page.
 
-[MSL/GUTMA imports and saved data-session selection](docs/logger-formats.md) extend the logger workflow.
+[Additional logger imports and saved data-session selection](docs/logger-formats.md) extend the logger workflow.
 
 [Embedded GoPro data](docs/camera-telemetry.md) can be added from MP4/MOV recordings alongside external logger data, with camera-linked timing and manual synchronization.
 
@@ -140,10 +140,14 @@ The widget palette offers **Basic widgets**, **Library styles**, and individual 
 | `.rro` / rro1, rro2, rro3 | Style/script/artwork import; RRO2 export for one compatible display |
 | CSV / TSV / text | Time column required; RaceChrono preamble, sparse values, quoted cells, interpolation and channel aliases |
 | RaceChrono RCZ | Native recorded-session import: independent GPS/CAN/sensor clocks, channel units, recorded laps and resumed fragments; see [RCZ support and validation](docs/rcz-import.md) |
+| MSL / GUTMA JSON | Documented text/unit layouts, including multi-session MSL; see [scope](docs/logger-formats.md) |
+| SpeedAngle SA | R4 v4 10 Hz trace, explicit speed units, lean/raw motion channels and precise matching timer laps |
+| Olympus SNS | Identified sensor sentences and conservative same-name GPSLOG merging with recorded UTC correction |
+| Sony LOG / MOFF | Identified v5 WGS-84 GPS text blocks and recording selection; binary-index/trim limitations in [logger support](docs/logger-formats.md) |
 | GPX / TCX | Timestamped track points, GPS and common sensor extensions |
 | NMEA | RMC, GGA, GLL, valid fixes, checksum checks when present, merged samples, midnight rollover |
 | VBO | Common `[column names]` and `[data]` layouts, UTC time, velocity, signed minute coordinates |
-| FIT | Activity record messages, standard GPS/sensor fields, compressed timestamps, both byte orders, CRC validation; unknown/developer fields skipped |
+| FIT | Activity records and internal/concatenated session selection, standard GPS/sensor fields, compressed timestamps, both byte orders and CRC validation; unknown/developer fields skipped |
 | Video/audio/images | Formats supported by the host's AVFoundation and AppKit decoders; H.264/HEVC MP4/MOV, common audio and images |
 
 Speed units include mph, km/h, m/s, and knots. GPS speed is estimated when absent. Recorded lap numbers, best lap, lap timers, and distance-based delta are supported. Custom finish lines can replace recorded lap boundaries.

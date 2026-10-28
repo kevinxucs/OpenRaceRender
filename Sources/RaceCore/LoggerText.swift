@@ -13,7 +13,7 @@ struct LoggerTextSession {
 
 /// Explicit text dialects; closed binary formats are refused rather than interpreted as video.
 enum LoggerText {
-  static let unsupportedExtensions = ["gtr","gts","prr","moff","mlg","ms3","frd"]
+  static let unsupportedExtensions = ["gtr","gts","prr","mlg","ms3","frd"]
   static func unsupported(_ ext:String) -> RaceError {
     .invalid("The .\(ext.uppercased()) logger format has no verified reader. Export a timestamped CSV/GPX in the logger’s software first. MegaSquirt binary logs can be converted to text .MSL in TunerStudio.")
   }
@@ -127,5 +127,30 @@ enum LoggerText {
     guard rows.count >= 2,let first = Double(rows[0][clock]) else {throw RaceError.invalid("GUTMA log needs at least two timestamped samples.")}
     // Generic CSV establishes zero at its first row; shift the epoch by that same amount.
     return [LoggerTextSession(name:"Flight",text:csv(headers,rows),epoch:date.timeIntervalSince1970+first,count:rows.count)]
+  }
+}
+
+extension LoggerText {
+  /// Calendar epochs lose sub-microsecond precision in Double. Keep declared
+  /// logger sample boundaries stable after subtracting those large values.
+  static func relativeTime(_ time:Double,from epoch:Double) -> Double {
+    ((time-epoch)*1_000_000).rounded()/1_000_000
+  }
+  static func utcTimestamp(_ date:String,_ clock:String) throws -> Double {
+    var calendar = Calendar(identifier:.gregorian);calendar.timeZone = TimeZone(secondsFromGMT:0)!
+    let clockParts = clock.split(separator:".",omittingEmptySubsequences:false)
+    func digits(_ value:Substring) -> Bool {!value.isEmpty && value.utf8.allSatisfy{(48...57).contains($0)}}
+    guard date.count == 8,digits(date[...]),clockParts.count <= 2,clockParts[0].count == 6,
+      clockParts.allSatisfy(digits),let seconds = Double(clock.dropFirst(4)),seconds >= 0,seconds < 60 else {
+      throw RaceError.invalid("Logger timestamps require YYYYMMDD,HHMMSS[.fraction].")
+    }
+    let year = Int(date.prefix(4))!,month = Int(date.dropFirst(4).prefix(2))!,day = Int(date.suffix(2))!
+    let hour = Int(clock.prefix(2))!,minute = Int(clock.dropFirst(2).prefix(2))!
+    guard (1...9999).contains(year),(1...12).contains(month),(1...31).contains(day),(0...23).contains(hour),(0...59).contains(minute),
+      let value = calendar.date(from:DateComponents(year:year,month:month,day:day,hour:hour,minute:minute,second:Int(seconds))),
+      calendar.component(.month,from:value) == month,calendar.component(.day,from:value) == day else {
+      throw RaceError.invalid("Invalid logger calendar date/time.")
+    }
+    return value.timeIntervalSince1970+seconds-Double(Int(seconds))
   }
 }

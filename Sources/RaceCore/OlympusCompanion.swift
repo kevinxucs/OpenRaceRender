@@ -35,46 +35,16 @@ enum OlympusCompanion {
     return result
   }
   static func merge(_ sensors:LoggerTextSession,gps text:String,sensorEpoch:Double) throws -> LoggerTextSession {
-    var records:[Double:[String]] = [:],previous = -Double.infinity
-    func coordinate(_ value:String,_ direction:String,latitude:Bool) -> String {
-      guard let n = Double(value),n.isFinite,n >= 0,[latitude ? "N" : "E",latitude ? "S" : "W"].contains(direction),
-        n.truncatingRemainder(dividingBy:100) < 60 else {return "nan"}
-      let degrees = floor(n/100)+n.truncatingRemainder(dividingBy:100)/60
-      guard degrees <= (latitude ? 90 : 180) else {return "nan"}
-      return String(degrees * (["S","W"].contains(direction) ? -1 : 1))
-    }
-    for raw in text.components(separatedBy:.newlines) {
-      let line = raw.trimmingCharacters(in:.whitespacesAndNewlines)
-      guard line.hasPrefix("$GPRMC,") || line.hasPrefix("$GNRMC,") else {continue}
-      let parts = line.dropFirst().split(separator:"*",omittingEmptySubsequences:false)
-      if parts.count > 1 {
-        guard parts.count == 2,parts[1].count == 2,let checksum = UInt8(parts[1],radix:16),parts[0].utf8.reduce(UInt8(0),^) == checksum else {throw RaceError.invalid("GPSLOG RMC checksum mismatch.")}
-      }
-      let fields = parts[0].split(separator:",",omittingEmptySubsequences:false).map(String.init)
-      guard fields.count >= 10,fields[9].count == 6,fields[9].utf8.allSatisfy({(48...57).contains($0)}),["A","V"].contains(fields[2]) else {throw RaceError.invalid("GPSLOG requires dated, complete active/void RMC sentences.")}
-      let date = fields[9],year = "20"+date.suffix(2),month = date.dropFirst(2).prefix(2),day = date.prefix(2)
-      let time = try OlympusSensorReader.timestamp(year+month+day,fields[1])
-      guard time >= previous,records.count < 1_000_000 else {throw RaceError.invalid("GPSLOG RMC clock resets or exceeds one million samples.")}
-      previous = time
-      var row = [String](repeating:"nan",count:4)
-      if fields[2] == "A" {
-        row[0] = coordinate(fields[3],fields[4],latitude:true);row[1] = coordinate(fields[5],fields[6],latitude:false)
-        if row[0] != "nan",row[1] != "nan" {
-          if let speed = Double(fields[7]),speed.isFinite,speed >= 0 {row[2] = String(speed*0.514444)}
-          if let heading = Double(fields[8]),heading.isFinite,(0...360).contains(heading) {row[3] = String(heading)}
-        } else {row = [String](repeating:"nan",count:4)}
-      }
-      records[time] = row
-    }
+    let records = try DatedRMCReader.read(text)
     let stamps = records.keys.sorted()
     guard stamps.count >= 2,let gpsEpoch = stamps.first,let last = stamps.last else {throw RaceError.invalid("GPSLOG has fewer than two dated RMC samples. GGA-only logs cannot establish a calendar date.")}
     let sensor = try Telemetry(text:sensors.text)
     guard sensor.count+stamps.count <= 1_000_000 else {throw RaceError.invalid("Combined Olympus data exceeds one million samples.")}
     guard max(sensorEpoch,gpsEpoch) < min(sensorEpoch+sensor.duration,last) else {throw RaceError.invalid("GPSLOG and sensors have no overlapping UTC interval. RMC dates must be in 2000–2099.")}
-    let gpsHeaders = ["Time","Latitude (deg)","Longitude (deg)","Speed (m/s)","GPS heading (deg)"]
-    let gpsRows = stamps.map{[String($0-gpsEpoch)]+records[$0]!}
+    let gpsHeaders = DatedRMCReader.headers
+    let gpsRows = stamps.map{[String(LoggerText.relativeTime($0,from:gpsEpoch))]+records[$0]!}
     let gps = try Telemetry(text:LoggerText.csv(gpsHeaders,gpsRows))
-    let epoch = min(sensorEpoch,gpsEpoch),sensorStart = sensorEpoch-epoch,gpsStart = gpsEpoch-epoch
+    let epoch = min(sensorEpoch,gpsEpoch),sensorStart = LoggerText.relativeTime(sensorEpoch,from:epoch),gpsStart = LoggerText.relativeTime(gpsEpoch,from:epoch)
     let intervals = zip(gps.times,gps.times.dropFirst()).map{$1-$0}.sorted()
     let gapLimit = max(2,intervals[intervals.count/2]*5)
     var times:[Double] = []

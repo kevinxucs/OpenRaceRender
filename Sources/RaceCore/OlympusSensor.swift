@@ -2,27 +2,10 @@ import Foundation
 
 /// Identified Olympus OL* sensor sentences. Camera axes are intentionally not vehicle G.
 enum OlympusSensorReader {
-  static func timestamp(_ date:String,_ clock:String) throws -> Double {
-    var calendar = Calendar(identifier:.gregorian);calendar.timeZone = TimeZone(secondsFromGMT:0)!
-    let clockParts = clock.split(separator:".",omittingEmptySubsequences:false)
-    func digits(_ value:Substring) -> Bool {!value.isEmpty && value.utf8.allSatisfy{(48...57).contains($0)}}
-    guard date.count == 8,digits(date[...]),clockParts.count <= 2,clockParts[0].count == 6,
-      clockParts.allSatisfy(digits),let seconds = Double(clock.dropFirst(4)),seconds >= 0,seconds < 60 else {
-      throw RaceError.invalid("Olympus sensor timestamps require YYYYMMDD,HHMMSS[.fraction].")
-    }
-    let year = Int(date.prefix(4))!,month = Int(date.dropFirst(4).prefix(2))!,day = Int(date.suffix(2))!
-    let hour = Int(clock.prefix(2))!,minute = Int(clock.dropFirst(2).prefix(2))!
-    guard (1...9999).contains(year),(1...12).contains(month),(1...31).contains(day),(0...23).contains(hour),(0...59).contains(minute),
-      let value = calendar.date(from:DateComponents(year:year,month:month,day:day,hour:hour,minute:minute,second:Int(seconds))),
-      calendar.component(.month,from:value) == month,calendar.component(.day,from:value) == day else {
-      throw RaceError.invalid("Invalid Olympus sensor calendar date/time.")
-    }
-    return value.timeIntervalSince1970+seconds-Double(Int(seconds))
-  }
   static func sessions(_ text:String) throws -> [LoggerTextSession] {
     var rows:[[String]] = [],time:Double?,first:Double?,values = [String](repeating:"nan",count:10)
     var seen = Set<String>(),offsets = Set<Double>(),unknown = Set<String>(),invalid = 0
-    func finishRow() {if let time,let first {rows.append([String(time-first)]+values)}}
+    func finishRow() {if let time,let first {rows.append([String(LoggerText.relativeTime(time,from:first))]+values)}}
     for raw in text.components(separatedBy:.newlines) {
       let line = raw.replacingOccurrences(of:"\u{FEFF}",with:"").trimmingCharacters(in:.whitespacesAndNewlines)
       if line.isEmpty || line.hasPrefix(";") || line.hasPrefix("#") {continue}
@@ -39,13 +22,13 @@ enum OlympusSensorReader {
       func require(_ count:Int) throws {guard fields.count == count else {throw RaceError.invalid("Malformed Olympus \(tag) sentence.")}}
       if tag == "OLTIM" {
         guard rows.count < 1_000_000 else {throw RaceError.invalid("Olympus sensor log exceeds one million samples.")}
-        try require(3);let next = try timestamp(fields[1],fields[2])
+        try require(3);let next = try LoggerText.utcTimestamp(fields[1],fields[2])
         guard time == nil || next > time! else {throw RaceError.invalid("Olympus sensor timestamps must increase; duplicate/reset clocks require separate logs.")}
         finishRow();time = next;if first == nil {first = next}
         values = [String](repeating:"nan",count:10);seen = [];continue
       }
       if tag == "OLSNSGPSTIM" {
-        try require(5);offsets.insert(try timestamp(fields[3],fields[4])-timestamp(fields[1],fields[2]));continue
+        try require(5);offsets.insert(try LoggerText.utcTimestamp(fields[3],fields[4])-LoggerText.utcTimestamp(fields[1],fields[2]));continue
       }
       guard ["OLCMP","OLPRE","OLTMP","OLACC"].contains(tag) else {unknown.insert(tag);continue}
       guard time != nil,seen.insert(tag).inserted else {throw RaceError.invalid("Olympus sensor readings need one matching timestamp packet; duplicate or untimed \(tag) readings cannot be placed reliably.")}

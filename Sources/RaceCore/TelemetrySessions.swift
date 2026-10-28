@@ -23,11 +23,19 @@ extension Telemetry {
   static func textSessions(_ data:Data,url:URL,timeColumn:String?) throws -> [LoggerTextSession] {
     let ext = url.pathExtension.lowercased()
     if LoggerText.unsupportedExtensions.contains(ext) {throw LoggerText.unsupported(ext)}
+    if ext == "moff" {return try SonyGPSReader.sessions(data,container:true)}
     if ext == "json" {return try LoggerText.gutma(data)}
     if ext == "fit" || (data.count >= 12 && String(data:data[8..<12],encoding:.ascii) == ".FIT") {
       return try FITReader.sessions(data)
     }
     guard let text = String(data:data,encoding:.utf8) ?? String(data:data,encoding:.utf16) ?? String(data:data,encoding:.isoLatin1) else {throw RaceError.invalid("Could not decode telemetry text.")}
+    if ext == "log" {
+      let first = text.replacingOccurrences(of:"\u{FEFF}",with:"").trimmingCharacters(in:.whitespacesAndNewlines).components(separatedBy:.newlines).first ?? ""
+      // Older GPS-CS logs have an untimestamped datum header, not recording scopes.
+      if first.hasPrefix("@Sonygps/"),(first.hasPrefix("@Sonygps/ver5.") || first.split(separator:"/",omittingEmptySubsequences:false).count >= 5) {
+        return try SonyGPSReader.sessions(data,container:false)
+      }
+    }
     if ext == "sa" {return try SpeedAngleReader.sessions(text)}
     if ["sns","snslog"].contains(ext) {return try OlympusSensorReader.sessions(text).map{OlympusCompanion.attach($0,to:url)}}
     if ext == "msl" {return try LoggerText.msl(text)}

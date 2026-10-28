@@ -20,7 +20,7 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 423 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 428 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -43,7 +43,7 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 
 - F30: bounded GoPro GPS5/GPS9/ACCL/GYRO extraction, optional import offers, camera-linked timing/sequence identities, saved sources and manual sync implemented; see [camera telemetry](camera-telemetry.md).
 
-- F31: documented MSL/GUTMA/SpeedAngle v4/Olympus sensor imports and saved CSV/GPX/TCX/internal-FIT/RCZ/SA session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
+- F31: documented MSL/GUTMA/SpeedAngle v4/Olympus sensor/Sony v5 GPS-text imports and saved CSV/GPX/TCX/internal-FIT/RCZ/SA session selection implemented. Closed-format decoders and vendor-specific session layouts still need fixtures/specifications; see [supported scope and remaining work](logger-formats.md).
 
 - F32: explicit-start browser/HTTP local receiving, streamed private staging, destination/progress/cancel/completed-file import implemented. TrackAddict native discovery/wire protocol remains unverified and outstanding; see [network receiving](network-receive.md).
 
@@ -55,13 +55,13 @@ User authorization: resume remaining implementation one feature/subfeature at a 
 
 - F36: atomic recovery copies, explicit startup/Help restoration, archive, optional saved-project reopen, CLI recovery and private diagnostic viewer/export implemented; see [recovery and validation limits](session-recovery.md).
 
-F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. F31 internal FIT session selection `8d5102d` passed CI. SpeedAngle v4 import pushed as `5c45b9c`. Native 2:1 panoramic workspace writing pushed as `11679a1`. Olympus identified sensor-log import pushed as `1ff9533` and passed CI; panoramic writing also passed CI. Current work: finish/push conservative Olympus companion merging, then other independently verifiable gaps.
+F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. F31 internal FIT session selection `8d5102d` passed CI. SpeedAngle v4 import pushed as `5c45b9c`. Native 2:1 panoramic workspace writing pushed as `11679a1`. Olympus identified sensor-log import pushed as `1ff9533` and passed CI; panoramic writing also passed CI. Olympus companion merging pushed as `847e92e` and passed CI. Latest validated feature: identified Sony v5 GPS-text import and dated-clock boundary repair. Remaining interoperability evidence/access requirements are listed below.
 
 ## Remaining work after F36
 
 | ID | Remaining implementation |
 | --- | --- |
-| F31 | GTech GTR/GTS, PZRacing PRR, Sony MOFF; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
+| F31 | GTech GTR/GTS, PZRacing PRR and Alfano-specific/multi-session CSV layouts. Verified format layouts with matching fixtures are unavailable for these remaining variants. Identified Sony v5 text works; complete real MOFF binary framing/other versions remain unverified. The user confirmed no samples are available; do not ask again. |
 | F32 | Native TrackAddict discovery and Wi-Fi transfer protocol. The browser/HTTP receiving workflow is implemented; native sender interoperability still needs a verifiable protocol/fixture. |
 
 Other explicit limits: native sphere projection pixel parity/automatic camera calibration and native spherical lens writing (F34); unsupported native clipping/timeline flags and repair of edited older incorrectly imported events (F01/F10/F35). Live Google OAuth/Keychain/upload validation (F33) requires a separately authorized account/client workflow; F36 live GUI validation is pending a working computer-use connection. These are not silently claimed complete. Individual feature guides contain narrower format/rendering limits.
@@ -395,3 +395,15 @@ CI40540820591 on fcefa0f hit an older Swift compiler type-check timeout in the c
 
 - Same-basename LOG in the SNS folder or sibling GPSLOG is paired only with one unambiguous candidate, consistent recorded camera/GPS offset, dated 2000–2099 GP/GN RMC clocks and overlapping intervals. Combined data retains both sampling grids, void fixes, sensor bounds and GPS outage gaps. First combined UTC becomes time zero; a warning asks to recheck sync and retain both files/folders. Failure warns and keeps standalone sensors. No source writes, recursive scans or alignment from filename alone. `.log` imports remain GPS-only.
 - 423 tests (334 core/89 editor) pass; focused Olympus rerun verifies saved relative project reload, offsets/marks and untouched originals. Release/media acceptance passes: independent combined CSV pixels, relocated relative project, unchanged originals and marked full/chunk video. Signed local-library app/ZIP verified and original PNG visually inspected. Original fixtures only; live native parity remains unavailable.
+
+## F31 Sony v5 GPS text — validated follow-up
+
+- Identified recording-scoped LOG and printable v5 WGS-84 NMEA blocks inside MOFF8 sidecars become separate selectable sessions, with strict dated RMC UTC/units/void-fix handling and malformed/header/checksum diagnostics. Source time zero is first GPS sample; header/first-fix differences and uninterpreted trim metadata warn. No automatic trim/video association, GGA-only altitude or arbitrary binary MOFF index/GPS decoding. Complete real MOFF framing remains unverified; synthetic framing plus published owner observations only.
+- 428 tests (338 core/90 editor) pass, including four new core and one editor telemetry-dispatch test plus Olympus regressions after sharing date/RMC helpers. Initial media check exposed sub-microsecond epoch-subtraction drift at missing sample boundaries. Shared relative clocks now normalize to microseconds, with Sony/Olympus fractional-boundary regressions. Release/media and public four-recording LOG acceptance pass, with exact independent CSV snapshots, second-recording selection and marked full/chunk video. Both Olympus pixel/video regressions pass. Signed local-library app/ZIP verified and original PNG visually inspected. Fixtures are original; external reference files/source remain ignored. Native CUA is still unavailable.
+
+## Remaining interoperability evidence
+
+- GTech GTR/GTS: the vendor manual and RaceRender acquisition guide establish supported products/files, but provide no verified binary field map or matching sample here. No decoder is claimed.
+- PZRacing: the official RacePro page's example archive was downloaded to ignored validation storage and contains one SES file, not a PRR export. The vendor manual documents creating PRR in RacePro, without its encoding. SES is not treated as a PRR fixture.
+- Alfano: manufacturer documentation establishes CSV export; public protocol research and newer ADA descriptions do not establish the specific VisualData/multi-session CSV layout requested by the guide. Generic CSV/session controls remain available; unit/timing assumptions are not invented.
+- Native TrackAddict transfer remains without a sender/protocol fixture. Google live authorization/upload validation needs a separately authorized client/account workflow. Native timeline/lens parity needs working native-app access; CUA inventory again returned no apps and a native pipe startup failure. No user session or external account was changed.

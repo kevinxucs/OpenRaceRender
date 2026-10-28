@@ -4,6 +4,17 @@ import XCTest
 @testable import OpenRaceRender
 
 final class LoggerSessionEditorTests:XCTestCase {
+  @MainActor func testSonyMOFFIsImportedAsTelemetry() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
+    let url = root.appendingPathComponent("original.moff")
+    let text = "MOFF8\0@Sonygps/ver5.0/wgs-84/20260101120000.000/\n$GPRMC,120000,A,1000,N,02000,E,10,90,010126,,,A\n$GPRMC,120001,A,1000,N,02000,E,10,90,010126,,,A\n"
+    try Data(text.utf8).write(to:url);let model = EditorModel();model.addInputs([url])
+    for _ in 0..<200 {if !model.busy {break};try await Task.sleep(nanoseconds:20_000_000)}
+    XCTAssertNil(model.error);XCTAssertEqual(model.project.inputs.first?.kind,"data")
+    XCTAssertEqual(model.telemetry[0]?.count,2);XCTAssertFalse(model.project.objects.contains{$0.kind == .video})
+    XCTAssertEqual(AppDelegate.launchProjectURL(["App",url.path]),url);model.dataSetupRequest = nil
+  }
   @MainActor func testOlympusSensorImportSaveAndReload() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
