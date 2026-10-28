@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 374 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 382 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -49,13 +49,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F33: current Google Desktop OAuth/PKCE, scoped Keychain authorization/resume state, explicit metadata/visibility review, resumable v3 uploads, pause/reopen and render-then-review implemented; see [YouTube setup and validation limits](youtube.md).
 
-Next feature: **F34 — 360° workflow**, after committing/pushing F33. F32 `846ecc9` passed CI40582908203. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
+- F34: expanded spherical workspace/editing, equirectangular pan/seam and calibrated single-fisheye projection, 360 output profiles and safe spherical metadata tools implemented; see [360 scope and validation](spherical-video.md).
+
+Next feature: **F35 — RGB channel masks/anaglyph composition**, after committing/pushing F34. F33 `7615467` passed CI40628283216. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
 
 ## Remaining queue
 
-F34, F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
+F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F34 handoff — spherical workflow validated; native projection parity remains limited
+
+- Optional spherical workspace expands geometry to −100…200, with source clocks unchanged. Shared coordinate mapping covers preview/render/snapshots, hit testing, drops, marquee, resizing, alignment, nudges, groups and Fill 360. Templates adopt spherical mode. Preview guide is not exported.
+- Own Core Image equirectangular pan with seam interpolation and calibrated equidistant single-fisheye projection, saved pan/FOV/center/radius/up-or-forward axis, source/display shared pipeline. No automatic camera calibration or dual-lens stitching claim. Native writer refuses unverified new settings.
+- Explicit 2:1 360 profiles and metadata output, File/CLI inspect/add/clear copies, bounded MP4 index editing without recompression or changing media offsets. Read-only originals retain bytes/permissions; only new copies gain owner-write. Existing outputs are never overwritten. Fragmented/multiple-video/stereo-tagging and unsupported containers are refused. Active index moves to end; clearing is not forensic erasure.
+- Native UI recovered using bundle ID after user requested retry. Operated native panoramic template with original synthetic video, saved independent baseline/pan90 projects and BMP snapshot in ignored spherical validation directory. Verified RRP workspace byte2126=6, RRT workspace byte12=6, source sphere mode2/pan48/FOV44. Added these imports with calibration warning. Native snapshot exposed padded artwork storage and bottom-up bitmap rows; reader/encoder corrected with original-pixel regression. Native sphere mapping still differs from the equidistant model; do not claim native projection pixel parity. No real camera fixture or proprietary artwork is committed.
+- 382 tests (302 core/80 editor) pass with local library/graphics, including the artwork orientation correction. Independent validate-spherical checks FFmpeg pan, CPU fisheye, unchanged SHA256 video/audio packet hashes, FFprobe markers and marked full/chunk frames. Native snapshots and own analytic PNGs visually inspected. Live OpenRaceRender workspace toggle, expanded dimensions/guide and Undo were verified; disposable blank UI session saved separately. Final independent spherical acceptance passed again; signed release and local library ZIP verified. Commit/push is required before F35.
 
 ## F33 handoff — OAuth/resumable/editor workflows tested with mocks; live Google unverified
 

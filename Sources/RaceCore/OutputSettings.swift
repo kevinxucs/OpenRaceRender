@@ -42,7 +42,12 @@ public struct OutputProfile:Codable,Equatable,Identifiable,Sendable {
       var settings = ExportSettings(videoBitRate:bitrate); settings.output = output
       return OutputProfile(id:id,name:name,settings:settings)
     }
-    return [make("local-4k","Local file · 4K30",3840,2160,50_000_000),
+    func sphere(_ id:String,_ name:String,_ width:Int,_ height:Int,_ bitrate:Int) -> OutputProfile {
+      var profile = make(id,name,width,height,bitrate);profile.settings.sphericalMetadata = true;profile.settings.output?.workspace = .output;return profile
+    }
+    return [sphere("spherical-4k","360° panorama · 3840×1920",3840,1920,50_000_000),
+      sphere("spherical-draft","360° draft · 1920×960",1920,960,12_000_000),
+      make("local-4k","Local file · 4K30",3840,2160,50_000_000),
       make("local-1080","Local file · 1080p30",1920,1080,20_000_000),
       make("internet-1080","Internet · 1080p30",1920,1080,8_000_000),
       make("internet-720","Internet · 720p30",1280,720,5_000_000),

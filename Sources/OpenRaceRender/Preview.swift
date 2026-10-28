@@ -46,10 +46,16 @@ struct Preview: NSViewRepresentable {
         }
       }
     }
+    if m.project.sphericalWorkspace == true,m.showSphericalGuide {
+      let middle = m.project.canvasRect(CGRect(x:0,y:0,width:100,height:100),size:bounds.size)
+      c.saveGState();c.setLineDash(phase:0,lengths:[6,4]);c.setLineWidth(1);c.setStrokeColor(OverlayRenderer.color("#F1CA72",alpha:0.8))
+      c.stroke(middle)
+      c.move(to:CGPoint(x:0,y:middle.minY));c.addLine(to:CGPoint(x:bounds.width,y:middle.minY))
+      c.move(to:CGPoint(x:0,y:middle.maxY));c.addLine(to:CGPoint(x:bounds.width,y:middle.maxY));c.strokePath();c.restoreGState()
+    }
     if showSelection, let box = m.project.selectionBounds(m.selectedIDs, at: m.time) {
       func canvas(_ r: CGRect) -> CGRect {
-        CGRect(x: r.minX*bounds.width/100, y: r.minY*bounds.height/100,
-          width: r.width*bounds.width/100, height: r.height*bounds.height/100)
+        m.project.canvasRect(r,size:bounds.size)
       }
       c.setStrokeColor(OverlayRenderer.color("#5EE0B5")); c.setLineWidth(1)
       for id in m.project.selectionRoots(m.selectedIDs) {
@@ -154,12 +160,12 @@ struct Preview: NSViewRepresentable {
     dragCheckpoint = false; initialPoint = p; resizing = false; selectingArea = false
     initialProject = nil; initialBounds = nil; dragging = nil
     if let box = m.project.selectionBounds(m.selectedIDs, at: m.time),
-      hypot(p.x-box.maxX*bounds.width/100, p.y-box.maxY*bounds.height/100) < 10 {
+      hypot(p.x-m.project.canvasRect(box,size:bounds.size).maxX, p.y-m.project.canvasRect(box,size:bounds.size).maxY) < 10 {
       resizing = true
     } else if let o = m.project.resolvedObjects(at: m.time).reversed().first(where: {
       $0.visible && m.time >= $0.start && m.time < $0.end && ![.audio, .group].contains($0.kind)
         && ($0.kind != .video || m.selectedIDs.contains($0.id) || event.modifierFlags.contains(.option))
-        && OverlayRenderer.rect($0, size: bounds.size).contains(p)
+        && OverlayRenderer.rect($0, size: bounds.size,project:m.project).contains(p)
     }) {
       let id = m.canvasSelectionID(o.id, individual: event.modifierFlags.contains(.option))
       if event.modifierFlags.contains(.command) || event.modifierFlags.contains(.shift) {
@@ -184,13 +190,13 @@ struct Preview: NSViewRepresentable {
       let ids = m.project.resolvedObjects(at: m.time).filter {
         $0.visible && m.time >= $0.start && m.time < $0.end && ![.audio,.group].contains($0.kind)
           && ($0.kind != .video || event.modifierFlags.contains(.option))
-          && area.intersects(OverlayRenderer.rect($0, size: bounds.size))
+          && area.intersects(OverlayRenderer.rect($0, size: bounds.size,project:m.project))
       }.map { m.canvasSelectionID($0.id, individual: event.modifierFlags.contains(.option)) }
       m.setSelection(initialSelection.union(ids)); refresh(); return
     }
     guard dragging != nil, var project = initialProject, let from = initialBounds else { return }
     if !dragCheckpoint { m.checkpoint(); dragCheckpoint = true }
-    let dx = (p.x-initialPoint.x)/bounds.width*100, dy = (p.y-initialPoint.y)/bounds.height*100
+    let dx = (p.x-initialPoint.x)/bounds.width*m.project.coordinateSpan, dy = (p.y-initialPoint.y)/bounds.height*m.project.coordinateSpan
     var to = from
     if resizing {
       if m.lockWidgetAspect, from.width > 0, from.height > 0 {

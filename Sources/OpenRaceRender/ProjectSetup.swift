@@ -183,6 +183,7 @@ struct ProjectSetupSheet: View {
   var settingsStep:some View {
     VStack(alignment:.leading,spacing:10) {
       Text("Project settings").font(.headline)
+      SphericalWorkspaceControls(model:model)
       TextField("Session name",text:model.projectBinding(\.name))
       ProjectLengthControls(model:model)
       Picker("Preferred speed unit",selection:model.speedUnitBinding) {

@@ -22,6 +22,7 @@ enum CLI {
       OpenRaceRender script-check PROJECT --object 0 --time 5 [--samples] [--out script.png]
       OpenRaceRender export PROJECT --start 120 --duration 5 --out clip.mp4 [--width 1920] [--height 1080] [--fps 30] [--video-bitrate 25000] [--audio-bitrate 240] [--progress]
       Export options: --profile local-1080 --workspace fitCanvas|output --border 5 --scaling high|linear|nearest --audio-rate 44100|48000 --audio-channels 0|1|2
+      OpenRaceRender spherical-metadata VIDEO --add|--clear --out copy.mp4
       OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
@@ -116,6 +117,16 @@ enum CLI {
         }
         print(String(data: try JSONSerialization.data(withJSONObject: out, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
         return 0
+      }
+      if a[1] == "spherical-metadata" {
+        if option("--out") == nil,!a.contains("--add"),!a.contains("--clear") {
+          let info = try SphericalMetadata.inspect(url)
+          let json:[String:Any] = ["width":info.width,"height":info.height,"sphericalV1":info.hasV1,"sphericalV2":info.hasV2,"stereo":info.stereo]
+          print(String(decoding:try JSONSerialization.data(withJSONObject:json,options:[.sortedKeys]),as:UTF8.self));return 0
+        }
+        guard let path = option("--out"),a.contains("--add") != a.contains("--clear") else {throw RaceError.invalid("Choose --add or --clear and a new --out file.")}
+        try SphericalMetadata.copy(url,to:URL(fileURLWithPath:path),enabled:a.contains("--add"))
+        print("Spherical metadata copy saved");return 0
       }
       var p = try RaceProject.read(url)
       func scriptIndex() throws -> Int {
@@ -371,6 +382,7 @@ struct RaceRenderApp: App {
           Button("Open project…", action: model.chooseOpen).keyboardShortcut("o")
           Button("Add inputs…", action: model.chooseInputs).keyboardShortcut("i")
           Button("Project setup…", action: model.beginProjectSetup)
+          Button("360° metadata tool…") { model.showSphericalMetadata = true }
           Button("Receive files over WiFi / network…") { model.showNetworkReceive = true }
           Divider()
           Button("Templates & styles…") { model.showTemplates = true }.keyboardShortcut(
@@ -392,6 +404,7 @@ struct RaceRenderApp: App {
           Button("Redo", action: model.redo).keyboardShortcut("z", modifiers: [.command, .shift])
         }
         CommandMenu("Preview") {
+          Toggle("Show 360 view guide",isOn:$model.showSphericalGuide).disabled(model.project.sphericalWorkspace != true)
           Button("Preview settings…") { model.showPreviewSettings = true }
           Button("Full-screen composition",action:model.openCompositionWindow).keyboardShortcut("f",modifiers:[.command,.shift])
           Button(model.previewMuted ? "Unmute preview" : "Mute preview") { model.previewMuted.toggle() }
@@ -422,7 +435,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "script-edit", "script-check", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "spherical-metadata", "script-edit", "script-check", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

@@ -21,6 +21,9 @@ public enum OverlayRenderer {
       x: o.x * size.width / 100, y: o.y * size.height / 100, width: o.width * size.width / 100,
       height: o.height * size.height / 100)
   }
+  public static func rect(_ object:DisplayObject,size:CGSize,project:RaceProject) -> CGRect {
+    project.canvasRect(CGRect(x:object.x,y:object.y,width:object.width,height:object.height),size:size)
+  }
   public static func color(_ hex: String, alpha: Double = 1) -> CGColor {
     let v = UInt32(hex.replacingOccurrences(of: "#", with: ""), radix: 16) ?? 0x5ee0b5
     return CGColor(colorSpace:colorSpace,components:[Double((v >> 16) & 255)/255,
@@ -35,7 +38,7 @@ public enum OverlayRenderer {
     where o.visible && time >= o.start && time < o.end
       && ![.video, .audio, .group].contains(o.kind)
     {
-      let r = LegacyStyledRenderer.contentRect(o,in:rect(o,size:size))
+      let r = LegacyStyledRenderer.contentRect(o,in:rect(o,size:size,project:scene.project))
       guard r.width > 0 && r.height > 0 else { continue }
       c.saveGState()
       c.setAlpha(o.opacity)
@@ -64,11 +67,11 @@ public enum OverlayRenderer {
       }
       if let artwork = o.artwork, o.kind != .image,!(o.kind == .map && o.mapSettings != nil), let image = NSImage(data:artwork), let cg = image.cgImage(forProposedRect:nil,context:nil,hints:nil) { c.draw(cg,in:r) }
       if o.kind == .text, o.typography != nil {
-        DrawingRenderer.text(c, object: o, rect: r, height: size.height)
+        DrawingRenderer.text(c, object: o, rect: r, height: size.height*(100/scene.project.coordinateSpan))
         c.restoreGState(); continue
       }
       if o.kind == .shape, o.shape != nil {
-        DrawingRenderer.shape(c, object: o, rect: r, height: size.height)
+        DrawingRenderer.shape(c, object: o, rect: r, height: size.height*(100/scene.project.coordinateSpan))
         c.restoreGState(); continue
       }
       if [.speed, .rpm, .gauge].contains(o.kind), GaugeDesignerRenderer.draw(c, object: o, rect: r, data: data, time: t, unit: scene.project.speedUnit) {
@@ -87,7 +90,7 @@ public enum OverlayRenderer {
       if LegacyMapRenderer.draw(c,object:o,rect:r,data:data,time:t) {
         c.restoreGState();continue
       }
-      if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height) {
+      if LegacyStyledRenderer.draw(c,object:o,rect:r,data:data,time:t,unit:scene.project.speedUnit,canvasHeight:size.height*(100/scene.project.coordinateSpan)) {
         c.restoreGState(); continue
       }
       if o.kind == .image {
@@ -99,7 +102,7 @@ public enum OverlayRenderer {
       c.restoreGState()
     }
     if let id = selection, let o = scene.project.displayForEditing(id, at: time) {
-      let r = rect(o, size: size)
+      let r = rect(o, size: size,project:scene.project)
       c.setStrokeColor(color("#5EE0B5"))
       c.setLineWidth(1.5)
       c.stroke(r)

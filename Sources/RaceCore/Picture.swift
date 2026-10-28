@@ -84,7 +84,8 @@ public enum PictureProcessor {
       let png = NSBitmapImageRep(cgImage:image).representation(using:.png,properties:[:]) else { throw RaceError.invalid("Cannot embed the adjusted source artwork.") }
     return png
   }
-  public static func apply(_ original: CIImage, settings s: PictureSettings) -> CIImage {
+  public static func apply(_ source: CIImage, settings s: PictureSettings) -> CIImage {
+    let original = SphericalProjectionRenderer.apply(source,settings:s.spherical)
     let b = original.extent
     let left = max(0, min(0.95, s.left)), right = max(0, min(0.95-left, s.right))
     let bottom = max(0, min(0.95, s.bottom)), top = max(0, min(0.95-bottom, s.top))

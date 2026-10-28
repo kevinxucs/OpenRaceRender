@@ -140,6 +140,7 @@ public struct DisplayObject: Identifiable, Codable, Equatable, Sendable {
 }
 
 public struct RaceProject: Codable, Equatable, Sendable {
+  public var sphericalWorkspace:Bool?
   public var formatVersion = 1
   public var name: String = "Untitled Session"
   public var width: Int = 1920

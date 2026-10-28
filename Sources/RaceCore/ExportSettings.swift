@@ -7,6 +7,7 @@ public struct ExportSettings: Codable, Equatable, Sendable {
   public var audioBitRate: Int = 240_000
   public var output:OutputSettings?
   public var profileID:String?
+  public var sphericalMetadata:Bool?
   public init(videoBitRate: Int? = nil, audioBitRate: Int = 240_000) {
     self.videoBitRate = videoBitRate; self.audioBitRate = audioBitRate
   }
@@ -27,6 +28,9 @@ public struct ExportSettings: Codable, Equatable, Sendable {
   public func validate(project:RaceProject) throws {
     let value = output ?? OutputSettings(); try value.validate(project:project)
     let size = value.size(for:project),fps = value.fps ?? project.fps
+    if sphericalMetadata ?? (project.sphericalWorkspace == true) {
+      guard size.width == size.height*2,value.border == 0 else {throw RaceError.invalid("Spherical output requires a 2:1 frame and no border. Choose an equirectangular output size.")}
+    }
     let rate = resolvedVideoBitRate(width:Int(size.width),height:Int(size.height),fps:fps)
     guard (100_000...240_000_000).contains(rate),(64_000...320_000).contains(audioBitRate) else { throw RaceError.invalid("Video bitrate must be 100–240000 kbps; audio bitrate must be 64–320 kbps.") }
   }

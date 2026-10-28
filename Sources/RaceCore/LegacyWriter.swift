@@ -62,6 +62,7 @@ public enum LegacyWriter {
     guard project.inputs.count <= 255, project.objects.count <= 10000 else {
       throw RaceError.invalid("RaceRender export allows at most 255 inputs and 10,000 displays.")
     }
+    guard project.sphericalWorkspace != true else {throw RaceError.invalid("Spherical workspaces require .orrp/.orrt; native workspace encoding is unverified.")}
     guard Set(project.inputs.map(\.legacyIndex)).count == project.inputs.count else {
       throw RaceError.invalid("Input identifiers must be unique before RaceRender export.")
     }
@@ -178,6 +179,7 @@ public enum LegacyWriter {
   static func record(_ object: DisplayObject, sources: [Int:Int], parents: [Int:Int]) throws -> Record {
     let o = object
     func unsupported(_ detail: String) -> RaceError { .invalid("‘\(o.name)’: \(detail) Save this project in .orrp format.") }
+    guard o.picture?.spherical == nil else {throw unsupported("Spherical picture edits require .orrp/.orrt.")}
     guard o.timerSettings == nil else { throw unsupported("Configured native timers and wall clocks require .orrp/.orrt.") }
     guard o.mapSettings == nil else { throw unsupported("Edited vector map options require .orrp/.orrt; the original map payload remains available by resetting the map editor.") }
     guard o.mapComparison == nil else { throw unsupported("Shared-map comparisons and lap ghosts require .orrp/.orrt.") }
@@ -332,6 +334,7 @@ public enum LegacyWriter {
 
   static func sourceRecord(_ source: MediaInput, project: RaceProject, sources: [Int:Int]) throws -> Data {
     let s = source, root = s.isJoinRoot == true
+    if s.picture?.spherical != nil {throw RaceError.invalid("Spherical picture edits require .orrp; native lens encoding is unverified.")}
     if s.dataSession != nil || (s.kind == "data" && URL(fileURLWithPath:s.path).pathExtension.lowercased() == "json") {throw RaceError.invalid("Data-session selections require .orrp; native logger track numbering has not been verified.")}
     if s.cameraVideoID != nil || (s.kind == "data" && CameraTelemetry.extensions.contains(URL(fileURLWithPath:s.path).pathExtension.lowercased())) {
       throw RaceError.invalid("Embedded camera data requires .orrp; native camera-data encoding is unverified.")
@@ -654,7 +657,7 @@ public enum LegacyWriter {
         bitmapInfo:CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue) else { throw RaceError.invalid("Artwork cannot be encoded as a legacy BGRA bitmap (maximum 4096×4096).") }
     c.draw(image,in:CGRect(x:0,y:0,width:image.width,height:image.height))
     var b = word(8 | (UInt32(image.width) << 16)); b.append(word(UInt32(image.height)))
-    b.append(Data(bytes:c.data!,count:image.width*image.height*4)); return b
+    b.append(LegacyArtwork.reversedRows(Data(bytes:c.data!,count:image.width*image.height*4),width:image.width,height:image.height)); return b
   }
   static func preview(_ project: RaceProject, width: Int, height: Int) -> Data {
     guard let c = CGContext(data:nil,width:width,height:height,bitsPerComponent:8,bytesPerRow:width*4,space:OverlayRenderer.colorSpace,bitmapInfo:OverlayRenderer.bitmapInfo) else { return Data(repeating:0,count:width*height*3) }

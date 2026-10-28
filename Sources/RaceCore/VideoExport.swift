@@ -67,7 +67,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           let placement = instruction.scene.project.media(for:first.inputIndex,at:time),
           let track = instruction.tracks[placement.input.legacyIndex],let frame = request.sourceFrame(byTrackID:track) {
           let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(by:instruction.transforms[placement.input.legacyIndex] ?? .identity)
-          let rect = OverlayRenderer.rect(first,size:size).offsetBy(dx:viewport.minX,dy:viewport.minY)
+          let rect = OverlayRenderer.rect(first,size:size,project:instruction.scene.project).offsetBy(dx:viewport.minX,dy:viewport.minY)
           let layer = PictureProcessor.positioned(image,in:rect,opacity:first.opacity,input:placement.input.picture,object:first.picture,scaling:instruction.options.scaling).cropped(to:viewport)
           let bounds = CGRect(origin:.zero,size:outputSize)
           let background = CIImage(color:CIColor(red:0,green:0,blue:0)).cropped(to:bounds)
@@ -97,7 +97,7 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           {
             let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(
               by: instruction.transforms[placement.input.legacyIndex] ?? .identity)
-            PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
+            PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size,project:instruction.scene.project), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
           } else if o.kind == .image {
             OverlayRenderer.draw(
               c,
@@ -182,6 +182,9 @@ public final class VideoExporter: @unchecked Sendable {
       start: CMTime(seconds: start, preferredTimescale: 60000),
       duration: CMTime(seconds: min(duration, fullDuration - start), preferredTimescale: 60000))
     try await write(prepared:prepared,project:p,to:url,range:range)
+    if settings.sphericalMetadata ?? (p.sphericalWorkspace == true) {
+      try checkCancellation();try SphericalMetadata.updateOwnedOutput(url,enabled:true)
+    }
   }
 
   public struct PreparedScene {
@@ -304,7 +307,7 @@ public final class VideoExporter: @unchecked Sendable {
           gen.requestedTimeToleranceAfter = .zero
           let cg = try gen.copyCGImage(
             at: CMTime(seconds: sourceTime, preferredTimescale: 60000), actualTime: nil)
-          PictureProcessor.draw(c, image: PictureProcessor.source(cg,settings:input.picture), in: OverlayRenderer.rect(o, size: size), opacity: o.opacity, input: input.picture, object: o.picture, context: ci)
+          PictureProcessor.draw(c, image: PictureProcessor.source(cg,settings:input.picture), in: OverlayRenderer.rect(o, size: size,project:scene.project), opacity: o.opacity, input: input.picture, object: o.picture, context: ci)
         }
       } else if ![.audio, .group].contains(o.kind) {
         OverlayRenderer.draw(

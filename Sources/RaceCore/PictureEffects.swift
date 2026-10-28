@@ -18,6 +18,7 @@ public struct ColorizeSettings:Codable,Equatable,Sendable {
 
 extension PictureSettings {
   public func validateEffects() throws {
+    try spherical?.validate()
     func valid(_ value:Double) -> Bool { value.isFinite && (0...1).contains(value) }
     if let key = chromaKey {
       guard PictureEffects.rgb(key.color) != nil,valid(key.colorTolerance),valid(key.brightnessTolerance),valid(key.softness) else {

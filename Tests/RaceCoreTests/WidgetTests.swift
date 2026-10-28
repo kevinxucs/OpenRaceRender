@@ -134,15 +134,19 @@ final class WidgetTests: XCTestCase {
     XCTAssertThrowsError(try bounded.run(program(long)))
   }
   func syntheticBitmap() -> Data {
-    // Original test pixels in the legacy BGRA container: blue, red, green, yellow.
+    // Original bottom-up legacy BGRA pixels: blue/red below green/yellow.
     Data([8,0,2,0,2,0,0x20,1,255,0,0,255,0,0,255,255,0,255,0,255,0,255,255,255])
   }
   func testEmbeddedBitmapDecodesWithoutVendorFixtures() throws {
     let png = try XCTUnwrap(LegacyArtwork.png(syntheticBitmap()))
     let rep = try XCTUnwrap(NSBitmapImageRep(data:png))
     XCTAssertEqual(rep.pixelsWide,2);XCTAssertEqual(rep.pixelsHigh,2)
-    let blue = try XCTUnwrap(rep.colorAt(x:0,y:0)?.usingColorSpace(.deviceRGB))
+    let blue = try XCTUnwrap(rep.colorAt(x:0,y:1)?.usingColorSpace(.deviceRGB))
     XCTAssertGreaterThan(blue.blueComponent,0.95);XCTAssertLessThan(blue.redComponent,0.05)
+    let green = try XCTUnwrap(rep.colorAt(x:0,y:0)?.usingColorSpace(.deviceRGB))
+    XCTAssertGreaterThan(green.greenComponent,0.95);XCTAssertLessThan(green.blueComponent,0.05)
+    let encoded = try LegacyWriter.bitmap(png)
+    XCTAssertEqual(Data(encoded.dropFirst(8)),Data(syntheticBitmap().dropFirst(8)))
     XCTAssertNil(LegacyArtwork.png(Data(syntheticBitmap().dropLast())))
   }
   func testCompressedEmbeddedBitmapAndBounds() throws {
@@ -155,6 +159,18 @@ final class WidgetTests: XCTestCase {
     var container = Data(repeating:0,count:4);container.putU32(UInt32(count)|0x80000000,0);container.append(contentsOf:compressed.prefix(count))
     XCTAssertNotNil(LegacyArtwork.png(container))
     container.putU32(0xffffffff,0);XCTAssertNil(LegacyArtwork.png(container))
+  }
+  func testPaddedNativeBitmapWrapperPreservesFollowingRecord() throws {
+    let pixels = syntheticBitmap()+Data(repeating:0,count:64)
+    var container = Data(repeating:0,count:4);container.putU32(UInt32(pixels.count),0);container.append(pixels)
+    let end = container.count;container.append(Data(repeating:0,count:4))
+    var cursor = 0
+    let decoded = try XCTUnwrap(LegacyProjectSettings.image(container,cursor:&cursor))
+    XCTAssertEqual(cursor,end);XCTAssertEqual(decoded,pixels)
+    XCTAssertNotNil(LegacyArtwork.png(decoded))
+    XCTAssertNil(try LegacyProjectSettings.image(container,cursor:&cursor));XCTAssertEqual(cursor,end+4)
+    var truncated = container;truncated.putU32(UInt32(container.count+10),0);cursor = 0
+    XCTAssertThrowsError(try LegacyProjectSettings.image(truncated,cursor:&cursor))
   }
   func testLocalLegacyScriptsWhenLibraryIsProvided() throws {
     guard let path = ProcessInfo.processInfo.environment["OPENRACERENDER_LIBRARY"] else { throw XCTSkip("Optional local-library fidelity check.") }

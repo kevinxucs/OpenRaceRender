@@ -55,6 +55,7 @@ extension RaceProject {
   public mutating func applyLayout(_ layout: RaceProject, replace: Bool, mapping: [Int: Int] = [:]) {
     stabilizeHierarchy()
     var layout = layout; layout.stabilizeHierarchy()
+    if layout.sphericalWorkspace == true,sphericalWorkspace != true {setSphericalWorkspace(true)}
     let identities = Dictionary(uniqueKeysWithValues: layout.objects.map { ($0.id, UUID()) })
     if replace {
       let includesVideo = layout.objects.contains { $0.kind == .video }

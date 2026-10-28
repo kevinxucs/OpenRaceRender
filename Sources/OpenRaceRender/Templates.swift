@@ -425,6 +425,10 @@ struct ExportSheet: View {
       if let path = model.project.lastExport?.path {
         Text("Previous output: " + URL(fileURLWithPath: path).lastPathComponent + ". A new filename is suggested for repeat exports.").font(.caption).foregroundStyle(muted)
       }
+      Toggle("Include 360° spherical metadata",isOn:Binding(get:{model.project.exportSettings?.sphericalMetadata ?? (model.project.sphericalWorkspace == true)},set:{value in
+        var settings = model.project.exportSettings ?? ExportSettings();settings.sphericalMetadata = value
+        model.projectBinding(\.exportSettings).wrappedValue = settings
+      }))
       Toggle("Review a YouTube upload after rendering",isOn:$model.reviewYouTubeAfterExport)
       Text("Export settings and output location are saved with the project when rendering begins. The editing canvas and preview preferences stay independent.").font(.caption).foregroundStyle(muted)
         }.padding(.trailing,8)

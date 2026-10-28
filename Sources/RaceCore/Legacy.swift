@@ -357,6 +357,7 @@ public enum LegacyReader {
     let version2 = b[3] == 50
     if version2, b.count > 64825, b.u32(64817) == 136 {
       if b[12] == 0 { p.width = 1440; p.height = 1080 }
+      else if b[12] == 6 { p.sphericalWorkspace = true; p.width = 3840; p.height = 1920 }
       else if b[12] != 2 { p.warnings.append("The template uses workspace mode \(b[12]); verify the canvas aspect ratio.") }
     }
     var cursor = 64812

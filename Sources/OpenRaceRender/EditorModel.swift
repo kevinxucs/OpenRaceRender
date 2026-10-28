@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
         pause(); seek(max(0,duration-1/max(1,project.fps)))
       }
     }
-    if oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration || oldValue.lengthInputIndex != project.lengthInputIndex { schedulePreview() }
+    if oldValue.sphericalWorkspace != project.sphericalWorkspace || oldValue.inputs != project.inputs || oldValue.objects != project.objects || oldValue.width != project.width || oldValue.height != project.height || oldValue.fps != project.fps || oldValue.speedUnit != project.speedUnit || oldValue.explicitDuration != project.explicitDuration || oldValue.lengthInputIndex != project.lengthInputIndex { schedulePreview() }
     let oldData = oldValue.inputs.filter { $0.kind == "data" }
     let newData = project.inputs.filter { $0.kind == "data" }
     if oldData.map(\.path) != newData.map(\.path) || oldData.map(\.legacyIndex) != newData.map(\.legacyIndex) || oldData.map(\.dataSettings) != newData.map(\.dataSettings) || oldData.map(\.dataSession) != newData.map(\.dataSession) || oldData.map(\.legacyTrackIndex) != newData.map(\.legacyTrackIndex) { scheduleTelemetry() }
@@ -72,6 +72,8 @@ import UniformTypeIdentifiers
   @Published var showNetworkReceive = false
   @Published var showTemplates = false
   @Published var showExport = false
+  @Published var showSphericalMetadata = false
+  @Published var showSphericalGuide = true
   @Published var showWidgets = false { didSet { if oldValue != showWidgets { schedulePreview() } } }
   @Published var showWidgetStyles = false
   @Published var widgetLibraryRevision = 0
@@ -734,7 +736,7 @@ import UniformTypeIdentifiers
     if kind == .text { o.text = "Your text"; o.typography = TextSettings() }
     if kind == .shape { o.shape = ShapeSettings() }
     if kind == .gauge { var g = GaugeSettings(); g.design = GaugeDesign(); o.gauge = g }
-    if let point { o = o.placed(at: point) }
+    if let point { o = o.placed(at: point,within:project.workspaceBounds) }
     project.objects.append(o)
     selected = o.id
     selectedInput = nil
@@ -745,7 +747,7 @@ import UniformTypeIdentifiers
     o.id = UUID(); o.legacyOffset = nil; o.legacyIndex = nil; o.parentIndex = -1; o.parentID = nil
     o.start = 0; o.end = 1_000_000; o.segments = nil; o.visible = true
     o.inputIndex = project.inputs.first { $0.kind == (o.kind == .image && !o.imageUsesData ? "image" : "data") && $0.joinedTo == nil }?.legacyIndex ?? -1
-    if let point { o = o.placed(at: point) }
+    if let point { o = o.placed(at: point,within:project.workspaceBounds) }
     project.objects.append(o); selected = o.id; selectedInput = nil
     status = "Added " + style.name
   }
@@ -753,10 +755,10 @@ import UniformTypeIdentifiers
     if selectedIDs.count > 1, let from = project.selectionBounds(selectedIDs, at: editingSegment) {
       var to = from
       switch alignment {
-      case "Left": to.origin.x = 0
-      case "Right": to.origin.x = 100-from.width
-      case "Top": to.origin.y = 100-from.height
-      case "Bottom": to.origin.y = 0
+      case "Left": to.origin.x = project.coordinateOrigin
+      case "Right": to.origin.x = project.coordinateOrigin+project.coordinateSpan-from.width
+      case "Top": to.origin.y = project.coordinateOrigin+project.coordinateSpan-from.height
+      case "Bottom": to.origin.y = project.coordinateOrigin
       case "Horizontal center": to.origin.x = (100-from.width)/2
       case "Vertical center": to.origin.y = (100-from.height)/2
       default: return
@@ -767,10 +769,10 @@ import UniformTypeIdentifiers
     let binding = objectBinding(id)
     var o = binding.wrappedValue
     switch alignment {
-    case "Left": o.x = 0
-    case "Right": o.x = 100-o.width
-    case "Top": o.y = 100-o.height
-    case "Bottom": o.y = 0
+    case "Left": o.x = project.coordinateOrigin
+    case "Right": o.x = project.coordinateOrigin+project.coordinateSpan-o.width
+    case "Top": o.y = project.coordinateOrigin+project.coordinateSpan-o.height
+    case "Bottom": o.y = project.coordinateOrigin
     case "Horizontal center": o.x = (100-o.width)/2
     case "Vertical center": o.y = (100-o.height)/2
     default: return
@@ -781,13 +783,13 @@ import UniformTypeIdentifiers
     if selectedIDs.count > 1, let from = project.selectionBounds(selectedIDs, at: editingSegment) {
       checkpoint()
       project.transformDisplays(selectedIDs, from: from,
-        to: from.offsetBy(dx: x/Double(project.width)*100, dy: y/Double(project.height)*100), at: editingSegment)
+        to: from.offsetBy(dx: x/Double(project.width)*project.coordinateSpan, dy: y/Double(project.height)*project.coordinateSpan), at: editingSegment)
       return
     }
     guard let id = selected else { return }
     let binding = objectBinding(id)
     var o = binding.wrappedValue
-    o.x += x / Double(project.width) * 100; o.y += y / Double(project.height) * 100
+    o.x += x / Double(project.width) * project.coordinateSpan; o.y += y / Double(project.height) * project.coordinateSpan
     binding.wrappedValue = o
   }
   func deleteSelected() {

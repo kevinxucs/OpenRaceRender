@@ -55,6 +55,7 @@ struct EditorView: View {
     }
     .background(bg).preferredColorScheme(.dark).tint(mint)
     .frame(minWidth: 1100, minHeight: 760)
+    .sheet(isPresented:$model.showSphericalMetadata) { SphericalMetadataSheet() }
     .sheet(item:$model.youTubeUploadRequest) { YouTubeUploadSheet(request:$0) }
     .sheet(isPresented: $model.showNetworkReceive) { NetworkReceiveSheet(model:model) }
     .sheet(isPresented: $model.showTemplates) { TemplateBrowser(model: model) }
@@ -346,6 +347,7 @@ struct EditorView: View {
       Text("Session settings").font(.system(size: 16, weight: .semibold))
       TextField("Session name", text: model.projectBinding(\.name))
       Button("Project setup…",action:model.beginProjectSetup)
+      SphericalWorkspaceControls(model:model)
       TextField("Project notes", text: Binding(get: { model.project.notes ?? "" }, set: { model.setProjectNotes($0) }), axis: .vertical).lineLimit(2...6)
       HStack {
         TextField("Width", value: model.projectBinding(\.width), format: .number)
@@ -539,6 +541,7 @@ struct ObjectInspector: View {
       }
       Toggle("Keep aspect ratio when resizing", isOn: $model.lockWidgetAspect)
       Menu("Align to canvas") {
+        if model.project.sphericalWorkspace == true {Button("Fill 360 workspace",action:model.fillSphericalSelection);Divider()}
         ForEach(["Left", "Horizontal center", "Right", "Top", "Vertical center", "Bottom"], id: \.self) { alignment in
           Button(alignment) { model.alignWidget(alignment) }
         }

@@ -8,9 +8,10 @@ enum LegacyProjectSettings {
     guard sourceStart >= 2152, b.count >= 2152 else { return }
     p.notes = b.utf16(48, 2048)
     // Workspace selection is saved in the project; preview/export profiles are
-    // separate application preferences. These two modes were verified in RR3.
+    // separate application preferences. Mode 6 is the native panoramic template.
     if b[2126] == 0 { p.width = 1440; p.height = 1080 }
     else if b[2126] == 2 { p.width = 1920; p.height = 1080 }
+    else if b[2126] == 6 { p.sphericalWorkspace = true; p.width = 3840; p.height = 1920 }
     else { p.warnings.append("The RRP uses workspace mode \(b[2126]); verify the canvas aspect ratio before rendering.") }
     p.speedUnit = b[2120] == 2 ? "km/h" : b[2120] == 3 ? "knots" : b[2120] == 4 ? "m/s" : "mph"
     let lengthInput = Int(b[2121])
@@ -58,8 +59,16 @@ enum LegacyProjectSettings {
     picture.brightness = Double(settings[25]) / 100; picture.contrast = Double(settings[26]) / 100
     picture.saturation = Double(settings[27]) / 100; picture.sharpness = Double(settings[30]) / 100
     picture.hue = Double(Int16(bitPattern: UInt16(settings[28]) | UInt16(settings[29]) << 8))
+    if settings.count >= 52, settings[31] == 2 {
+      var lens = SphericalProjection(); lens.mode = .fisheye; lens.axis = .up
+      lens.fieldOfView = settings.f32(44); lens.pan = settings.f32(48)
+      if (try? lens.validate()) != nil {
+        picture.spherical = lens
+        warnings.append("Input ‘\(input.name)’ uses native sphere flattening. The saved pan/FOV are imported; verify lens calibration against the original camera.")
+      } else { warnings.append("Input ‘\(input.name)’ has invalid native sphere pan/FOV settings; projection was omitted.") }
+    }
     input.picture = picture
-    if settings.count > 43, settings[31] != 0 || settings.u32(40) >> 24 != 255 {
+    if settings.count > 43, (settings[31] != 0 && settings[31] != 2) || settings.u32(40) >> 24 != 255 {
       warnings.append("Input ‘\(input.name)’ has additional picture effects retained in the original RRP data. Check colorize, chroma key, and sphere settings before rendering.")
     }
   }
@@ -125,12 +134,13 @@ enum LegacyProjectSettings {
     guard cursor + 4 <= b.count else { throw RaceError.invalid("Truncated RRP image record.") }
     let value = b.u32(cursor)
     if value == 0 { cursor += 4; return nil }
-    // Embedded Image (type 14) wraps its bitmap in an exact byte count.
+    // Embedded Image (type 14) wraps its bitmap in a byte count. Native
+    // templates may retain allocation padding beyond the bitmap's pixels.
     // Accept only a bounded container with an independently valid inner header.
     if value > 8, value <= 64*1024*1024, cursor+4+Int(value) <= b.count,
       b.u32(cursor+4) & 0xffff == 8 {
       let width = Int(b.u32(cursor+4) >> 16), height = Int(b.u32(cursor+8) & 0xffff)
-      if width > 0, height > 0, width <= 4096, height <= 4096, Int(value) == 8+width*height*4 {
+      if width > 0, height > 0, width <= 4096, height <= 4096, Int(value) >= 8+width*height*4 {
         let raw = Data(b[cursor+4..<cursor+4+Int(value)]); cursor += 4+Int(value); return raw
       }
     }

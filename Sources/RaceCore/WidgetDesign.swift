@@ -92,10 +92,10 @@ extension DisplayObject {
     }
     return result
   }
-  public func placed(at point: CGPoint) -> DisplayObject {
+  public func placed(at point: CGPoint,within bounds:CGRect = CGRect(x:0,y:0,width:100,height:100)) -> DisplayObject {
     var result = self
-    result.x = max(0, min(max(0, 100-width), point.x-width/2))
-    result.y = max(0, min(max(0, 100-height), point.y-height/2))
+    result.x = max(bounds.minX,min(max(bounds.minX,bounds.maxX-width),point.x-width/2))
+    result.y = max(bounds.minY,min(max(bounds.minY,bounds.maxY-height),point.y-height/2))
     return result
   }
 }

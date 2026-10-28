@@ -21,13 +21,20 @@ enum LegacyArtwork {
     let height = Int(raw[4]) | Int(raw[5]) << 8
     guard type == 8, width > 0, height > 0, width <= 4096, height <= 4096,
       raw.count >= 8+width*height*4 else { return nil }
-    let pixels = Data(raw[8..<8+width*height*4])
+    // Native bitmaps store the bottom scanline first; CGImage/PNG expects top first.
+    let pixels = reversedRows(Data(raw[8..<8+width*height*4]),width:width,height:height)
     guard let provider = CGDataProvider(data: pixels as CFData),
       let image = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
         bytesPerRow: width*4, space: OverlayRenderer.colorSpace,
         bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue),
         provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else { return nil }
     return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+  }
+  static func reversedRows(_ pixels:Data,width:Int,height:Int) -> Data {
+    let stride = width*4
+    var result = Data(capacity:pixels.count)
+    for row in (0..<height).reversed() { result.append(pixels[row*stride..<(row+1)*stride]) }
+    return result
   }
   static func inflate(_ data: Data) -> Data? {
     let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: 65536)

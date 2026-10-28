@@ -38,6 +38,7 @@ struct PictureControls: View {
         Toggle("Flip vertically", isOn: $settings.flipY)
         value("Rotation (degrees)", $settings.rotation)
         if media {
+          SphericalPictureControls(settings:$settings)
           Toggle("Maintain aspect ratio", isOn: $settings.maintainAspect)
           Text("Crop from edges (0–0.95)").foregroundStyle(muted)
           HStack { value("Left", $settings.left); value("Right", $settings.right) }
@@ -426,7 +427,7 @@ struct WidgetTile: NSViewRepresentable {
     guard let canvas = model?.canvasView, canvas.window === window, canvas.bounds.width > 0, canvas.bounds.height > 0 else { return }
     let point = canvas.convert(event.locationInWindow, from: nil)
     guard canvas.bounds.contains(point) else { return }
-    add(at: CGPoint(x: point.x/canvas.bounds.width*100, y: point.y/canvas.bounds.height*100))
+    if let model {add(at:model.project.workspacePoint(point,size:canvas.bounds.size))}
   }
   override func keyDown(with event: NSEvent) {
     if [36, 49].contains(event.keyCode) { add() }
