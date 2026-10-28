@@ -24,6 +24,7 @@ enum CLI {
       Export options: --profile local-1080 --workspace fitCanvas|output --border 5 --scaling high|linear|nearest --audio-rate 44100|48000 --audio-channels 0|1|2
       OpenRaceRender spherical-metadata VIDEO --add|--clear --out copy.mp4
       OpenRaceRender convert PROJECT --out converted.orrp [or .rrp, .rrt, .rro]
+      OpenRaceRender recover-project RECOVERY_UUID.json --out recovered.orrp
 
     Projects: .rrp (RRP3), .rrt, .rro, .orrp, .orrt
     Telemetry: RaceChrono RCZ/CSV, CSV/TSV, GPX, TCX, NMEA, VBO and FIT. GoPro MP4/MOV via inspect-data or the video inspector’s Add embedded camera data. GUI: add via Add input.
@@ -64,6 +65,12 @@ enum CLI {
           throw RaceError.invalid("Input and output must differ.")
         }
         return u
+      }
+      if a[1] == "recover-project" {
+        let destination = try output()
+        try RecoveryStore.exportCopy(from:url,to:destination)
+        print("Saved a recovered project copy to "+destination.path)
+        return 0
       }
       if a[1] == "import-library" {
         let destination = option("--out").map { URL(fileURLWithPath: $0) } ?? LayoutLibrary.userRoot()
@@ -323,9 +330,11 @@ enum CLI {
   private(set) var pendingOpenURL: URL?
   private var handledLaunchArguments = false
   private var receivedExternalOpen = false
+  var hasStartupDocument:Bool {receivedExternalOpen || pendingOpenURL != nil || Self.launchProjectURL(CommandLine.arguments) != nil}
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    (model?.confirmDiscard() ?? true) ? .terminateNow : .terminateCancel
+    guard model?.confirmDiscard() ?? true else {return .terminateCancel}
+    model?.finishCleanShutdown();return .terminateNow
   }
   func application(_ sender: NSApplication, openFiles filenames: [String]) {
     openExternalURLs(filenames.map { URL(fileURLWithPath: $0) })
@@ -341,6 +350,7 @@ enum CLI {
   }
   private func requestOpen(_ url: URL) {
     if let model {
+      model.startupReopenAllowed = false;model.showRecovery = false
       if (Telemetry.supportedExtensions+Telemetry.unsupportedLoggerExtensions).contains(url.pathExtension.lowercased()) { model.addInputs([url]) }
       else { model.open(url) }
     }
@@ -365,7 +375,7 @@ enum CLI {
 }
 
 struct RaceRenderApp: App {
-  @StateObject var model = EditorModel()
+  @StateObject var model = EditorModel.live()
   @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
   var body: some Scene {
     Window("OpenRaceRender", id: "editor") {
@@ -374,6 +384,7 @@ struct RaceRenderApp: App {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         delegate.openLaunchArguments(CommandLine.arguments)
+        model.beginStartupRecovery(allowReopen:!delegate.hasStartupDocument)
       }
     }.defaultSize(width: 1460, height: 920).windowStyle(.hiddenTitleBar)
       .commands {
@@ -398,6 +409,10 @@ struct RaceRenderApp: App {
           Button("Upload video to YouTube…") { model.beginYouTubeUpload() }.disabled(model.exportProgress != nil)
           Button("Export video…", action: model.prepareExport).keyboardShortcut("e")
           Button("Save snapshot…", action: model.snapshot)
+        }
+        CommandGroup(replacing:.help) {
+          Button("Recover unsaved session…") {model.showRecovery = true}
+          Button("Show diagnostic log…") {model.showDiagnostics = true}
         }
         CommandGroup(replacing: .undoRedo) {
           Button("Undo", action: model.undo).keyboardShortcut("z")
@@ -436,7 +451,7 @@ struct RaceRenderApp: App {
 }
 
 let cliCommands = [
-  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "spherical-metadata", "script-edit", "script-check", "--help", "-h", "help",
+  "inspect", "inspect-data", "validate-library", "list-library", "import-library", "make-template", "snapshot", "export", "convert", "recover-project", "spherical-metadata", "script-edit", "script-check", "--help", "-h", "help",
 ]
 if CommandLine.arguments.count > 1 && cliCommands.contains(CommandLine.arguments[1]) {
   Task {

@@ -91,7 +91,24 @@ import UniformTypeIdentifiers
   @Published var exportStart: Double = 0
   @Published var exportDuration: Double = 0
   @Published var fileURL: URL?
-  @Published var dirty = false
+  @Published var dirty = false {didSet {if dirty {scheduleRecovery()} else {clearActiveRecovery()}}}
+  let recoveryStore:RecoveryStore?
+  let diagnostics:DiagnosticLog?
+  var recoverySession:RecoverySession?
+  var recoveryTask:Task<Void,Never>?
+  var recoverySequence:UInt64 = 0
+  var recoveryDue:Date?
+  var recoveryTicket = UUID()
+  var startupRecoveryTask:Task<Void,Never>?
+  var startupRecoveryStarted = false
+  var startupReopenAllowed = true
+  @Published var recoveryCandidates:[RecoveryCandidate] = []
+  @Published var recoveryUnreadableCount = 0
+  @Published var recoveryProblem:String?
+  @Published var lastRecoverySaved:Date?
+  @Published var showRecovery = false
+  @Published var showDiagnostics = false
+  @Published var reopenLastProject:Bool {didSet {preferences.set(reopenLastProject,forKey:"reopenLastProject")}}
   private var previewTask: Task<Void, Never>?
   private var telemetryTask: Task<Void, Never>?
   private var previewObservation: NSKeyValueObservation?
@@ -125,7 +142,9 @@ import UniformTypeIdentifiers
   func projectTime(for source: Double, inputIndex: Int? = nil) -> Double {
     project.placements.first { $0.input.legacyIndex == (inputIndex ?? dataIndex) }?.projectTime(for: source) ?? source
   }
-  init(preferences: UserDefaults = .standard) {
+  init(preferences: UserDefaults = .standard,recoveryStore:RecoveryStore? = nil,diagnostics:DiagnosticLog? = nil) {
+    self.recoveryStore = recoveryStore;self.diagnostics = diagnostics
+    reopenLastProject = preferences.bool(forKey:"reopenLastProject")
     self.preferences = preferences
     customOutputProfiles = preferences.data(forKey:"outputProfiles").flatMap{try? JSONDecoder().decode([OutputProfile].self,from:$0)} ?? []
     let decoded = preferences.data(forKey:"previewSettings").flatMap{try? JSONDecoder().decode(PreviewSettings.self,from:$0)}
@@ -267,6 +286,8 @@ import UniformTypeIdentifiers
         guard !scene.project.objects.isEmpty || scene.project.inputs.contains(where: { ["video","audio"].contains($0.kind) && $0.exists }) else {
           self.previewPlayer?.pause(); self.previewPlayer = nil; return
         }
+        let began = Date()
+        self.diagnostics?.record(.previewPreparing,metrics:[.width:Double(scene.project.width),.height:Double(scene.project.height),.fps:scene.project.fps,.inputs:Double(scene.project.inputs.count),.displays:Double(scene.project.objects.count)])
         let prepared = try await VideoExporter.prepare(scene: scene,options:self.previewOptions)
         try Task.checkCancellation()
         let item = AVPlayerItem(asset: prepared.composition)
@@ -277,15 +298,24 @@ import UniformTypeIdentifiers
         self.previewPlayer?.pause()
         self.previewPlayer = player
         self.previewObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak player] item, _ in
+          if item.status == .failed {
+            Task { @MainActor in
+              guard let self,self.previewPlayer === player else {return}
+              self.diagnostics?.record(.previewFailed,error:item.error)
+              self.status = "Preview playback failed · see Help → Show diagnostic log"
+            }
+          }
           guard item.status == .readyToPlay else { return }
           Task { @MainActor in
             guard let self, self.previewPlayer === player else { return }
             self.syncPlayers(play: self.playing)
           }
         }
+        self.diagnostics?.record(.previewReady,metrics:[.elapsed:Date().timeIntervalSince(began)])
         self.syncPlayers(play: self.playing)
       } catch is CancellationError {} catch {
         guard !Task.isCancelled else { return }
+        self?.diagnostics?.record(.previewFailed,error:error)
         self?.status = "Preview: " + error.localizedDescription
       }
     }
@@ -298,8 +328,8 @@ import UniformTypeIdentifiers
         try await Task.sleep(nanoseconds: 400_000_000)
         let result = try await Self.loadTelemetry(project)
         try Task.checkCancellation()
-        telemetry = result; schedulePreview()
-      } catch is CancellationError {} catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        telemetry = result;diagnostics?.record(.telemetryReady,metrics:[.samples:Double(result.values.reduce(0){$0+$1.count})]); schedulePreview()
+      } catch is CancellationError {} catch { if !Task.isCancelled { diagnostics?.record(.telemetryFailed,error:error);self.error = error.localizedDescription } }
     }
   }
   func updateObject(at index: Int, value: DisplayObject) {
@@ -388,6 +418,7 @@ import UniformTypeIdentifiers
   }
   func newProject() {
     guard confirmDiscard() else { return }
+    startupReopenAllowed = false
     documentRevision = UUID()
     scriptEditorRequest = nil;youTubeUploadRequest = nil
     cameraDataCandidates = []; dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
@@ -407,6 +438,17 @@ import UniformTypeIdentifiers
     status = "New session"
     showProjectSetup = setupOnNewProjects
   }
+  func installRecovery(_ snapshot:RecoverySnapshot) {
+    clearActiveRecovery();documentRevision = UUID();startupReopenAllowed = false
+    openTask?.cancel();openingURL = nil;telemetryTask?.cancel();previewTask?.cancel();pause()
+    scriptEditorRequest = nil;youTubeUploadRequest = nil;cameraDataCandidates = []
+    dataSetupRequest = nil;dataSetupQueue = [];pendingInputs = [];finishLineInput = nil
+    project = snapshot.project;telemetry = [:];selected = nil;selectedInput = nil
+    fileURL = nil;time = min(max(0,snapshot.playhead),project.duration);dirty = true
+    undoStack = [];redoStack = [];busy = false;showProjectSetup = false
+    scheduleTelemetry();configurePlayers()
+    status = "Recovered unsaved session · Save As to keep this copy"
+  }
   func chooseOpen() {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = ["rrp", "rrt", "rro", "orrp", "orrt"].compactMap {
@@ -415,6 +457,7 @@ import UniformTypeIdentifiers
     if panel.runModal() == .OK, let url = panel.url { open(url) }
   }
   func open(_ url: URL) {
+    startupReopenAllowed = false;showRecovery = false
     // Finder can resend a request while a large project is loading. Coalesce it.
     guard openingURL != url.standardizedFileURL else { return }
     if ["rrt", "rro", "orrt"].contains(url.pathExtension.lowercased()), !project.inputs.isEmpty {
@@ -464,12 +507,15 @@ import UniformTypeIdentifiers
         undoStack = []
         redoStack = []
         configurePlayers()
+        rememberProjectURL(url)
+        diagnostics?.record(.projectOpened,metrics:[.inputs:Double(p.inputs.count),.displays:Double(p.objects.count),.samples:Double(loaded.values.reduce(0){$0+$1.count})])
         status =
           "\(p.objects.count) displays · \(p.inputs.count) inputs · \(loaded.values.reduce(0){$0+$1.count}.formatted()) telemetry samples"
       } catch is CancellationError {
       } catch {
         guard documentRevision == revision else { return }
         self.error = error.localizedDescription
+        diagnostics?.record(.projectFailed,error:error)
         status = "Could not open project"
       }
     }
@@ -493,8 +539,9 @@ import UniformTypeIdentifiers
       try project.save(url)
       fileURL = url
       dirty = false
+      rememberProjectURL(url);diagnostics?.record(.projectSaved)
       status = "Saved \(url.lastPathComponent)"
-    } catch { self.error = error.localizedDescription }
+    } catch { diagnostics?.record(.projectFailed,error:error);self.error = error.localizedDescription }
   }
   func saveTemplate() {
     beginTemplateDraft(style: false)
@@ -895,7 +942,7 @@ import UniformTypeIdentifiers
     }
     project.lastExport = ExportDestination(path: url.path, start: exportStart, duration: exportDuration)
     if let fileURL {
-      do { try project.save(fileURL); dirty = false }
+      do { try project.save(fileURL); dirty = false;rememberProjectURL(fileURL);diagnostics?.record(.projectSaved) }
       catch { self.error = error.localizedDescription; return }
     }
     pause()
@@ -913,11 +960,14 @@ import UniformTypeIdentifiers
     }
     Task {
       do {
+        diagnostics?.record(.exportStarted,metrics:[.duration:duration,.width:Double(scene.project.width),.height:Double(scene.project.height),.fps:scene.project.fps])
+        let began = Date()
         try await exporter.export(scene: scene, to: url, start: start, duration: duration)
+        diagnostics?.record(.exportCompleted,metrics:[.elapsed:Date().timeIntervalSince(began)])
         status = "Export complete · \(url.lastPathComponent)"
         NSWorkspace.shared.activateFileViewerSelecting([url])
         if reviewUpload,documentRevision == exportRevision {beginYouTubeUpload(file:url)}
-      } catch { self.error = error.localizedDescription }
+      } catch { diagnostics?.record(.exportFailed,error:error);self.error = error.localizedDescription }
       progressTimer.invalidate()
       exportProgress = nil
       self.exporter = nil

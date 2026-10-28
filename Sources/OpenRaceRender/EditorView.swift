@@ -15,6 +15,10 @@ struct EditorView: View {
     VStack(spacing: 0) {
       topBar
       CameraDataOffer(model:model)
+      if let problem = model.recoveryProblem {
+        HStack {Text(problem);Spacer();Button("Recovery details…"){model.showRecovery = true}}
+          .font(.caption).foregroundStyle(.orange).padding(.horizontal,20).padding(.vertical,6)
+      }
       if !model.missingInputs.isEmpty {
         HStack {
           Label("\(model.missingInputs.count) missing input\(model.missingInputs.count == 1 ? "" : "s") · Choose replacement files to restore this session.", systemImage: "exclamationmark.triangle")
@@ -55,6 +59,8 @@ struct EditorView: View {
     }
     .background(bg).preferredColorScheme(.dark).tint(mint)
     .frame(minWidth: 1100, minHeight: 760)
+    .sheet(isPresented:$model.showRecovery) { RecoverySheet(model:model) }
+    .sheet(isPresented:$model.showDiagnostics) { DiagnosticsSheet(model:model) }
     .sheet(isPresented:$model.showStereoLayout) { StereoLayoutSheet(model:model) }
     .sheet(isPresented:$model.showSphericalMetadata) { SphericalMetadataSheet() }
     .sheet(item:$model.youTubeUploadRequest) { YouTubeUploadSheet(request:$0) }

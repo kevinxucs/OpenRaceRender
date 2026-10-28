@@ -11,6 +11,8 @@ This is an evolving implementation. It does **not** have full RaceRender feature
 
 [Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
 
+[Session recovery and diagnostic logs](docs/session-recovery.md) keep private Library recovery copies and provide local reports for troubleshooting.
+
 [RGB channel masks and stereo layouts](docs/stereo.md) preserve underlying channels for anaglyphs and other compositing effects.
 
 [360° workspaces, fisheye projection and spherical metadata tools](docs/spherical-video.md) support monoscopic panoramic projects.

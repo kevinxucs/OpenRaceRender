@@ -1,6 +1,6 @@
 # Guide feature implementation progress
 
-User authorization: implement all remaining guide gaps individually. The latest user instruction explicitly waives waiting for manual compaction. Continue sequentially, validating and committing/pushing each feature before starting the next. No manual compaction API is available; do not claim otherwise.
+User authorization: implement guide gaps individually, committing/pushing each feature. Latest instruction: finish F36, then stop and list remaining work. Do not start another feature after F36. No manual compaction API is available; do not claim otherwise.
 
 ## Current checkpoint
 
@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 389 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 400 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -53,13 +53,28 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F35: RGB destination-channel write masks, native/imported timeline persistence, old-native migration and five two-camera stereo layout presets implemented; see [stereo controls and validation](stereo.md).
 
-Next feature: **F36 — crash recovery and accessible diagnostic logs**, after committing/pushing F35. F34 `93b6f78` passed CI40632417939. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
+- F36: atomic recovery copies, explicit startup/Help restoration, archive, optional saved-project reopen, CLI recovery and private diagnostic viewer/export implemented; see [recovery and validation limits](session-recovery.md).
 
-## Remaining queue
+F35 `f60dac7` passed CI40635276467. F36 release tests, CLI acceptance, signed app and local library ZIP are verified. Commit/push F36 and stop, per the user's latest instruction.
 
-F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
+## Remaining work after F36
 
-Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+| ID | Remaining implementation |
+| --- | --- |
+| F31 | GTech GTR/GTS, PZRacing PRR, SpeedAngle SA, Sony MOFF, Olympus SNS/SNSLOG and companion-file merging; Alfano-specific/multi-session CSV layouts. Verifiable specifications or fixtures are unavailable. The user confirmed no samples are available; do not ask again. |
+| F32 | Native TrackAddict discovery and Wi-Fi transfer protocol. The browser/HTTP receiving workflow is implemented; native sender interoperability still needs a verifiable protocol/fixture. |
+
+Other explicit limits: native sphere projection pixel parity/automatic camera calibration and native spherical writing (F34); unsupported native clipping/timeline flags and repair of edited older incorrectly imported events (F01/F10/F35). Live Google OAuth/Keychain/upload validation (F33) requires a separately authorized account/client workflow; F36 live GUI validation is pending a working computer-use connection. These are not silently claimed complete. Individual feature guides contain narrower format/rendering limits.
+
+Public source contains no private sessions, telemetry or proprietary vendor assets. The local build retains the explicitly authorized library bundle.
+
+## F36 handoff — implementation complete; live UI connection unavailable
+
+- RecoveryStore/RecoverySession save a private atomic JSON snapshot in Library, bounded256MiB, revision-ordered and protected by per-session OS lock. Debounced750ms and maximum≈3s during continuous edits; background encoding, stale/closed writer suppression. Clean save/confirmed quit removes only active copy; malformed/oversized copies retained. Recover/Archive/includeArchived preserve pending copies. Restore creates dirty SaveAs document and archives predecessor only after its own durable snapshot. No original project/media overwrite or interrupted-export resume.
+- Editor startup gives explicit Finder opens priority; recovery precedes opt-in last-saved reopening (defaultoff). Active copies hidden from other instances, unreadable count shown. Recovery warning banner, Help recovery/diagnostics sheets, safe recover-project CLI. Runtime stores are injected only into the live app; default EditorModel tests do not write user Library files.
+- Typed DiagnosticLog retains1000 events, private Library ring, numeric counts/dimensions/timings/error codes with allowlisted domains. No source paths/names/raw errors/telemetry samples/credentials. Records import/telemetry/preview preparation/player failure/save/recovery/export/clean exit. Selectable viewer/refresh/report export; no automatic transmission.
+- 400 tests (314core/86editor) pass. Eleven additions verify durability/original preservation/marks/output state/permissions, locked and archived copies, oversized/corrupt retention, ordering/late-close, actual child-process exit releasing lock, safe CLI copying, bounded sanitized diagnostics, autosave/restore/SaveAs/clean save+exit, Finder precedence/reopen opt-in, failed persistence retaining edits and continuous typing. Logs session-recovery/{tests,focused,final-tests,release-tests,build,release-build}.
+- Native computer-use connection failed with “Sky Computer Use native pipe startup failed” by path, inventory and bundle ID after reset. No live F36 GUI check completed. An original synthetic leftover fixture was prepared under ignored build and temporarily installed in the recovery folder; it was archived after the UI failure so the user's next launch has no test prompt. Original data untouched. Built CLI acceptance passed: prepared snapshot decoded, marks/settings retained, original hash unchanged and overwrite refused. Final signed app and local library ZIP verified. Commit/push F36 is the remaining delivery step. Stop after F36; list F31/F32 outstanding implementation and explicit validation limits.
 
 ## F35 handoff — native mask/opacity and editor/media workflows verified
 
