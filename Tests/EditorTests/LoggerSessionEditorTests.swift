@@ -4,6 +4,20 @@ import XCTest
 @testable import OpenRaceRender
 
 final class LoggerSessionEditorTests:XCTestCase {
+  @MainActor func testOlympusSensorImportSaveAndReload() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
+    let url = root.appendingPathComponent("original.SNS")
+    try Data("$OLTIM,20260101,120000\n$OLTMP,68,1,0\n$OLTIM,20260101,120002\n$OLTMP,21,0,0\n".utf8).write(to:url)
+    let model = EditorModel();model.addInputs([url])
+    for _ in 0..<200 {if !model.busy {break};try await Task.sleep(nanoseconds:20_000_000)}
+    XCTAssertNil(model.error);XCTAssertEqual(model.project.inputs.count,1);XCTAssertEqual(model.project.inputs.first?.kind,"data")
+    XCTAssertEqual(model.telemetry[0]?.value("Ambient temperature (C)",at:0),20)
+    let saved = root.appendingPathComponent("saved.orrp");try model.project.save(saved)
+    let tables = try Telemetry.loadSources(RaceProject.read(saved).inputs)
+    XCTAssertEqual(tables[0]?.value("Ambient temperature (C)",at:2),21)
+    XCTAssertEqual(AppDelegate.launchProjectURL(["App",url.path]),url);model.dataSetupRequest = nil
+  }
   @MainActor func testSpeedAngleImportsAsDataAndKeepsManualAssignmentsPortable() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}

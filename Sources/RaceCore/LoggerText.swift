@@ -12,7 +12,7 @@ struct LoggerTextSession {
 
 /// Explicit text dialects; closed binary formats are refused rather than interpreted as video.
 enum LoggerText {
-  static let unsupportedExtensions = ["gtr","gts","prr","moff","sns","snslog","mlg","ms3","frd"]
+  static let unsupportedExtensions = ["gtr","gts","prr","moff","mlg","ms3","frd"]
   static func unsupported(_ ext:String) -> RaceError {
     .invalid("The .\(ext.uppercased()) logger format has no verified reader. Export a timestamped CSV/GPX in the logger’s software first. MegaSquirt binary logs can be converted to text .MSL in TunerStudio.")
   }

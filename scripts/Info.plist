@@ -96,6 +96,16 @@
 			<key>CFBundleTypeExtensions</key>
 			<array><string>sa</string></array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Olympus Sensor Log</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>CFBundleTypeExtensions</key>
+			<array><string>sns</string><string>snslog</string></array>
+		</dict>
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>

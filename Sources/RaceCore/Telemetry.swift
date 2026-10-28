@@ -10,7 +10,7 @@ public struct TelemetryLap: Identifiable, Sendable {
 }
 
 public final class Telemetry: @unchecked Sendable {
-  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz", "msl", "json", "sa"]
+  public static let supportedExtensions = ["csv", "tsv", "txt", "gpx", "tcx", "nmea", "log", "vbo", "fit", "rcz", "msl", "json", "sa", "sns", "snslog"]
   public internal(set) var firstSampleUnixTime: Double?
   public internal(set) var locationName:String?
   var recordedLocationName:String?
