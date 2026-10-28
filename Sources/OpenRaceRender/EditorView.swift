@@ -55,6 +55,7 @@ struct EditorView: View {
     }
     .background(bg).preferredColorScheme(.dark).tint(mint)
     .frame(minWidth: 1100, minHeight: 760)
+    .sheet(item:$model.youTubeUploadRequest) { YouTubeUploadSheet(request:$0) }
     .sheet(isPresented: $model.showNetworkReceive) { NetworkReceiveSheet(model:model) }
     .sheet(isPresented: $model.showTemplates) { TemplateBrowser(model: model) }
     .sheet(isPresented: $model.showSync) { SyncSheet(model: model) }

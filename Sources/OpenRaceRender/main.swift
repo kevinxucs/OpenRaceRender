@@ -383,6 +383,7 @@ struct RaceRenderApp: App {
           Button("Save layout as template…", action: model.saveTemplate)
           Button("Export RaceRender project…", action: model.exportRRP)
           Divider()
+          Button("Upload video to YouTube…") { model.beginYouTubeUpload() }.disabled(model.exportProgress != nil)
           Button("Export video…", action: model.prepareExport).keyboardShortcut("e")
           Button("Save snapshot…", action: model.snapshot)
         }

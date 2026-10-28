@@ -67,6 +67,8 @@ import UniformTypeIdentifiers
   @Published var busy = false
   @Published var status = "Ready · Open a project or add video and telemetry"
   @Published var error: String?
+  @Published var youTubeUploadRequest:YouTubeUploadRequest?
+  @Published var reviewYouTubeAfterExport = false
   @Published var showNetworkReceive = false
   @Published var showTemplates = false
   @Published var showExport = false
@@ -384,7 +386,7 @@ import UniformTypeIdentifiers
   func newProject() {
     guard confirmDiscard() else { return }
     documentRevision = UUID()
-    scriptEditorRequest = nil
+    scriptEditorRequest = nil;youTubeUploadRequest = nil
     cameraDataCandidates = []; dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel(); openingURL = nil; busy = false
     pause()
@@ -419,7 +421,7 @@ import UniformTypeIdentifiers
     guard confirmDiscard() else { return }
     let revision = UUID()
     documentRevision = revision
-    scriptEditorRequest = nil
+    scriptEditorRequest = nil;youTubeUploadRequest = nil
     cameraDataCandidates = []; dataSetupRequest = nil; dataSetupQueue = []; pendingInputs = []; finishLineInput = nil
     openTask?.cancel()
     openingURL = url.standardizedFileURL
@@ -901,6 +903,8 @@ import UniformTypeIdentifiers
     let scene = scene
     let start = exportStart
     let duration = exportDuration
+    let reviewUpload = reviewYouTubeAfterExport
+    let exportRevision = documentRevision
     let progressTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) {
       [weak self] _ in Task { @MainActor in self?.exportProgress = exporter.progress }
     }
@@ -909,6 +913,7 @@ import UniformTypeIdentifiers
         try await exporter.export(scene: scene, to: url, start: start, duration: duration)
         status = "Export complete · \(url.lastPathComponent)"
         NSWorkspace.shared.activateFileViewerSelecting([url])
+        if reviewUpload,documentRevision == exportRevision {beginYouTubeUpload(file:url)}
       } catch { self.error = error.localizedDescription }
       progressTimer.invalidate()
       exportProgress = nil

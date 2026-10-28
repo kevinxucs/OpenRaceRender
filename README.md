@@ -11,6 +11,8 @@ This is an evolving implementation. It does **not** have full RaceRender feature
 
 [Groups and multiple selection](docs/grouping.md) support combined movement/resizing, nested groups, member editing, reusable group templates and timeline changes. Command-click toggles displays, drag empty canvas space for marquee selection, and use Command-G / Command-Shift-G to group / ungroup.
 
+[YouTube upload](docs/youtube.md) supports system-browser sign-in, explicit metadata/visibility review and resumable transfer using your own Google Desktop client.
+
 [Receive exported data/video over a local network](docs/network-receive.md) using an on-demand browser upload page.
 
 [MSL/GUTMA imports and saved data-session selection](docs/logger-formats.md) extend the logger workflow.

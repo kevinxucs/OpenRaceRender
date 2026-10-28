@@ -20,7 +20,7 @@ User authorization: implement all remaining guide gaps individually. The latest 
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 364 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 374 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -47,13 +47,23 @@ User authorization: implement all remaining guide gaps individually. The latest 
 
 - F32: explicit-start browser/HTTP local receiving, streamed private staging, destination/progress/cancel/completed-file import implemented. TrackAddict native discovery/wire protocol remains unverified and outstanding; see [network receiving](network-receive.md).
 
-Next feature: **F33 — current YouTube upload workflow**, after committing/pushing F32’s verified scope. F31 `e142c10` passed CI40581130955; session-Undo follow-up `0ff381c` passed CI40581568304. Keep unverified F31 binary-format and F32 native-protocol parts outstanding.
+- F33: current Google Desktop OAuth/PKCE, scoped Keychain authorization/resume state, explicit metadata/visibility review, resumable v3 uploads, pause/reopen and render-then-review implemented; see [YouTube setup and validation limits](youtube.md).
+
+Next feature: **F34 — 360° workflow**, after committing/pushing F33. F32 `846ecc9` passed CI40582908203. F31’s user confirmed no uncommon logger samples are available; do not ask again. Keep F31 binary-format and F32 native-protocol parts outstanding.
 
 ## Remaining queue
 
-F33, F34, F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
+F34, F35, F36; F31 binary formats/vendor-specific layouts and F32 native TrackAddict discovery/transfer remain pending verifiable fixtures/protocols.
 
 Implement one feature at a time, inspect the relevant mirrored guide pages and existing code, validate the actual workflow, update this checkpoint, then commit and push before starting the next. Network services/obscure formats need current primary documentation and realistic fixtures; record concrete limits rather than inventing support. Public source must not contain private sessions, telemetry or proprietary vendor assets. The local build may retain the user's explicitly authorized library bundle.
+
+## F33 handoff — OAuth/resumable/editor workflows tested with mocks; live Google unverified
+
+- Current primary GoogleDesktopOAuth/loopback/v3resumable/videos.insert docs checked; native mirroredCreateVideo uploader section read. GoogleAPIrequirements changed from obsoleteGData: do not reproduce oldendpoint or oldquota/audit claims. OwnClient DesktopJSONimport ignoresremoteconfiguredendpoints; fixedHTTPSGoogleauth/token URLs,upload-onlyscope,securestate+S256PKCE,systembrowser+ephemeral127.0.0.1callback,5mintimeout/cancel,Host/state/duplicateparamchecks. OAuthtokenexchange/refresh validatesBearer/scope/expiry; optionalemptysecretomitted, form+escaping. No accountprofile/channelreadscope.
+- GoogleHTTPTransport usesephemeralsession,no cookies/cache,refusesredirects,2MiBresponsebound. YouTubeUploader v3 explicitprivate/defaultnoNotify metadata, title/description/tags/category/audiencevalidators,16MiBchunks(256KiBmultiples),256GBbound; Keychainpendingrecordcreatedbeforebytes. Sourceidentity size/mtime+edgehashguard,chunkboundedI/O,HTTPSGoogleuploadhost/pathallowlist. Resumequeriesbytes*/size, trustsvalidatedmonotonicackrange/exactnextbyte;handlesnetworkfailure/429/5xxRetryAfter/boundedbackoff,stalledackbounded,cancellation/expiredsession/401messages,alreadycompleteIDavoidsduplicate. No restartwhilependingsessionunlessuserdiscardslocalstate.
+- YouTubeKeychainStore serviceorg.openracerender.youtube,scopeddesktop-client/perclientSHAaccountentries storesclient/token/pending; no plaintextprefs/projectpaths or proprietarySDK. YouTubeUploadModel supportsrestore,signIn/refresh,metadata/fileplayabilitybeforeAPIbegin,originalcapturedfile/draft,persistbeforebytes,pause/reopen/discard/localdisconnect; no realKeychain tests. SheetFilemenu,clientimport,systemsignIn,filechooser,editableprivate-defaultreview/audience,validationmessages/tagsediting,Pause/Resume/link. Exportcheckboxreviewsaftercompletedrenderonlysamerevision; no automaticuploadonrender orsignIn. Opening/newprojectclosesuploaderandpausesviaonDisappear.
+- 374tests pass (296core/78editor) withlocalLibrary/graphics.6core+4editor additions: originalbytes/RFCchallenge/loopback state, scope/refresh/escaping, mocknetwork+500partialacks/exactchunks, unsafeURL/changedfile, stalledretries/cancel, originalgeneratedvideo→explicitupload withmockGoogle/inmemorystore, durable401resume/reopen→alreadycomplete,noPOSTduplicate,localdisconnect/sourcepreservation,unfinishedfilerefusal. No uservideo orGoogleaccount accessed. Logs build/validation/youtube. LiveGoogleOAuth/Keychainprompts/YouTubeupload/nativeGUI remainunverified withoutclientcredentials/CUA(cgWindowNotFound). Do not askforGooglecredentialsoruploadprivatevideoswithoutseparateexplicituserrequest.
+- F32CI40582908203 succeeded. UseransweredNO toF31rareformatfixtures; preserveoutstandingclosedformatlimitsanddo notaskagain. Signed release/librarypackage andcommit/pushF33 requiredbeforeF34. No runningtest expected afterfullsuite ends; no UI/Googleoperation started.
 
 ## F32 handoff — open browser receiver validated; native TrackAddict protocol outstanding
 
