@@ -13,11 +13,15 @@ enum FITReader {
     }
     return value
   }
-  static func csv(_ data: Data) throws -> String {
-    var base = 0
-    var rows: [[Int: Double]] = []
-    var lapStarts: [Double] = []
+  struct Activity {
+    var rows:[[Int:Double]]
+    var lapStarts:[Double]
+    var summaries:[[Int:Double]]
+  }
+  static func decode(_ data:Data) throws -> [Activity] {
+    var base = 0,activities:[Activity] = []
     while base < data.count {
+      var rows:[[Int:Double]] = [],lapStarts:[Double] = [],summaries:[[Int:Double]] = []
       guard base + 12 <= data.count else { throw RaceError.invalid("Truncated FIT header.") }
       let headerSize = Int(data[base]), length = Int(data.u32(base+4))
       let end = base + headerSize + length
@@ -59,7 +63,9 @@ enum FITReader {
         if compressed {
           guard let previous = previousTime else { throw RaceError.invalid("FIT compressed timestamp has no reference.") }
           let offset = UInt32(header & 31)
-          let time = (previous & ~31) + offset + (offset < previous & 31 ? 32 : 0)
+          let rollover:UInt32 = offset < previous & 31 ? 32 : 0
+          let (time,overflow) = (previous & ~31).addingReportingOverflow(offset+rollover)
+          guard !overflow else {throw RaceError.invalid("FIT compressed timestamp overflows its clock.")}
           values[253] = Double(time)
         }
         for f in def.fields {
@@ -71,10 +77,22 @@ enum FITReader {
         if let t = values[253], t >= 0, t <= Double(UInt32.max) { previousTime = UInt32(t) }
         if def.message == 20, values[253] != nil { rows.append(values) }
         if def.message == 19, let start = values[2] { lapStarts.append(start) }
+        if def.message == 18 {
+          guard summaries.count < 10000 else {throw RaceError.invalid("Too many FIT session summaries.")}
+          summaries.append(values)
+        }
       }
-      base = end+2
+      guard !rows.isEmpty else {throw RaceError.invalid("FIT file contains no timestamped activity records.")}
+      activities.append(Activity(rows:rows,lapStarts:lapStarts,summaries:summaries));base = end+2
     }
-    guard !rows.isEmpty else { throw RaceError.invalid("FIT file contains no timestamped activity records.") }
+    guard !activities.isEmpty else {throw RaceError.invalid("FIT file contains no activities.")}
+    return activities
+  }
+  static func csv(_ data:Data) throws -> String {
+    let activities = try decode(data)
+    return csv(rows:activities.flatMap(\.rows),lapStarts:activities.flatMap(\.lapStarts))
+  }
+  static func csv(rows:[[Int:Double]],lapStarts:[Double]) -> String {
     let headings = ["Time", "Latitude", "Longitude", "Altitude", "Speed (m/s)", "Distance (m)", "Heart Rate", "Cadence", "Power", "Temperature", "Lap #"]
     let starts = Array(Set(lapStarts)).sorted()
     let lines = rows.map { row -> String in
@@ -83,11 +101,64 @@ enum FITReader {
       let altitude = (row[78] ?? row[2]).map { $0/5-500 }
       let speed = (row[73] ?? row[6]).map { $0/1000 }
       let distance = row[5].map { $0/100 }
-      let lap = starts.isEmpty ? nil : Double(starts.prefix { $0 <= time }.count)
+      var lower = 0,upper = starts.count
+      while lower < upper {let mid = (lower+upper)/2;if starts[mid] <= time {lower = mid+1}else {upper = mid}}
+      let lap = starts.isEmpty ? nil : Double(lower)
       let fields: [Double?] = [time, lat, lon, altitude, speed, distance, row[3], row[4], row[7], row[13], lap]
-      return fields.map { $0.map { String($0) } ?? "" }.joined(separator: ",")
+      return fields.map { $0.map { String($0) } ?? "nan" }.joined(separator: ",")
     }
     return ([headings.joined(separator: ",")]+lines).joined(separator: "\n")
+  }
+  /// Session timestamp is the summary's write time, not its end. Both
+  /// summary-first and summary-last files use start_time + elapsed milliseconds.
+  static func sessions(_ data:Data) throws -> [LoggerTextSession] {
+    var result:[LoggerTextSession] = []
+    for (activityIndex,activity) in try decode(data).enumerated() {
+      let name = "Activity \(activityIndex+1)"
+      func document(_ rows:[[Int:Double]],_ laps:[Double],_ label:String,_ warnings:[String] = []) -> LoggerTextSession {
+        let first = rows.first?[253]
+        let epoch = first.flatMap{$0 >= 268435456 ? $0+631065600 : nil}
+        return LoggerTextSession(name:label,text:csv(rows:rows,lapStarts:laps),epoch:epoch,count:rows.count,warnings:warnings)
+      }
+      if activity.summaries.isEmpty {result.append(document(activity.rows,activity.lapStarts,name));continue}
+      var ranges:[(start:Double,end:Double)] = []
+      for summary in activity.summaries {
+        guard let start = summary[2],let milliseconds = summary[7],milliseconds >= 0,
+          start+milliseconds/1000 <= Double(UInt32.max-1) else {
+          if activity.summaries.count == 1 {break}
+          throw RaceError.invalid("FIT session selection requires valid start_time and total_elapsed_time on every session summary. Convert the file to CSV if these fields are missing.")
+        }
+        let range = (start:start,end:start+milliseconds/1000)
+        if !ranges.contains(where:{$0.start == range.start && $0.end == range.end}) {ranges.append(range)}
+      }
+      if ranges.isEmpty {
+        result.append(document(activity.rows,activity.lapStarts,name,["FIT session summary has no valid start/elapsed range; all activity records were retained."]))
+        continue
+      }
+      ranges.sort{$0.start < $1.start}
+      for i in ranges.indices.dropFirst() where ranges[i].start < ranges[i-1].end || ranges[i].start == ranges[i-1].start {
+        throw RaceError.invalid("FIT session ranges overlap; records cannot be assigned unambiguously. Convert separate sessions to CSV.")
+      }
+      func bucket(_ time:Double) -> Int {
+        var lower = 0,upper = ranges.count
+        while lower < upper {let mid = (lower+upper)/2;if ranges[mid].start <= time {lower = mid+1}else {upper = mid}}
+        let i = lower-1
+        return i >= 0 && time <= ranges[i].end ? i : ranges.count
+      }
+      var records = Array(repeating:[[Int:Double]](),count:ranges.count+1)
+      var laps = Array(repeating:[Double](),count:ranges.count+1)
+      for row in activity.rows {records[bucket(row[253]!)].append(row)}
+      for start in activity.lapStarts {laps[bucket(start)].append(start)}
+      let empty = ranges.indices.filter{records[$0].isEmpty}.count
+      var warnings:[String] = []
+      if empty > 0 {warnings.append("\(empty) FIT session summaries contained no records and were omitted.")}
+      if !records[ranges.count].isEmpty {warnings.append("FIT records outside session summaries were retained as a separate unassigned-records selection.")}
+      for i in ranges.indices where !records[i].isEmpty {
+        result.append(document(records[i],laps[i],ranges.count == 1 ? name : name+" · Session \(i+1)",warnings))
+      }
+      if !records[ranges.count].isEmpty {result.append(document(records[ranges.count],laps[ranges.count],name+" · Unassigned records",warnings))}
+    }
+    return result
   }
   static func number(_ bytes: Data, type: Int, bigEndian: Bool) -> Double? {
     let sizes = [1,1,1,2,2,4,4,1,4,8,1,2,4,1,8,8,8]

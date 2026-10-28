@@ -83,6 +83,7 @@ public final class Telemetry: @unchecked Sendable {
     let document = sessions[selected-1]
     try self.init(text:document.text,title:url.deletingPathExtension().lastPathComponent,timeColumn:settings?.assignments["time"])
     firstSampleUnixTime = document.epoch
+    warnings += document.warnings
     fileSessions = sessions.enumerated().map {TelemetrySessionInfo(id:$0.offset+1,name:$0.element.name,samples:$0.element.count)}
     if sessions.count > 1 {warnings.append("Using data session \(selected) of \(sessions.count): \(document.name). Change it in data configuration.")}
     if let settings {try configureValidated(settings)}

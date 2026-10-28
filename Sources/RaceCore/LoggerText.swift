@@ -6,6 +6,7 @@ struct LoggerTextSession {
   var text:String
   var epoch:Double?
   var count:Int
+  var warnings:[String] = []
 }
 
 /// Explicit text dialects; closed binary formats are refused rather than interpreted as video.

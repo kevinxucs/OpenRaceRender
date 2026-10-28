@@ -25,15 +25,7 @@ extension Telemetry {
     if LoggerText.unsupportedExtensions.contains(ext) {throw LoggerText.unsupported(ext)}
     if ext == "json" {return try LoggerText.gutma(data)}
     if ext == "fit" || (data.count >= 12 && String(data:data[8..<12],encoding:.ascii) == ".FIT") {
-      var base = 0,result:[LoggerTextSession] = []
-      while base < data.count {
-        guard data.count-base >= 12 else {throw RaceError.invalid("Truncated FIT session.")}
-        let size = Int(data[base])+Int(data.u32(base+4))+2
-        guard size >= 14,size <= data.count-base else {throw RaceError.invalid("Invalid FIT session length.")}
-        let csv = try FITReader.csv(Data(data[base..<base+size]));var session = LoggerText.split(csv)[0]
-        session.name = "Activity \(result.count+1)";result.append(session);base += size
-      }
-      return result
+      return try FITReader.sessions(data)
     }
     guard let text = String(data:data,encoding:.utf8) ?? String(data:data,encoding:.utf16) ?? String(data:data,encoding:.isoLatin1) else {throw RaceError.invalid("Could not decode telemetry text.")}
     if ext == "msl" {return try LoggerText.msl(text)}

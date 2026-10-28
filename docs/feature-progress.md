@@ -1,6 +1,6 @@
 # Guide feature implementation progress
 
-User authorization: implement guide gaps individually, committing/pushing each feature. Latest instruction: finish F36, then stop and list remaining work. Do not start another feature after F36. No manual compaction API is available; do not claim otherwise.
+User authorization: resume remaining implementation one feature/subfeature at a time, validating and committing/pushing each before continuing. This supersedes the prior stop-after-F36 request. No manual compaction API is available; do not claim otherwise.
 
 ## Current checkpoint
 
@@ -20,7 +20,7 @@ User authorization: implement guide gaps individually, committing/pushing each f
 - F14: transactional sequence ordering/trimming, explicit time fillers, stream/member move commands, safe merging and trailing-gap render clock implemented; see [sequences](sequences.md).
 - F15: shared GPS/position heading and G estimates, source modes/provenance, circular headings, idempotent configuration and corrected map/position aliases implemented; see [derived motion](derived-motion.md).
 - F16: recorded-first gear estimation, learned/manual/playhead calibration, thresholds/adjustment, discrete values and built-in estimated/unknown labels implemented; see [gear estimation](gear-estimation.md).
-- Validation: 400 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
+- Validation: 407 tests pass with the local library and graphics services. F03 adds original synthetic group snapshot and encoded audio/video acceptance. F02's earlier three media scripts and native RRP/RRT/RRO checks are recorded below; see [F02 details](legacy-export.md) and [initial batch validation](import-designer-validation.md).
 - F17: complete data assignments, conversions, unknown-clock recovery and reusable profiles implemented; see [data profiles](data-profiles.md).
 - F18: source boosting, held GPS reconstruction, bounded map curves and cached time-weighted gauge averages implemented; see [smoothing](smoothing.md).
 - F19: map/coordinate GPS finish gates, precision/tolerance controls, recorded/calculated trigger ignoring, lap previews and independent saved-track lookup/import/export implemented; see [finish-line tools](finish-line.md).
@@ -55,7 +55,7 @@ User authorization: implement guide gaps individually, committing/pushing each f
 
 - F36: atomic recovery copies, explicit startup/Help restoration, archive, optional saved-project reopen, CLI recovery and private diagnostic viewer/export implemented; see [recovery and validation limits](session-recovery.md).
 
-F35 `f60dac7` passed CI40635276467. F36 release tests, CLI acceptance, signed app and local library ZIP are verified. Commit/push F36 and stop, per the user's latest instruction.
+F35 `f60dac7` passed CI40635276467. F36 `e744845` was pushed by the user and passed CI40717574090. Current work: F31 internal FIT session selection, then remaining independently verifiable gaps; commit/push before continuing.
 
 ## Remaining work after F36
 
@@ -68,13 +68,19 @@ Other explicit limits: native sphere projection pixel parity/automatic camera ca
 
 Public source contains no private sessions, telemetry or proprietary vendor assets. The local build retains the explicitly authorized library bundle.
 
+## F31 internal FIT sessions — validated follow-up
+
+- FITReader separates internal session summaries in either message order, using start_time + elapsed/1000 rather than the summary write timestamp. Concatenated containers flatten into stable one-based selections. Shared boundary samples belong to the new session; laps stay local. Out-of-range records remain in a warned unassigned selection; empty summaries omitted, duplicate ranges deduplicated, overlaps/incomplete multi-session ranges refused. Single incomplete summary retains records with a warning. FIT UTC epochs propagate; relative device clocks remain unanchored. Missing fields emit nan instead of holding older values; compressed-clock overflow is refused.
+- 407 tests (320core/87editor) pass with local library/graphics. Six new core tests and one actual data-setup model preview/apply/Undo check cover message ordering/bounds/UTC/laps/gaps/concatenation/cache/malformed data/missing values. Original generated files match official Garmin SDK21.218.0 decoding; independent CSV snapshots and marked full/chunk export pass. Public spec/profile downloaded only to ignored reference folder; SDK confined to ignored validation venv, no vendor source/assets committed.
+- Updated native app cannot be reached through CUA: native pipe startup still fails. No live FIT picker claim. Logs build/validation/fit-sessions/{tests,build,focused,acceptance}; synthetic PNG visually inspected. Final signed package and commit/push required before next feature. F36 push verified, GitHub SSH works again.
+
 ## F36 handoff — implementation complete; live UI connection unavailable
 
 - RecoveryStore/RecoverySession save a private atomic JSON snapshot in Library, bounded256MiB, revision-ordered and protected by per-session OS lock. Debounced750ms and maximum≈3s during continuous edits; background encoding, stale/closed writer suppression. Clean save/confirmed quit removes only active copy; malformed/oversized copies retained. Recover/Archive/includeArchived preserve pending copies. Restore creates dirty SaveAs document and archives predecessor only after its own durable snapshot. No original project/media overwrite or interrupted-export resume.
 - Editor startup gives explicit Finder opens priority; recovery precedes opt-in last-saved reopening (defaultoff). Active copies hidden from other instances, unreadable count shown. Recovery warning banner, Help recovery/diagnostics sheets, safe recover-project CLI. Runtime stores are injected only into the live app; default EditorModel tests do not write user Library files.
 - Typed DiagnosticLog retains1000 events, private Library ring, numeric counts/dimensions/timings/error codes with allowlisted domains. No source paths/names/raw errors/telemetry samples/credentials. Records import/telemetry/preview preparation/player failure/save/recovery/export/clean exit. Selectable viewer/refresh/report export; no automatic transmission.
 - 400 tests (314core/86editor) pass. Eleven additions verify durability/original preservation/marks/output state/permissions, locked and archived copies, oversized/corrupt retention, ordering/late-close, actual child-process exit releasing lock, safe CLI copying, bounded sanitized diagnostics, autosave/restore/SaveAs/clean save+exit, Finder precedence/reopen opt-in, failed persistence retaining edits and continuous typing. Logs session-recovery/{tests,focused,final-tests,release-tests,build,release-build}.
-- Native computer-use connection failed with “Sky Computer Use native pipe startup failed” by path, inventory and bundle ID after reset. No live F36 GUI check completed. An original synthetic leftover fixture was prepared under ignored build and temporarily installed in the recovery folder; it was archived after the UI failure so the user's next launch has no test prompt. Original data untouched. Built CLI acceptance passed: prepared snapshot decoded, marks/settings retained, original hash unchanged and overwrite refused. Final signed app and local library ZIP verified. Commit/push F36 is the remaining delivery step. Stop after F36; list F31/F32 outstanding implementation and explicit validation limits.
+- Native computer-use connection failed with “Sky Computer Use native pipe startup failed” by path, inventory and bundle ID after reset. No live F36 GUI check completed. An original synthetic leftover fixture was prepared under ignored build and temporarily installed in the recovery folder; it was archived after the UI failure so the user's next launch has no test prompt. Original data untouched. Built CLI acceptance passed: prepared snapshot decoded, marks/settings retained, original hash unchanged and overwrite refused. Final signed app and local library ZIP verified. Commit/push F36 is the remaining delivery step. The user subsequently pushed F36 and resumed sequential implementation; historical live UI limits remain.
 
 ## F35 handoff — native mask/opacity and editor/media workflows verified
 

@@ -1,9 +1,31 @@
 import AppKit
 import XCTest
-import RaceCore
+@testable import RaceCore
 @testable import OpenRaceRender
 
 final class LoggerSessionEditorTests:XCTestCase {
+  @MainActor func testInternalFITSelectionOffersPreviewAndUndo() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
+    func word(_ value:UInt32) -> Data {var n = value.littleEndian;return withUnsafeBytes(of:&n){Data($0)}}
+    var body = Data([0x40,0,0,20,0,2,253,4,0x86,6,2,0x84,0x41,0,0,18,0,2,2,4,0x86,7,4,0x86])
+    for time:UInt32 in [0,1,3,4] {body.append(0);body.append(word(1_000_000_000+time));body.append(contentsOf:time < 3 ? [0xe8,3] : [0x88,0x13])}
+    for time:UInt32 in [0,3] {body.append(1);body.append(word(1_000_000_000+time));body.append(word(1000))}
+    var bytes = Data([14,0x20,0,0])+word(UInt32(body.count))+Data(".FIT".utf8)
+    let head = FITReader.crc(bytes);bytes.append(contentsOf:[UInt8(truncatingIfNeeded:head),UInt8(truncatingIfNeeded:head>>8)]);bytes.append(body)
+    let crc = FITReader.crc(bytes);bytes.append(contentsOf:[UInt8(truncatingIfNeeded:crc),UInt8(truncatingIfNeeded:crc>>8)])
+    let url = root.appendingPathComponent("multi.fit");try bytes.write(to:url)
+    let model = EditorModel();model.addInputs([url])
+    for _ in 0..<200 {if !model.busy {break};try await Task.sleep(nanoseconds:20_000_000)}
+    let request = try XCTUnwrap(model.dataSetupRequest),preview = try await DataSetupPreview.load(url,settings:DataSettings(),session:2)
+    XCTAssertEqual(preview.data.fileSessions.count,2);XCTAssertEqual(preview.data.firstSampleUnixTime,1_631_065_603)
+    XCTAssertTrue(model.applyDataSetup(request,preview:preview));XCTAssertEqual(model.project.inputs[0].dataSession,2)
+    XCTAssertEqual(model.telemetry[0]?.speed(at:0,unit:"m/s"),5)
+    model.undo()
+    for _ in 0..<100 {if model.telemetry[0]?.speed(at:0,unit:"m/s") == 1 {break};try await Task.sleep(nanoseconds:20_000_000)}
+    XCTAssertNil(model.project.inputs[0].dataSession);XCTAssertEqual(model.telemetry[0]?.speed(at:0,unit:"m/s"),1)
+    model.dataSetupRequest = nil
+  }
   @MainActor func testImportOffersSessionAndApplyPersistsUndoAndTiming() async throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true);defer {try? FileManager.default.removeItem(at:root)}
