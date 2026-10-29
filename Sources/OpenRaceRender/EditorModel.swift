@@ -29,7 +29,13 @@ import UniformTypeIdentifiers
   @Published var editingSegment: Double?
   @Published var timelineZoom: Double = 1
   @Published var timelineStart: Double = 0
-  @Published var previewPlayer: AVPlayer?
+  @Published var previewPlayer: AVPlayer? { didSet {
+    guard oldValue !== previewPlayer else {return}
+    previewSeeks?.invalidate();previewSeeks = nil;previewSeekPlayer = nil
+    oldValue?.pause();oldValue?.currentItem?.cancelPendingSeeks()
+  } }
+  private var previewSeeks:PreviewSeekController?
+  private weak var previewSeekPlayer:AVPlayer?
   weak var canvasView: PreviewView?
   @Published var previewMuted = false { didSet {
     previewPlayer?.isMuted = previewMuted
@@ -243,7 +249,13 @@ import UniformTypeIdentifiers
   }
   func tick() {
     guard playing else { return }
-    let t = epochTime + CFAbsoluteTimeGetCurrent() - epoch
+    guard previewSeeks?.isSeeking != true else {return}
+    let t:Double
+    if let player = previewPlayer {
+      guard player.currentItem?.status == .readyToPlay else {return}
+      t = player.currentTime().seconds
+      guard t.isFinite else {return}
+    } else {t = epochTime + CFAbsoluteTimeGetCurrent() - epoch}
     if t >= project.duration {
       seek(project.duration)
       pause()
@@ -258,7 +270,7 @@ import UniformTypeIdentifiers
     epoch = CFAbsoluteTimeGetCurrent()
     epochTime = time
     playing = true
-    syncPlayers(play: true)
+    syncPlayers()
   }
   func pause() {
     playing = false
@@ -269,12 +281,37 @@ import UniformTypeIdentifiers
     time = max(0, min(project.duration, t))
     epochTime = time
     epoch = CFAbsoluteTimeGetCurrent()
-    syncPlayers(play: playing)
+    syncPlayers()
   }
-  func syncPlayers(play: Bool) {
-    guard let player = previewPlayer else { return }
-    player.seek(to: CMTime(seconds: time, preferredTimescale: 60000), toleranceBefore: .zero, toleranceAfter: .zero)
-    if play { player.play() } else { player.pause() }
+  func syncPlayers() {
+    guard let player = previewPlayer else {return}
+    player.pause()
+    guard player.currentItem?.status == .readyToPlay else {return}
+    if previewSeekPlayer !== player {
+      previewSeeks?.invalidate();previewSeekPlayer = player
+      previewSeeks = PreviewSeekController(seek:{[weak player] target,complete in
+        guard let player else {complete(false);return}
+        player.seek(to:CMTime(seconds:target,preferredTimescale:60000),toleranceBefore:.zero,toleranceAfter:.zero) {success in
+          Task {@MainActor in complete(success)}
+        }
+      },settled:{[weak self,weak player] success,_ in
+        guard let self,let player,self.previewPlayer === player else {return}
+        guard success else {
+          self.status = "Preview seek did not complete · seek again to retry";return
+        }
+        // A Pause pressed during a seek must win over its original Play intent.
+        if self.playing {
+          self.epochTime = self.time;self.epoch = CFAbsoluteTimeGetCurrent();player.play()
+        }
+      })
+    }
+    // The end marker is an exclusive bound, not a video frame. Keep its exact
+    // project time for marking/export while displaying the final composed frame.
+    let itemDuration = player.currentItem?.duration.seconds ?? project.duration
+    let end = itemDuration.isFinite && itemDuration > 0 ? min(project.duration,itemDuration) : project.duration
+    let fps = previewOptions.fps ?? project.fps
+    let target = min(time,max(0,end-1/max(1,fps)))
+    previewSeeks?.request(target)
   }
   func schedulePreview() {
     previewTask?.cancel()
@@ -287,14 +324,19 @@ import UniformTypeIdentifiers
           self.previewPlayer?.pause(); self.previewPlayer = nil; return
         }
         let began = Date()
+        let options = self.previewOptions
         self.diagnostics?.record(.previewPreparing,metrics:[.width:Double(scene.project.width),.height:Double(scene.project.height),.fps:scene.project.fps,.inputs:Double(scene.project.inputs.count),.displays:Double(scene.project.objects.count)])
-        let prepared = try await VideoExporter.prepare(scene: scene,options:self.previewOptions)
+        let prepared = try await VideoExporter.prepare(scene: scene,options:options)
         try Task.checkCancellation()
         let item = AVPlayerItem(asset: prepared.composition)
         item.videoComposition = prepared.video
+        item.seekingWaitsForVideoCompositionRendering = true
         item.audioMix = prepared.audio
         let player = AVPlayer(playerItem: item)
         player.isMuted = self.previewMuted
+        let target = min(self.time,max(0,prepared.composition.duration.seconds-1/max(1,options.fps ?? scene.project.fps)))
+        try await PreviewFramePreparation.prime(player,at:target)
+        try Task.checkCancellation()
         self.previewPlayer?.pause()
         self.previewPlayer = player
         self.previewObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak player] item, _ in
@@ -308,11 +350,11 @@ import UniformTypeIdentifiers
           guard item.status == .readyToPlay else { return }
           Task { @MainActor in
             guard let self, self.previewPlayer === player else { return }
-            self.syncPlayers(play: self.playing)
+            self.syncPlayers()
           }
         }
         self.diagnostics?.record(.previewReady,metrics:[.elapsed:Date().timeIntervalSince(began)])
-        self.syncPlayers(play: self.playing)
+        self.syncPlayers()
       } catch is CancellationError {} catch {
         guard !Task.isCancelled else { return }
         self?.diagnostics?.record(.previewFailed,error:error)

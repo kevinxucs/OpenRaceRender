@@ -78,19 +78,41 @@ struct Preview: NSViewRepresentable {
   }
 }
 
-/// AVPlayerLayer owns opaque contents. Host it without AppKit drawing into it;
-/// keep the selection overlay in a separate sibling view.
+/// AppKit owns the backing layer; AVFoundation owns a separate child layer.
+/// A backing-layer redraw must never clear AVPlayerLayer's opaque contents.
 @MainActor final class PlayerSurfaceView: NSView {
-  let playerLayer = AVPlayerLayer()
+  private(set) var playerLayer = AVPlayerLayer()
   override init(frame: NSRect) {
     super.init(frame: frame)
-    layer = playerLayer
     wantsLayer = true
     layerContentsRedrawPolicy = .never
+    layer?.backgroundColor = NSColor.black.cgColor
+    layer?.addSublayer(playerLayer)
+    playerLayer.frame = bounds
     playerLayer.backgroundColor = NSColor.black.cgColor
     playerLayer.videoGravity = .resizeAspect
   }
   required init?(coder: NSCoder) { fatalError() }
+  func setPlayer(_ player:AVPlayer?) {
+    guard playerLayer.player !== player else {return}
+    // A layer reused across custom-composition players can lose its display
+    // output after a seek-quality switch, even while the new clock advances.
+    // Retire that output with its player and give the new composition a fresh one.
+    playerLayer.player = nil
+    playerLayer.removeFromSuperlayer()
+    playerLayer = AVPlayerLayer(player:player)
+    playerLayer.frame = bounds
+    playerLayer.backgroundColor = NSColor.black.cgColor
+    playerLayer.videoGravity = .resizeAspect
+    playerLayer.contentsScale = window?.backingScaleFactor ?? 2
+    layer?.addSublayer(playerLayer)
+  }
+  override func layout() {
+    super.layout()
+    CATransaction.begin();CATransaction.setDisableActions(true)
+    playerLayer.frame = bounds
+    CATransaction.commit()
+  }
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
@@ -140,14 +162,14 @@ struct Preview: NSViewRepresentable {
     // detach the canvas, and dismissing it must explicitly return ownership.
     let player = ownsPreview ? m.previewPlayer : nil
     if compositionLayer.player !== player {
-      compositionLayer.player = player
-      if player != nil { m.syncPlayers(play: m.playing) }
+      videoSurface.setPlayer(player)
+      if player != nil { m.syncPlayers() }
     }
     CATransaction.commit()
     overlay.needsDisplay = true
   }
   func disconnect() {
-    compositionLayer.player = nil
+    videoSurface.setPlayer(nil)
     overlay.model = nil
     if model?.canvasView === self { model?.canvasView = nil }
     model?.previewSurfaces.remove(self)

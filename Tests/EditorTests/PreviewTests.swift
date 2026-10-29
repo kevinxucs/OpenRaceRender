@@ -18,7 +18,8 @@ final class PreviewTests: XCTestCase {
     let surface = preview.compositionLayer
     // AppKit draws into the container and overlay, never AVPlayer's contents.
     XCTAssertFalse(preview.layer === surface)
-    XCTAssertTrue(preview.videoSurface.layer === surface)
+    XCTAssertFalse(preview.videoSurface.layer === surface)
+    XCTAssertTrue(surface.superlayer === preview.videoSurface.layer)
     XCTAssertTrue(surface.player === player)
     XCTAssertEqual(preview.videoSurface.frame, preview.bounds)
     for size in [NSSize(width: 640, height: 360), NSSize(width: 1280, height: 720)] {
@@ -27,7 +28,8 @@ final class PreviewTests: XCTestCase {
       preview.layoutSubtreeIfNeeded()
       preview.needsDisplay = true
       preview.displayIfNeeded()
-      XCTAssertTrue(preview.videoSurface.layer === surface)
+      XCTAssertTrue(surface.superlayer === preview.videoSurface.layer)
+      XCTAssertFalse(preview.videoSurface.layer === surface)
       XCTAssertTrue(surface.player === player)
       XCTAssertEqual(preview.overlay.frame, preview.bounds)
       XCTAssertEqual(surface.bounds.size, size)
@@ -36,16 +38,20 @@ final class PreviewTests: XCTestCase {
     preview.removeFromSuperview()
     container.addSubview(preview)
     preview.refresh()
-    XCTAssertTrue(preview.videoSurface.layer === surface)
+    XCTAssertTrue(surface.superlayer === preview.videoSurface.layer)
+    XCTAssertFalse(preview.videoSurface.layer === surface)
     XCTAssertTrue(surface.player === player)
     XCTAssertTrue(preview.overlay.superview === preview)
     let replacement = AVPlayer()
     model.previewPlayer = replacement
     preview.refresh()
-    XCTAssertTrue(surface.player === replacement)
+    XCTAssertNil(surface.player)
+    XCTAssertNil(surface.superlayer)
+    XCTAssertTrue(preview.compositionLayer.player === replacement)
+    XCTAssertTrue(preview.compositionLayer.superlayer === preview.videoSurface.layer)
     model.previewPlayer = nil
     preview.refresh()
-    XCTAssertNil(surface.player)
+    XCTAssertNil(preview.compositionLayer.player)
   }
   @MainActor func testVideoContentsAreHostedOutsideAppKitDrawing() {
     let container = NSView(frame:NSRect(x:0,y:0,width:800,height:450))
@@ -56,6 +62,8 @@ final class PreviewTests: XCTestCase {
       preview.needsDisplay = true; preview.videoSurface.needsDisplay = true
       preview.overlay.needsDisplay = true; container.displayIfNeeded()
       XCTAssertNil(preview.compositionLayer.delegate,"AppKit must not own video-layer drawing")
+      XCTAssertFalse(preview.videoSurface.layer === preview.compositionLayer,"AppKit backing-layer redraws must not touch AVFoundation contents")
+      XCTAssertTrue(preview.compositionLayer.superlayer === preview.videoSurface.layer)
       XCTAssertEqual(preview.videoSurface.layerContentsRedrawPolicy,.never)
       XCTAssertTrue(preview.videoSurface.subviews.isEmpty)
       XCTAssertTrue(preview.overlay.superview === preview)

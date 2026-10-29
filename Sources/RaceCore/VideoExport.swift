@@ -30,7 +30,9 @@ final class SceneInstruction: NSObject, AVVideoCompositionInstructionProtocol, @
 final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
   let queue = DispatchQueue(label: "org.openracerender.compositor")
   let ci = PictureProcessor.context()
-  var renderContext: AVVideoCompositionRenderContext?
+  private let cancellationLock = NSLock()
+  private var cancellationGeneration:UInt64 = 0
+  private func generation() -> UInt64 {cancellationLock.lock();defer {cancellationLock.unlock()};return cancellationGeneration}
   var sourcePixelBufferAttributes: [String: any Sendable]? {
     [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
   }
@@ -43,11 +45,14 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     ]
   }
   func renderContextChanged(_ newRenderContext: AVVideoCompositionRenderContext) {
-    queue.sync { renderContext = newRenderContext }
+    // Every request carries its own context. Do not synchronously drain old
+    // renders when AVFoundation changes contexts during a seek/resize.
   }
   func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
+    let generation = generation()
     queue.async {
       autoreleasepool {
+        guard generation == self.generation() else {request.finishCancelledRequest();return}
         guard let instruction = request.videoCompositionInstruction as? SceneInstruction,
           let output = request.renderContext.newPixelBuffer()
         else {
@@ -74,47 +79,52 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
           self.ci.render(RGBChannelCompositor.overBlack(layer,mask:first.colorChannels).composited(over:background),to:output,bounds:bounds,colorSpace:OverlayRenderer.colorSpace)
           baseVideo = first.id
         }
-        CVPixelBufferLockBaseAddress(output, [])
-        defer { CVPixelBufferUnlockBaseAddress(output, []) }
-        guard
-          let c = CGContext(
-            data: CVPixelBufferGetBaseAddress(output), width: CVPixelBufferGetWidth(output),
-            height: CVPixelBufferGetHeight(output), bitsPerComponent: 8,
-            bytesPerRow: CVPixelBufferGetBytesPerRow(output), space: OverlayRenderer.colorSpace,
-            bitmapInfo: OverlayRenderer.bitmapInfo)
-        else {
-          request.finish(with: RaceError.invalid("Could not create export canvas."))
-          return
-        }
-        c.interpolationQuality = instruction.options.scaling == .nearest ? .none : instruction.options.scaling == .linear ? .low : .high
-        if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:outputSize)) }
-        c.clip(to:viewport)
-        c.translateBy(x:viewport.minX,y:viewport.minY)
-        for o in objects where o.id != baseVideo {
-          if o.kind == .video, let placement = instruction.scene.project.media(for: o.inputIndex, at: time),
-            let track = instruction.tracks[placement.input.legacyIndex],
-            let frame = request.sourceFrame(byTrackID: track)
-          {
-            let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(
-              by: instruction.transforms[placement.input.legacyIndex] ?? .identity)
-            RGBChannelCompositor.draw(c,mask:o.colorChannels) {
-            PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size,project:instruction.scene.project), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
-            }
-          } else if o.kind == .image {
-            OverlayRenderer.draw(
-              c,
-              scene: RenderScene(
-                project: Self.single(instruction.scene.project, o),
-                telemetry: instruction.scene.telemetry), time: time, size: size)
-          } else if ![.audio, .group].contains(o.kind) {
-            OverlayRenderer.draw(
-              c,
-              scene: RenderScene(
-                project: Self.single(instruction.scene.project, o),
-                telemetry: instruction.scene.telemetry), time: time, size: size)
+        do {
+          CVPixelBufferLockBaseAddress(output, [])
+          defer { CVPixelBufferUnlockBaseAddress(output, []) }
+          guard
+            let c = CGContext(
+              data: CVPixelBufferGetBaseAddress(output), width: CVPixelBufferGetWidth(output),
+              height: CVPixelBufferGetHeight(output), bitsPerComponent: 8,
+              bytesPerRow: CVPixelBufferGetBytesPerRow(output), space: OverlayRenderer.colorSpace,
+              bitmapInfo: OverlayRenderer.bitmapInfo)
+          else {
+            request.finish(with: RaceError.invalid("Could not create export canvas."))
+            return
           }
+          c.interpolationQuality = instruction.options.scaling == .nearest ? .none : instruction.options.scaling == .linear ? .low : .high
+          if baseVideo == nil { c.setFillColor(CGColor(gray:0,alpha:1));c.fill(CGRect(origin:.zero,size:outputSize)) }
+          c.clip(to:viewport)
+          c.translateBy(x:viewport.minX,y:viewport.minY)
+          for o in objects where o.id != baseVideo {
+            if o.kind == .video, let placement = instruction.scene.project.media(for: o.inputIndex, at: time),
+              let track = instruction.tracks[placement.input.legacyIndex],
+              let frame = request.sourceFrame(byTrackID: track)
+            {
+              let image = PictureProcessor.source(frame,settings:placement.input.picture).transformed(
+                by: instruction.transforms[placement.input.legacyIndex] ?? .identity)
+              RGBChannelCompositor.draw(c,mask:o.colorChannels) {
+              PictureProcessor.draw(c, image: image, in: OverlayRenderer.rect(o, size: size,project:instruction.scene.project), opacity: o.opacity, input: placement.input.picture, object: o.picture, context: self.ci)
+              }
+            } else if o.kind == .image {
+              OverlayRenderer.draw(
+                c,
+                scene: RenderScene(
+                  project: Self.single(instruction.scene.project, o),
+                  telemetry: instruction.scene.telemetry), time: time, size: size)
+            } else if ![.audio, .group].contains(o.kind) {
+              OverlayRenderer.draw(
+                c,
+                scene: RenderScene(
+                  project: Self.single(instruction.scene.project, o),
+                  telemetry: instruction.scene.telemetry), time: time, size: size)
+            }
+          }
+          c.flush()
         }
-        request.finish(withComposedVideoFrame: output)
+        // Finish only after CPU drawing has released its pixel-buffer lock.
+        if generation == self.generation() {request.finish(withComposedVideoFrame: output)}
+        else {request.finishCancelledRequest()}
       }
     }
   }
@@ -134,7 +144,9 @@ final class RaceCompositor: NSObject, AVVideoCompositing, @unchecked Sendable {
     c.draw(cg, in: CGRect(x: r.midX - w / 2, y: r.midY - h / 2, width: w, height: h))
     c.restoreGState()
   }
-  func cancelAllPendingVideoCompositionRequests() { queue.sync {} }
+  func cancelAllPendingVideoCompositionRequests() {
+    cancellationLock.lock();cancellationGeneration &+= 1;cancellationLock.unlock()
+  }
 }
 
 public final class VideoExporter: @unchecked Sendable {

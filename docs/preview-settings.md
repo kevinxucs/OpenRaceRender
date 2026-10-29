@@ -23,3 +23,15 @@ The supplied mirrored PreviewSettings/Main/Troubleshooting guide pages were read
 Live settings interaction, full-screen animation/Escape and native comparisons remain unverified because CUA reports cgWindowNotFound. Window ownership tests and actual composed-media reads do not substitute for live display testing. The workspace/aspect choice described in the native guide belongs to F26. Audio precision is a signal simulation on the supported Float32/stereo processing path; no old 8-bit device mode or identical native algorithm is claimed.
 
 Primary implementation references: [AVMutableVideoComposition](https://developer.apple.com/documentation/avfoundation/avmutablevideocomposition), [CIImage nearest sampling](https://developer.apple.com/documentation/coreimage/ciimage/samplingnearest()), and [AVAssetReaderAudioMixOutput](https://developer.apple.com/documentation/avfoundation/avassetreaderaudiomixoutput).
+
+## Seeking and frame handoff
+
+Preview seeks coalesce to the newest requested frame. Playback resumes only after that seek completes and the custom composition has rendered; Pause during a pending seek takes precedence. The timeline follows the player clock while video is active. At the exact project end, the end marker remains unchanged while the preview displays the final available frame.
+
+Changing seek quality or rebuilding the scene primes the replacement player through an offscreen video output before publishing it. The previous player stays visible during preparation. Superseded preparations/seeks cannot restart an old player. Compositor cancellation discards obsolete queued work; completed pixel buffers are unlocked before AVFoundation receives them.
+
+The video layer is a child of AppKit's backing layer, with SwiftUI effects kept on a static sibling. Each replacement player receives a fresh AVPlayerLayer; the previous layer is detached from its player and view. Reusing a layer across custom-composition players reproduced a permanently black preview after a seek-quality switch: the clock advanced and the item had no error, but the layer lost frame readiness. A fresh layer restored the same player's picture.
+
+The seek follow-up passes 431 tests (338 core/93 editor). New deterministic tests cover coalescing, cancellation/player replacement and stale completions. A real AVPlayer with the custom compositor verifies paused forward/backward/rapid/end seeks, colored frames plus an overlay, Pause during seeking and quality replacement. Layer lifecycle tests check that replacement retires the old output. Live Road Test 2 validation reproduced the failure before the layer fix and verified distant forward/reverse scrubs followed immediately by Play/Pause with video and telemetry visible afterward. Initial testing preserved a separate saved copy; subsequent checks reopened the original without saving changes.
+
+References: Apple's [seek/render timing](https://developer.apple.com/documentation/avfoundation/avplayeritem/seekingwaitsforvideocompositionrendering) and [paused custom-compositor rendering](https://developer.apple.com/library/archive/qa/qa1966/_index.html).

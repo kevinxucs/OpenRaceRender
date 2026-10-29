@@ -13,7 +13,7 @@ extension EditorModel {
   func refreshPreviewOwnership() {
     let surfaces = previewSurfaces.allObjects
     // Detach the old player surface before another AVPlayerLayer claims it.
-    for view in surfaces where !view.ownsPreview { view.compositionLayer.player = nil }
+    for view in surfaces where !view.ownsPreview { view.videoSurface.setPlayer(nil) }
     for view in surfaces { view.refresh() }
   }
   func setPreviewSeeking(_ active:Bool) {

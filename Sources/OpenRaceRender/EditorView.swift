@@ -41,9 +41,11 @@ struct EditorView: View {
               if model.project.inputs.isEmpty && model.project.objects.isEmpty && !model.showWidgets {
                 emptyState
               } else {
+                // Keep effects on a static sibling. Applying SwiftUI's shadow
+                // to AVPlayerLayer's host can flatten its live video surface.
+                Color.black.frame(width: max(1,w),height: max(1,h))
+                  .shadow(color: .black.opacity(0.5),radius:15,y:6)
                 Preview(model: model).frame(width: max(1, w), height: max(1, h))
-                  .shadow(
-                  color: .black.opacity(0.5), radius: 15, y: 6)
               }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
           }
